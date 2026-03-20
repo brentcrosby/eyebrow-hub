@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <main className="grid min-h-svh place-items-center px-6 py-10 sm:px-8">
-      <section className="w-full max-w-[720px] rounded-[24px] border border-slate-200 bg-white/80 p-8 shadow-[0_24px_80px_rgba(20,34,61,0.08)] backdrop-blur-sm sm:p-12">
+      <section className="w-full max-w-180 rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-[0_24px_80px_rgba(20,34,61,0.08)] backdrop-blur-sm sm:p-12">
         <p className="mb-3 text-[0.8rem] font-bold uppercase tracking-[0.16em] text-slate-600">
           Senior Project Starter
         </p>
