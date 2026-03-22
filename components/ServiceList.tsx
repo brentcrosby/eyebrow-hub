@@ -21,9 +21,20 @@ const services = [
 
 export default function ServiceList() {
   const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const handleSelect = (service: string) => {
     setSelected(service);
+    setError("");
+  };
+
+  const handleContinue = () => {
+    if (!selected) {
+      setError("Please select a service.");
+      return;
+    }
+
+    console.log("Selected:", selected);
   };
 
   return (
@@ -40,6 +51,17 @@ export default function ServiceList() {
           />
         ))}
       </div>
+
+      {error && (
+        <p className="text-red-500 text-sm mt-3">{error}</p>
+      )}
+
+      <button
+        onClick={handleContinue}
+        className="mt-5 w-full py-2 bg-black text-white rounded-lg"
+      >
+        Continue
+      </button>
     </div>
   );
 }
