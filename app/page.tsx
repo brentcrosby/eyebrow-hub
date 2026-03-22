@@ -1,3 +1,5 @@
+import ServiceList from "@/components/ServiceList";
+
 export default function Home() {
   return (
     <main className="grid min-h-svh place-items-center px-6 py-10 sm:px-8">
@@ -38,6 +40,21 @@ export default function Home() {
             Policies
           </a>
         </nav>
+      </section>
+      <section
+        id="book"
+        className="mx-auto mt-10 w-full max-w-[720px] rounded-[24px] border border-slate-200 bg-white p-8 shadow-md sm:p-12"
+      >
+        <h2 className="text-2xl font-semibold text-slate-900">
+          Book Online
+        </h2>
+
+        <p className="mt-2 text-slate-600">
+          Select a service, stylist, and preferred time.
+        </p>
+        <div className="mt-6">
+          <ServiceList />
+        </div>
       </section>
     </main>
   );
