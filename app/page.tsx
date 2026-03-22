@@ -1,6 +1,10 @@
+import { Navbar } from "@/components/navbar";
+
 export default function Home() {
   return (
     <main className="single-page-layout">
+      <Navbar />
+
       <section className="hero-standin">
         <h1 className="page-title">Eyebrow hub</h1>
       </section>
