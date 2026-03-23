@@ -5,6 +5,12 @@ export default function Home() {
     <main className="single-page-layout">
       <Navbar />
 
+      <section className="hero-cta-shell" aria-label="Quick booking link">
+        <a className="hero-cta-button" href="#booking">
+          Book Now
+        </a>
+      </section>
+
       <section className="hero-standin">
         <h1 className="page-title">Eyebrow hub</h1>
       </section>
