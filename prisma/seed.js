@@ -37,7 +37,7 @@ async function main() {
     await prisma.service.createMany({ data: toCreate });
   }
 }
-// Execute the main function and handle any errors
+// Execute the main function and handle any errors if needed
 main()
   .catch((e) => {
     console.error(e);
