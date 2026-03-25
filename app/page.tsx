@@ -6,9 +6,11 @@ export default function Home() {
       <Navbar />
 
       <section className="hero-cta-shell" aria-label="Quick booking link">
-        <a className="hero-cta-button" href="#booking">
-          Book Now
-        </a>
+        <div className="hero-cta-frame">
+          <a className="hero-cta-button" href="#booking">
+            Book Now
+          </a>
+        </div>
       </section>
 
       <section className="hero-standin">
