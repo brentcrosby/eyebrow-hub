@@ -7,6 +7,7 @@
 
 html {
   background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -29,6 +30,41 @@ a {
 .single-page-layout {
   min-height: 100vh;
   background: #ffffff;
+}
+
+.hero-cta-shell {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 24px 0;
+}
+
+.hero-cta-frame {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.hero-cta-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 40px;
+  margin: 0 auto;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 48px;
+  background: #6b4f3a;
+  color: #ffffff;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
+  line-height: 17px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  text-decoration: none;
 }
 
 .site-navbar {
@@ -91,8 +127,11 @@ a {
 
 .hero-standin {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 72px 24px 88px;
+  width: 100%;
+  height: 600px;
+  padding: 0 24px;
 }
 
 .content-shell {
@@ -153,7 +192,19 @@ a {
   }
 
   .hero-standin {
-    padding: 56px 20px 64px;
+    height: 800px;
+    padding: 0 20px;
+  }
+
+  .hero-cta-shell {
+    padding: 24px 20px 0;
+  }
+
+  .hero-cta-button {
+    width: 108px;
+    height: 40px;
+    padding: 0 20px;
+    font-size: 14px;
   }
 
   .content-shell {
