@@ -1,1 +1,247 @@
 @import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.single-page-layout {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+.hero-cta-shell {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 24px 0;
+}
+
+.hero-cta-frame {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.hero-cta-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 40px;
+  margin: 0 auto;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 48px;
+  background: #6b4f3a;
+  color: #ffffff;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
+  line-height: 17px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.site-navbar {
+  width: 100%;
+  background: #ffffff;
+  height: 72px;
+}
+
+.site-navbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100%, 1120px);
+  height: 72px;
+  margin: 0 auto;
+  padding: 0 160px;
+}
+
+.site-navbar__brand,
+.site-navbar__link,
+.site-navbar__phone {
+  font-size: 14px;
+  line-height: 1;
+  color: #000000;
+}
+
+.site-navbar__brand {
+  font-weight: 500;
+}
+
+.site-navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.site-navbar__link {
+  font-weight: 400;
+}
+
+.site-navbar__phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.site-navbar__phone-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: block;
+  object-fit: contain;
+}
+
+.site-navbar__phone-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hero-standin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 600px;
+  padding: 0 24px;
+}
+
+.content-shell {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 368px) minmax(0, 368px);
+  justify-content: space-between;
+  align-items: start;
+  column-gap: 64px;
+}
+
+.content-column,
+.booking-column {
+  width: 100%;
+  max-width: 368px;
+}
+
+.content-column {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.content-section {
+  width: 100%;
+  max-width: 800px;
+}
+
+.page-title {
+  margin: 0;
+  text-align: center;
+  font-size: 64px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.section-subtitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+@media (max-width: 879px) {
+  .site-navbar__inner {
+    width: 100%;
+    padding: 0 20px;
+  }
+
+  .site-navbar__actions {
+    gap: 18px;
+  }
+
+  .hero-standin {
+    height: 800px;
+    padding: 0 20px;
+  }
+
+  .hero-cta-shell {
+    padding: 24px 20px 0;
+  }
+
+  .hero-cta-button {
+    width: 108px;
+    height: 40px;
+    padding: 0 20px;
+    font-size: 14px;
+  }
+
+  .content-shell {
+    padding: 0 20px 96px;
+  }
+
+  .content-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 56px;
+  }
+
+  .content-column,
+  .booking-column {
+    max-width: 100%;
+  }
+
+  .page-title {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 639px) {
+  .site-navbar {
+    height: auto;
+  }
+
+  .site-navbar__inner {
+    height: auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+    padding: 12px 20px;
+  }
+
+  .site-navbar__actions {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 12px;
+  }
+}
