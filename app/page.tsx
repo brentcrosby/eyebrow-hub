@@ -1,5 +1,6 @@
 import ServiceList from "@/components/ServiceList";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/Footer";
 
 export default function Home() {
   return (
@@ -68,6 +69,10 @@ export default function Home() {
           <ServiceList />
         </div>
       </section>
+
+      <div className="mt-40">
+        <Footer />
+      </div>
     </main>
   );
 }
