@@ -8,7 +8,7 @@ export function Footer() {
   };
 
   return (
-    <footer className="w-full bg-[#6B4F3A] py-20 px-10">
+    <footer className="w-full bg-primary py-20 px-10">
       <div className="max-w-[800px] mx-auto flex flex-row justify-between items-start">
         {/* Brand + Staff Login */}
         <div className="flex flex-col justify-between gap-2 h-[116px]">

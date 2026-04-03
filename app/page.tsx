@@ -12,7 +12,7 @@ export default function Home() {
         aria-label="Quick booking link"
       >
         <a
-          className="flex items-center justify-center w-[108px] h-10 px-5 rounded-[48px] bg-[#6b4f3a] text-white text-p font-medium whitespace-nowrap"
+          className="flex items-center justify-center w-[108px] h-10 px-5 rounded-[48px] bg-primary text-white text-p font-medium whitespace-nowrap"
           href="#booking"
         >
           Book Now
