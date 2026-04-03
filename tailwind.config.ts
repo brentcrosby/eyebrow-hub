@@ -6,6 +6,9 @@ export default {
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],
       },
+      colors: {
+        primary: "var(--color-primary)",
+      },
       fontSize: {
         h1:       "4rem",    /* 64px */
         h2:       "3rem",    /* 48px */
