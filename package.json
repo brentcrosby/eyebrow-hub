@@ -2,13 +2,16 @@
   "name": "eyebrow-hub",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "migrate": "npx prisma migrate dev --name init"
+    "migrate": "npx prisma migrate dev --name init",
+    "seed": "node prisma/seed.js"
+
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
