@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "migrate": "npx prisma migrate dev --name init"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
