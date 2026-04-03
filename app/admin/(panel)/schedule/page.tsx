@@ -1,8 +1,12 @@
-function getCurrentWeekRange() {
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 (Sunday) to 6 (Saturday)
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - dayOfWeek);
+"use client";
+
+import { useState } from "react";
+
+function getCurrentWeekRange( date: Date) {
+
+  const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
+  const startOfWeek = new Date(date);
+  startOfWeek.setDate(date.getDate() - dayOfWeek);
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6);
   
@@ -19,12 +23,32 @@ function getCurrentWeekRange() {
 }
 
 export default function AdminSchedulePage() {
-  const currentWeekRange = getCurrentWeekRange();
+
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const currentWeekRange = getCurrentWeekRange(currentDate);
+
+  function handlePreviousWeek() {
+    const previousWeekDate = new Date(currentDate);
+    previousWeekDate.setDate(currentDate.getDate() - 7);
+    setCurrentDate(previousWeekDate);
+  }
 
   return (
     <main className="min-h-screen p-6">
       <section className="mx-auto max-w-6xl">
         <h1 className="mb-4 text-2xl font-semibold">Schedule</h1>
+
+        <div className="flex items-center gap-4 rounded-lg border p-4">
+          <button
+            type="button"
+            onClick={handlePreviousWeek}
+            className="rounded border px-3 py-1"
+            aria-label="Previous Week"
+          >
+            L
+          </button>
+        </div>
 
         <div className="rounded-lg border p-4 shadow-sm">
           <h2 className="text-lg font-medium">{currentWeekRange}</h2>
