@@ -15,11 +15,54 @@ Clean repo skeleton for the Eyebrow Hub senior project. This uses Next.js with T
 npm install
 ```
 
-2. Copy environment variables:
+2. Create a **`.env.local`** file at the repo root for local secrets (see [Database Setup (Supabase)](#database-setup-supabase)). That file is gitignored—do not commit it.
+
+## Database Setup (Supabase)
+
+PostgreSQL via Prisma on Supabase.
+
+**Team:** Everyone uses the **same** database password. Get the full `DATABASE_URL` from the **group Discord**—do not commit it; only put it in your local **`.env.local`**.
+
+If you use the Supabase dashboard instead: **Settings** → **Database** → **Connection string** (URI), with the password filled in.
+
+Never put real passwords or URLs in the repo or tickets.
+
+### Where to put it
+
+1. At the project root, create **`.env.local`** (or add to it if it already exists).
+2. Set Prisma’s URL variable, for example:
 
 ```bash
-cp .env.example .env.local
+DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DB?YOUR_QUERY_PARAMS"
 ```
+
+Use the exact string from your Supabase dashboard; the line above is only the **shape** of the variable—swap in your own values locally. Keep **`.env.local`** out of version control.
+
+**Note:** Prisma’s CLI loads `.env` by default, not `.env.local`. Use the `dotenv` helper from this project’s dependencies so commands below read `.env.local`:
+
+```bash
+npx dotenv -e .env.local -- <command>
+```
+
+### How to run migrations
+
+From the repo root, with `DATABASE_URL` set in `.env.local`:
+
+```bash
+npx dotenv -e .env.local -- npx prisma migrate dev
+```
+
+Follow the prompts to apply pending migrations or create a new named migration when you change `prisma/schema.prisma`. For deployment pipelines (no interactive prompt), use `prisma migrate deploy` with the same env vars available to the process.
+
+### How to seed
+
+If the project defines a Prisma seed in `package.json` (for example a `prisma.seed` entry), run:
+
+```bash
+npx dotenv -e .env.local -- npx prisma db seed
+```
+
+If there is no seed configured yet, add one per [Prisma seeding docs](https://www.prisma.io/docs/guides/database/seed-database) and then use the command above.
 
 ## Run Locally
 
@@ -60,7 +103,9 @@ npm run lint
 - `npm run lint`: Run ESLint
 - `npm run format`: Run Prettier across the repo
 
+Database commands (with `.env.local` loaded) are documented under [Database Setup (Supabase)](#database-setup-supabase).
+
 ## Notes
 
-- `.env.example` includes placeholder values only.
+- Do not commit `.env.local`, real connection strings, or passwords. Use placeholders in documentation only.
 - `GET /api/health` returns `{ "status": "ok" }`.
