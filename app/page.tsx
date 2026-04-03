@@ -31,35 +31,25 @@ export default function Home() {
         <div className="grid grid-cols-[minmax(0,368px)_minmax(0,368px)] justify-between items-start gap-x-16 max-[879px]:grid-cols-[minmax(0,1fr)] max-[879px]:gap-y-14">
           <div className="w-full max-w-[368px] flex flex-col gap-14 max-[879px]:max-w-full">
             <section id="business-hours" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">
-                <a href="#business-hours">Business Hours</a>
-              </h2>
+              <h2 className="text-subtitle leading-none font-normal">Business Hours</h2>
             </section>
 
             <section id="services" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">
-                <a href="#services">Services</a>
-              </h2>
+              <h2 className="text-subtitle leading-none font-normal">Services</h2>
             </section>
 
             <section id="location" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">
-                <a href="#location">Location</a>
-              </h2>
+              <h2 className="text-subtitle leading-none font-normal">Location</h2>
             </section>
 
             <section id="about" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">
-                <a href="#about">About</a>
-              </h2>
+              <h2 className="text-subtitle leading-none font-normal">About</h2>
             </section>
           </div>
 
           <aside className="w-full max-w-[368px] max-[879px]:max-w-full">
             <section id="booking" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">
-                <a href="#booking">Booking</a>
-              </h2>
+              <h2 className="text-subtitle leading-none font-normal">Booking</h2>
             </section>
           </aside>
         </div>
