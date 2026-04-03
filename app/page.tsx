@@ -3,65 +3,73 @@ import { Navbar } from "@/components/navbar";
 
 export default function Home() {
   return (
-    <main className="single-page-layout">
+    <main className="min-h-screen bg-white">
       <Navbar />
 
-      <section className="hero-cta-shell" aria-label="Quick booking link">
-        <div className="hero-cta-frame">
-          <a className="hero-cta-button" href="#booking">
-            Book Now
-          </a>
-        </div>
+      <section
+        className="flex w-full justify-center items-center pt-8 px-6 max-[879px]:pt-6 max-[879px]:px-5"
+        aria-label="Quick booking link"
+      >
+        <a
+          className="flex items-center justify-center w-[108px] h-10 px-5 rounded-[48px] bg-[#6b4f3a] text-white text-p font-medium whitespace-nowrap"
+          href="#booking"
+        >
+          Book Now
+        </a>
       </section>
 
-      <section className="hero-standin">
-        <h1 className="page-title">Eyebrow hub</h1>
+      <section className="flex items-center justify-center w-full h-[600px] px-6 max-[879px]:h-[800px] max-[879px]:px-5">
+        <h1 className="text-center text-h1 leading-none font-normal max-[879px]:text-h2">
+          Eyebrow hub
+        </h1>
       </section>
 
-      <section className="content-shell" aria-label="Business details layout">
-        <div className="content-grid">
-          <div className="content-column">
-            <section id="business-hours" className="content-section">
-              <h2 className="section-subtitle">
+      <section
+        className="w-full max-w-[800px] mx-auto px-6 pb-[120px] max-[879px]:px-5 max-[879px]:pb-24"
+        aria-label="Business details layout"
+      >
+        <div className="grid grid-cols-[minmax(0,368px)_minmax(0,368px)] justify-between items-start gap-x-16 max-[879px]:grid-cols-[minmax(0,1fr)] max-[879px]:gap-y-14">
+          <div className="w-full max-w-[368px] flex flex-col gap-14 max-[879px]:max-w-full">
+            <section id="business-hours" className="w-full">
+              <h2 className="text-subtitle leading-none font-normal">
                 <a href="#business-hours">Business Hours</a>
               </h2>
             </section>
 
-            <section id="services" className="content-section">
-              <h2 className="section-subtitle">
+            <section id="services" className="w-full">
+              <h2 className="text-subtitle leading-none font-normal">
                 <a href="#services">Services</a>
               </h2>
             </section>
 
-            <section id="location" className="content-section">
-              <h2 className="section-subtitle">
+            <section id="location" className="w-full">
+              <h2 className="text-subtitle leading-none font-normal">
                 <a href="#location">Location</a>
               </h2>
             </section>
 
-            <section id="about" className="content-section">
-              <h2 className="section-subtitle">
+            <section id="about" className="w-full">
+              <h2 className="text-subtitle leading-none font-normal">
                 <a href="#about">About</a>
               </h2>
             </section>
           </div>
 
-          <aside className="booking-column">
-            <section id="booking" className="content-section">
-              <h2 className="section-subtitle">
+          <aside className="w-full max-w-[368px] max-[879px]:max-w-full">
+            <section id="booking" className="w-full">
+              <h2 className="text-subtitle leading-none font-normal">
                 <a href="#booking">Booking</a>
               </h2>
             </section>
           </aside>
         </div>
       </section>
+
       <section
         id="book"
         className="mx-auto mt-10 w-full max-w-[720px] rounded-[24px] border border-slate-200 bg-white p-8 shadow-md sm:p-12"
       >
-        <h2 className="text-2xl font-semibold text-slate-900">
-          Book Online
-        </h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Book Online</h2>
 
         <p className="mt-2 text-slate-600">
           Select a service, stylist, and preferred time.
