@@ -16,7 +16,6 @@ function getWeekRange(date: Date) {
 
   const startDay = startOfWeek.getDate();
   const endDay = endOfWeek.getDate();
-  const year = endOfWeek.getFullYear();
 
   if (startMonth === endMonth) {
     return `${startMonth} ${startDay}–${endDay}`;
@@ -24,6 +23,16 @@ function getWeekRange(date: Date) {
 
   return `${startMonth} ${startDay}–${endMonth} ${endDay}`;
 }
+
+const weekDays = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 export default function AdminSchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -43,30 +52,40 @@ export default function AdminSchedulePage() {
   }
 
   return (
-    <main className="min-h-screen p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Schedule</h1>
+    <main className="min-h-screen p-4 sm:p-6">
+      <section className="mx-auto w-full max-w-6xl">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-lg border p-4">
+          <button
+            type="button"
+            onClick={handlePreviousWeek}
+            className="rounded border px-3 py-1"
+            aria-label="Previous week"
+          >
+            ←
+          </button>
 
-      <div className="mx-auto flex w-full max-w-4xl items-center justify-between rounded-lg border p-4">
-        <button
-          type="button"
-          onClick={handlePreviousWeek}
-          className="justify-self-start rounded border px-3 py-1"
-          aria-label="Previous week"
-        >
-          ←
-        </button>
+          <h2 className="text-center text-lg font-medium sm:text-xl">
+            {currentWeekRange}
+          </h2>
 
-        <h2 className="text-center text-lg font-medium">{currentWeekRange}</h2>
+          <button
+            type="button"
+            onClick={handleNextWeek}
+            className="rounded border px-3 py-1"
+            aria-label="Next week"
+          >
+            →
+          </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={handleNextWeek}
-          className="justify-self-end rounded border px-3 py-1"
-          aria-label="Next week"
-        >
-          →
-        </button>
-      </div>
+        <div className="mt-6 grid grid-cols-7 gap-2 border-b pb-3 text-center text-sm font-medium sm:text-base">
+          {weekDays.map((day) => (
+            <div key={day} className="min-w-0">
+              <span className="block truncate">{day}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
