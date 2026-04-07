@@ -86,7 +86,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="fixed inset-0 flex items-center justify-end px-16">
+    <main className="relative min-h-screen w-full flex items-center justify-end px-16 bg-black">
       <Image
         src={bgImage}
         alt=""
