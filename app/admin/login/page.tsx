@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import bgImage from "@/app/assests/images/bgadminlogin.png";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -65,8 +67,15 @@ export default function AdminLoginPage() {
 
   if (!isMounted) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-neutral-100 px-6 py-10">
-        <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+      <main className="fixed inset-0 flex items-center justify-end">
+        <Image
+          src={bgImage}
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="relative z-10 w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
           <h1 className="mb-2 text-center text-3xl font-semibold">
             Admin Portal
           </h1>
@@ -77,8 +86,15 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-100 px-6 py-10">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+    <main className="fixed inset-0 flex items-center justify-end px-16">
+      <Image
+        src={bgImage}
+        alt=""
+        fill
+        className="object-cover object-right"
+        priority
+      />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
         <h1 className="mb-2 text-center text-3xl font-semibold">
           Admin Portal
         </h1>
