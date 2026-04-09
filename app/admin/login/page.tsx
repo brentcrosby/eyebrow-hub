@@ -3,6 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import bgImage from "@/app/assests/images/bgadminlogin.png";
+import logoImage from "@/app/assests/logos/white logo.png";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -65,8 +68,15 @@ export default function AdminLoginPage() {
 
   if (!isMounted) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-neutral-100 px-6 py-10">
-        <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+      <main className="fixed inset-0 flex items-center justify-end">
+        <Image
+          src={bgImage}
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="relative z-10 w-full max-w-md min-h-[400px] rounded-2xl border border-white/40 bg-white p-10 shadow-xl mt-6 lg:mr-36">
           <h1 className="mb-2 text-center text-3xl font-semibold">
             Admin Portal
           </h1>
@@ -77,11 +87,31 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-100 px-6 py-10">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-3xl font-semibold">
-          Admin Portal
-        </h1>
+    <main className="relative min-h-screen w-full flex items-center justify-between px-8 lg:px-10 bg-black">      <Image
+      src={bgImage}
+      alt=""
+      fill
+      className="object-cover object-right"
+      priority
+    />
+
+      <div className="relative z-10 hidden lg:flex max-w-2xl flex-col">
+        <Image
+          src={logoImage}
+          alt="Eyebrow Hub Logo"
+          width={600}
+          height={140}
+          className="h-auto w-full max-w-[620px]"
+        />
+        <hr className="my-8 w-full max-w-[620px] border-white/60" />
+        <p className="text-4xl text-white font-medium">
+          Management appointments & services
+        </p>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md min-h-[460px] rounded-2xl border border-white/40 bg-white p-10 shadow-xl mt-6 lg:mr-28">        <h1 className="mb-2 text-center text-3xl font-semibold">
+        Admin Portal
+      </h1>
 
         <p className="mb-6 text-center text-sm text-gray-600">Login</p>
 
@@ -159,11 +189,10 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={isButtonDisabled}
-            className={`w-full rounded-full px-4 py-2 font-medium text-white transition ${
-              isButtonDisabled
-                ? "cursor-not-allowed bg-gray-400"
-                : "bg-[#7a5a3c] hover:opacity-90"
-            }`}
+            className={`w-full rounded-full px-4 py-2 font-medium text-white transition ${isButtonDisabled
+              ? "cursor-not-allowed bg-gray-400"
+              : "bg-[#7a5a3c] hover:opacity-90"
+              }`}
           >
             {isSubmitting ? "Signing In..." : "Sign In"}
           </button>
