@@ -11,11 +11,10 @@
     "format": "prettier --write .",
     "migrate": "npx prisma migrate dev --name init",
     "seed": "node prisma/seed.js"
-
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
-    "@prisma/client": "^7.5.0",
+    "@prisma/client": "^7.6.0",
     "dotenv": "^17.3.1",
     "dotenv-cli": "^11.0.0",
     "next": "16.1.6",
@@ -32,7 +31,7 @@
     "eslint-config-next": "16.1.6",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
-    "prisma": "^7.5.0",
+    "prisma": "^7.6.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5"
   }
