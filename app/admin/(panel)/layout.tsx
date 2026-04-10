@@ -10,7 +10,7 @@ const navItems = [
     label: "Dashboard",
     href: "/admin/dashboard",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -22,7 +22,7 @@ const navItems = [
     label: "Schedule",
     href: "/admin/schedule",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
         <line x1="8" y1="2" x2="8" y2="6" />
@@ -34,7 +34,7 @@ const navItems = [
     label: "Services",
     href: "/admin/services",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <line x1="8" y1="6" x2="21" y2="6" />
         <line x1="8" y1="12" x2="21" y2="12" />
         <line x1="8" y1="18" x2="21" y2="18" />
@@ -48,7 +48,7 @@ const navItems = [
     label: "Availability",
     href: "/admin/availability",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="9" />
         <polyline points="12 7 12 12 15 15" />
       </svg>
@@ -58,7 +58,7 @@ const navItems = [
     label: "Settings",
     href: "/admin/settings",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
       </svg>
@@ -70,16 +70,16 @@ function AdminSideNav() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col bg-[#FFFAF4] px-6 py-8 shadow-[2px_0_12px_rgba(167,140,122,0.15)]">
-      <div className="flex flex-col items-center gap-1 mb-10">
+    <aside className="flex h-full w-80 shrink-0 flex-col bg-[#FFFAF4] px-8 py-8 shadow-[2px_0_12px_rgba(167,140,122,0.15)]">
+      <div className="flex flex-col items-center gap-2 mb-10">
         <Image
           src={brownLogo}
           alt="Eyebrow Hub"
-          width={130}
-          height={38}
+          width={155}
+          height={45}
           className="object-contain"
         />
-        <p className="text-xs tracking-wide text-[#A78C7A]">Admin Panel</p>
+        <p className="text-sm tracking-widest text-[#A78C7A]">Admin Panel</p>
       </div>
 
       <nav className="flex flex-col gap-1">
@@ -89,7 +89,7 @@ function AdminSideNav() {
             <Link
               key={label}
               href={href}
-              className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-4 rounded-xl px-5 py-3 text-base font-medium transition-colors ${
                 isActive
                   ? "bg-[rgba(167,140,122,0.3)] text-[#5e3d1e]"
                   : "text-[#7a5a3c] hover:bg-[rgba(167,140,122,0.15)] hover:text-[#5e3d1e]"
@@ -105,10 +105,10 @@ function AdminSideNav() {
 
         <button
           type="button"
-          className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-[#7a5a3c] transition-colors hover:bg-[rgba(167,140,122,0.15)] hover:text-[#5e3d1e]"
+          className="mt-1 flex w-full items-center gap-4 rounded-xl px-5 py-3 text-base font-medium text-[#7a5a3c] transition-colors hover:bg-[rgba(167,140,122,0.15)] hover:text-[#5e3d1e]"
         >
           <span className="text-[#A78C7A]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
