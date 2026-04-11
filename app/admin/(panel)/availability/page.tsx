@@ -27,8 +27,18 @@ const initialBusinessHours = [
   { day: "Saturday", startTime: "09:00", endTime: "18:00", enabled: true },
 ];
 
+const initialBlockForm = {
+  date: "",
+  startTime: "",
+  endTime: "",
+};
+
 export default function AdminAvailabilityPage() {
   const [businessHours, setBusinessHours] = useState(initialBusinessHours);
+  const [blockForm, setBlockForm] = useState(initialBlockForm);
+  const [blockTimes, setBlockTimes] = useState([
+    { id: 1, date: "2026-04-12", startTime: "12:00", endTime: "13:00" },
+  ]);
 
   function updateTime(
     day: string,
@@ -47,6 +57,38 @@ export default function AdminAvailabilityPage() {
       currentHours.map((item) =>
         item.day === day ? { ...item, enabled: !item.enabled } : item
       )
+    );
+  }
+
+  function updateBlockForm(
+    field: "date" | "startTime" | "endTime",
+    value: string
+  ) {
+    setBlockForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
+  }
+
+  function addBlockTime() {
+    if (!blockForm.date || !blockForm.startTime || !blockForm.endTime) {
+      return;
+    }
+
+    const newBlockTime = {
+      id: Date.now(),
+      date: blockForm.date,
+      startTime: blockForm.startTime,
+      endTime: blockForm.endTime,
+    };
+
+    setBlockTimes((currentBlockTimes) => [...currentBlockTimes, newBlockTime]);
+    setBlockForm(initialBlockForm);
+  }
+
+  function deleteBlockTime(id: number) {
+    setBlockTimes((currentBlockTimes) =>
+      currentBlockTimes.filter((item) => item.id !== id)
     );
   }
 
@@ -122,20 +164,84 @@ export default function AdminAvailabilityPage() {
             </section>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              {sectionCards.slice(1).map((card) => (
-                <section
-                  key={card.title}
-                  className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6"
-                >
-                  <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
-                    {card.title}
+              <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
+                <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
+                  {sectionCards[1].title}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[#eadfce] bg-white p-4">
+                  <div className="grid gap-3">
+                    <input
+                      type="date"
+                      value={blockForm.date}
+                      onChange={(event) =>
+                        updateBlockForm("date", event.target.value)
+                      }
+                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                    />
+
+                    <input
+                      type="time"
+                      value={blockForm.startTime}
+                      onChange={(event) =>
+                        updateBlockForm("startTime", event.target.value)
+                      }
+                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                    />
+
+                    <input
+                      type="time"
+                      value={blockForm.endTime}
+                      onChange={(event) =>
+                        updateBlockForm("endTime", event.target.value)
+                      }
+                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={addBlockTime}
+                      className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white"
+                    >
+                      Add Block Time
+                    </button>
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-dashed border-[#dccab5] bg-white p-6 text-sm text-[#8b735d]">
-                    {card.description}
+                  <div className="mt-4 space-y-3">
+                    {blockTimes.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between rounded-2xl border border-[#efe4d7] px-4 py-3"
+                      >
+                        <div className="text-sm text-[#7a5a3c]">
+                          <p>{item.date}</p>
+                          <p className="text-[#9a816b]">
+                            {item.startTime} - {item.endTime}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteBlockTime(item.id)}
+                          className="rounded-full border border-[#dccab5] px-3 py-1 text-sm text-[#7a5a3c]"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                </section>
-              ))}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
+                <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
+                  {sectionCards[2].title}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-dashed border-[#dccab5] bg-white p-6 text-sm text-[#8b735d]">
+                  {sectionCards[2].description}
+                </div>
+              </section>
             </div>
           </div>
 
