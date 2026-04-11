@@ -1,6 +1,8 @@
 import ServiceList from "@/components/ServiceList";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/Footer";
+import BusinessHours from "@/components/BusinessHours";
+import ServicesSection from "@/components/ServicesSection";
 
 export default function Home() {
   return (
@@ -31,13 +33,8 @@ export default function Home() {
       >
         <div className="grid grid-cols-[minmax(0,368px)_minmax(0,368px)] justify-between items-start gap-x-16 max-[879px]:grid-cols-[minmax(0,1fr)] max-[879px]:gap-y-14">
           <div className="w-full max-w-[368px] flex flex-col gap-14 max-[879px]:max-w-full">
-            <section id="business-hours" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">Business Hours</h2>
-            </section>
-
-            <section id="services" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">Services</h2>
-            </section>
+            <BusinessHours />
+            <ServicesSection />
 
             <section id="location" className="w-full">
               <h2 className="text-subtitle leading-none font-normal">Location</h2>
