@@ -51,7 +51,7 @@ export default function AdminAvailabilityPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f1eb] p-4 sm:p-6">
+    <main className="min-h-full p-4 sm:p-6">
       <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
         <div>
           <div className="flex flex-col gap-4 border-b border-[#d8c4ae] pb-5 sm:flex-row sm:items-end sm:justify-between">
