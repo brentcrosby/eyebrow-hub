@@ -47,7 +47,7 @@ export function Footer() {
         {/* Address & Phone */}
         <div className="flex flex-col gap-4">
           <span className="text-white/50 text-sm">Address &amp; Phone</span>
-          <span className="text-white text-sm">4000 Sac Way, Sacramento, 95222</span>
+          <span className="text-white text-sm">1215 Colusa Ave, Yuba City, CA 95991</span>
           <span className="text-white text-sm">530-751-5098</span>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { Footer } from "@/components/Footer";
 import BusinessHours from "@/components/BusinessHours";
 import ServicesSection from "@/components/ServicesSection";
 import ImageCarousel from "@/components/ImageCarousel";
+import LocationSection from "@/components/LocationSection";
 
 export default function Home() {
   return (
@@ -37,7 +38,7 @@ export default function Home() {
             <ServicesSection />
 
             <section id="location" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">Location</h2>
+              <LocationSection />
             </section>
 
             <section id="about" className="w-full">
