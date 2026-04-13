@@ -33,12 +33,23 @@ const initialBlockForm = {
   endTime: "",
 };
 
+const schedulingRuleOptions = {
+  minimumNotice: ["30 Minutes", "1 Hour", "2 Hours", "4 Hours"],
+  maximumNotice: ["7 Days", "14 Days", "30 Days", "60 Days"],
+  bufferTime: ["0 Minutes", "15 Minutes", "30 Minutes", "1 Hour"],
+};
+
 export default function AdminAvailabilityPage() {
   const [businessHours, setBusinessHours] = useState(initialBusinessHours);
   const [blockForm, setBlockForm] = useState(initialBlockForm);
   const [blockTimes, setBlockTimes] = useState([
     { id: 1, date: "2026-04-12", startTime: "12:00", endTime: "13:00" },
   ]);
+  const [schedulingRules, setSchedulingRules] = useState({
+    minimumNotice: "2 Hours",
+    maximumNotice: "30 Days",
+    bufferTime: "15 Minutes",
+  });
 
   function updateTime(
     day: string,
@@ -90,6 +101,16 @@ export default function AdminAvailabilityPage() {
     setBlockTimes((currentBlockTimes) =>
       currentBlockTimes.filter((item) => item.id !== id)
     );
+  }
+
+  function updateSchedulingRule(
+    field: "minimumNotice" | "maximumNotice" | "bufferTime",
+    value: string
+  ) {
+    setSchedulingRules((currentRules) => ({
+      ...currentRules,
+      [field]: value,
+    }));
   }
 
   return (
@@ -238,8 +259,65 @@ export default function AdminAvailabilityPage() {
                   {sectionCards[2].title}
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-dashed border-[#dccab5] bg-white p-6 text-sm text-[#8b735d]">
-                  {sectionCards[2].description}
+                <div className="mt-4 rounded-2xl border border-[#eadfce] bg-white p-4">
+                  <div className="grid gap-4">
+                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                      <span>Minimum Notice</span>
+                      <select
+                        value={schedulingRules.minimumNotice}
+                        onChange={(event) =>
+                          updateSchedulingRule(
+                            "minimumNotice",
+                            event.target.value
+                          )
+                        }
+                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
+                      >
+                        {schedulingRuleOptions.minimumNotice.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                      <span>Maximum Notice</span>
+                      <select
+                        value={schedulingRules.maximumNotice}
+                        onChange={(event) =>
+                          updateSchedulingRule(
+                            "maximumNotice",
+                            event.target.value
+                          )
+                        }
+                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
+                      >
+                        {schedulingRuleOptions.maximumNotice.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                      <span>Buffer Time Between Appointments</span>
+                      <select
+                        value={schedulingRules.bufferTime}
+                        onChange={(event) =>
+                          updateSchedulingRule("bufferTime", event.target.value)
+                        }
+                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
+                      >
+                        {schedulingRuleOptions.bufferTime.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 </div>
               </section>
             </div>
