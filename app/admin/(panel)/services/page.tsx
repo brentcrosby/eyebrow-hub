@@ -10,8 +10,7 @@ export default function AdminServicesPage() {
   // temporary employee data to be replaced with actual data from the database
   const employees: Employee[] = [
     { name: "jeline doe" },
-    { name: "tana mathews" },
-    { name: "emily davis" },
+    { name: "tana mathews" }
   ];
   // Service type definition
   type Service = {
@@ -35,6 +34,7 @@ export default function AdminServicesPage() {
   const [newActive, setNewActive] = useState<boolean>(true);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+
   // basic validation functions for fields in the add service form
   function validateService(): boolean {
     if (!newService.trim()) {
@@ -71,6 +71,12 @@ export default function AdminServicesPage() {
     setNewPrice(0);
     setNewActive(true);
     setShowAddForm(false);
+  }
+
+
+  function handleDeleteService(serviceName: string) {
+    const updatedServices = serviceList.filter(service => service.service !== serviceName);
+    setServiceList(updatedServices);
   }
 
   return (
@@ -165,13 +171,14 @@ export default function AdminServicesPage() {
           )}
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>
-      
+
         <div className="sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
-          <div className="grid grid-cols-4 gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f725d]">
+          <div className="grid grid-cols-5 gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f725d]">
             <p>Services</p>
             <p>Duration</p>
             <p>Price</p>
-            <p>Active Toggle</p>
+            <p className="text-center">Active Toggle</p>
+            <p className="text-center">Actions</p>
           </div>
         </div>
 
@@ -179,12 +186,20 @@ export default function AdminServicesPage() {
           {serviceList.map((item, index) => (
             <div
               key={`${item.service}-${index}`}
-              className="grid grid-cols-4 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0"
+              className="grid grid-cols-5 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0 items-center"
             >
               <p>{item.service}</p>
               <p>{item.duration}</p>
               <p>${item.price}</p>
-              <p>{item.active ? "Active" : "Inactive"}</p>
+              <p className="text-center">{item.active ? "Active" : "Inactive"}</p>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => handleDeleteService(item.service)}
+                  className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>
