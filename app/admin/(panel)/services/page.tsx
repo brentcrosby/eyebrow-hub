@@ -11,10 +11,7 @@ export default function AdminServicesPage() {
   const employees: Employee[] = [
     { name: "jeline doe" },
     { name: "tana mathews" },
-    { name: "michael smith" },
-    { name: "sarah johnson" },
-    { name: "david brown" },
-    { name: "emily davis" }
+    { name: "emily davis" },
   ];
   // Service type definition
   type Service = {
@@ -31,16 +28,48 @@ export default function AdminServicesPage() {
   ];
 
   const [selectedEmployee, setSelectedEmployee] = useState<string>(employees[0].name);
+  const [serviceList, setServiceList] = useState<Service[]>(services);
   const [newService, setNewService] = useState<string>("");
+  const [newDuration, setNewDuration] = useState<string>("");
+  const [newPrice, setNewPrice] = useState<number>(0);
+  const [newActive, setNewActive] = useState<boolean>(true);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
-  
-  function handleAddService() {
+  const [error, setError] = useState<string>("");
+  // basic validation functions for fields in the add service form
+  function validateService(): boolean {
     if (!newService.trim()) {
-      return;
+      setError("Service name is required.");
+      return false;
     }
+    if (!newDuration.trim()) {
+      setError("Duration is required.");
+      return false;
+    }
+    if (isNaN(newPrice) || newPrice <= 0) {
+      setError("Price must be a positive number.");
+      return false;
+    }
+    setError("");
+    return true;
+  }
 
-    // For now this only closes the form without adding to the UI list yet.
+  function handleAddService() {
+    if (!validateService()) return;
+
+    // Create a new service entry based on the form inputs
+    const newServiceEntry: Service = {
+      service: newService.trim(),
+      duration: newDuration,
+      price: newPrice,
+      active: newActive
+    };
+    // add the new service entry to the existing services list
+    setServiceList([...serviceList, newServiceEntry]);
+    // Reset form fields and hide the add form
     setNewService("");
+    setNewDuration("");
+    setNewPrice(0);
+    setNewActive(true);
     setShowAddForm(false);
   }
 
@@ -85,6 +114,30 @@ export default function AdminServicesPage() {
                 placeholder="Enter service name"
                 className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none"
               />
+              <input
+                type="text"
+                value={newDuration}
+                onChange={(event) => setNewDuration(event.target.value)}
+                placeholder="Enter duration"
+                className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+              />
+              <input
+                type="text"
+                value={newPrice}
+                onChange={(event) => setNewPrice(Number(event.target.value))}
+                placeholder="Enter price"
+                className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+              />
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="active-toggle"
+                  checked={newActive}
+                  onChange={(event) => setNewActive(event.target.checked)}
+                  className="h-4 w-4 rounded border-[#dccab5] bg-white text-[#7a5a3c] focus:ring-[#7a5a3c]"
+                />
+                <span className="text-sm text-[#7a5a3c]">Active</span>
+              </label>
 
               <button
                 type="button"
@@ -97,8 +150,12 @@ export default function AdminServicesPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setNewDuration("");
+                  setNewPrice(0);
                   setNewService("");
+                  setNewActive(true);
                   setShowAddForm(false);
+                  setError("");
                 }}
                 className="rounded-full border border-[#dccab5] px-4 py-2 text-sm font-medium text-[#7a5a3c]"
               >
@@ -106,6 +163,7 @@ export default function AdminServicesPage() {
               </button>
             </div>
           )}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>
       
         <div className="sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
@@ -118,7 +176,7 @@ export default function AdminServicesPage() {
         </div>
 
         <div className="mt-3 overflow-hidden rounded-2xl border border-[#eadfce] bg-white">
-          {services.map((item, index) => (
+          {serviceList.map((item, index) => (
             <div
               key={`${item.service}-${index}`}
               className="grid grid-cols-4 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0"
@@ -130,7 +188,7 @@ export default function AdminServicesPage() {
             </div>
           ))}
         </div>
-      </section>
+      </section> 
     </main>
   );
 }
