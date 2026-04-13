@@ -3,6 +3,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/Footer";
 import BusinessHours from "@/components/BusinessHours";
 import ServicesSection from "@/components/ServicesSection";
+import ImageCarousel from "@/components/ImageCarousel";
 
 export default function Home() {
   return (
@@ -21,10 +22,8 @@ export default function Home() {
         </a>
       </section>
 
-      <section className="flex items-center justify-center w-full h-[600px] px-6 max-[879px]:h-[800px] max-[879px]:px-5">
-        <h1 className="text-center text-h1 leading-none font-normal max-[879px]:text-h2">
-          Eyebrow hub
-        </h1>
+      <section className="flex justify-center w-full px-6 pb-12 pt-8 max-[879px]:px-5">
+        <ImageCarousel />
       </section>
 
       <section
