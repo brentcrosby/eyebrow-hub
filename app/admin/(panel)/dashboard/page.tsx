@@ -14,6 +14,12 @@ type BookingRequest = {
   email: string;
 };
 
+type ScheduleItem = {
+  time: string;
+  title: string;
+  subtitle?: string;
+};
+
 const statCards: StatCard[] = [
   { title: "Pending Requests", value: 2 },
   { title: "Today’s Appointments", value: 3 },
@@ -37,6 +43,27 @@ const bookingRequests: BookingRequest[] = [
     appointmentLabel: "Tomorrow - 11:00 am",
     phone: "(555) 123-4567",
     email: "emilyexample@gmail.com",
+  },
+];
+
+const todaysSchedule: ScheduleItem[] = [
+  {
+    time: "9:00 AM",
+    title: "Eyebrow Threading",
+    subtitle: "Eyebrow Threading",
+  },
+  {
+    time: "10:00 AM",
+    title: "Upper lip",
+    subtitle: "Upper lip Threading",
+  },
+  {
+    time: "11:00 AM",
+    title: "No Appointment",
+  },
+  {
+    time: "12:00 PM",
+    title: "Blocked (Lunch)",
   },
 ];
 
@@ -96,6 +123,19 @@ function BookingRequestCard({
   );
 }
 
+function TodaysScheduleCard({ time, title, subtitle }: ScheduleItem) {
+  return (
+    <div className="grid grid-cols-[90px_1fr] gap-4 border-b border-[#e8dac9] py-4 last:border-b-0">
+      <p className="text-lg text-[#7a5a3c]">{time}</p>
+
+      <div className="border-l border-[#d8c4ae] pl-4">
+        <p className="text-lg text-[#7a5a3c]">{title}</p>
+        {subtitle && <p className="text-sm text-[#b19a84]">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   return (
     <main className="min-h-full p-4 sm:p-6">
@@ -135,6 +175,34 @@ export default function AdminDashboardPage() {
             <div className="px-5 py-4 text-xs text-[#c0ab96]">
               Click Green Check-mark to accept a booking request. To reject,
               click the red X.
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-[#eadfce] bg-[#fffaf4] px-5 py-4">
+            <div className="border-b border-[#e8dac9] pb-3">
+              <h2 className="text-lg font-semibold text-[#7a5a3c]">
+                Today&apos;s Schedule
+              </h2>
+            </div>
+
+            <div className="pt-2">
+              {todaysSchedule.map((item) => (
+                <TodaysScheduleCard
+                  key={`${item.time}-${item.title}`}
+                  time={item.time}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                />
+              ))}
+            </div>
+
+            <div className="pt-4 text-center">
+              <button
+                type="button"
+                className="text-sm font-medium text-[#b39a81] hover:underline"
+              >
+                View Full Schedule
+              </button>
             </div>
           </section>
         </div>
