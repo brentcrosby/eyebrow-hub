@@ -20,12 +20,16 @@ export default function ImageCarousel() {
   const [index, setIndex] = useState(1);
   const [animated, setAnimated] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isTransitioning = useRef(false);
 
   const startTimer = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      setAnimated(true);
-      setIndex((i) => i + 1);
+      if (!isTransitioning.current) {
+        isTransitioning.current = true;
+        setAnimated(true);
+        setIndex((i) => i + 1);
+      }
     }, AUTOPLAY_INTERVAL);
   }, []);
 
@@ -45,15 +49,20 @@ export default function ImageCarousel() {
       setAnimated(false);
       setIndex(images.length);
     }
+    isTransitioning.current = false;
   };
 
   const prev = () => {
+    if (isTransitioning.current) return;
+    isTransitioning.current = true;
     setAnimated(true);
     setIndex((i) => i - 1);
     startTimer();
   };
 
   const next = () => {
+    if (isTransitioning.current) return;
+    isTransitioning.current = true;
     setAnimated(true);
     setIndex((i) => i + 1);
     startTimer();
