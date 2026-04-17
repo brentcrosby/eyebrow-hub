@@ -1,4 +1,3 @@
-import ServiceList from "@/components/ServiceList";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/Footer";
 import BusinessHours from "@/components/BusinessHours";
@@ -60,23 +59,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section
-        id="book"
-        className="mx-auto mt-10 w-full max-w-[720px] rounded-[24px] border border-slate-200 bg-white p-8 shadow-md sm:p-12"
-      >
-        <h2 className="text-2xl font-semibold text-slate-900">Book Online</h2>
-
-        <p className="mt-2 text-slate-600">
-          Select a service, stylist, and preferred time.
-        </p>
-        <div className="mt-6">
-          <ServiceList />
-        </div>
-      </section>
-
-      <div className="mt-40">
-        <Footer />
-      </div>
+      <Footer />
     </main>
   );
 }
