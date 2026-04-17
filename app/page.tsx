@@ -4,6 +4,7 @@ import BusinessHours from "@/components/BusinessHours";
 import ServicesSection from "@/components/ServicesSection";
 import ImageCarousel from "@/components/ImageCarousel";
 import LocationSection from "@/components/LocationSection";
+import BookingContainer from "@/components/BookingContainer";
 
 export default function Home() {
   return (
@@ -51,9 +52,9 @@ export default function Home() {
             </section>
           </div>
 
-          <aside className="w-full max-w-[368px] max-[879px]:max-w-full">
+          <aside className="w-full max-w-[368px] max-[879px]:max-w-full sticky top-20 self-start">
             <section id="booking" className="w-full">
-              <h2 className="text-subtitle leading-none font-normal">Booking</h2>
+              <BookingContainer />
             </section>
           </aside>
         </div>
