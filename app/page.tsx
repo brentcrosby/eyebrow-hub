@@ -13,14 +13,24 @@ export default function Home() {
 
       <section
         className="flex w-full justify-center items-center pt-8 px-6 max-[879px]:pt-6 max-[879px]:px-5"
-        aria-label="Quick booking link"
+        aria-label="Hero section"
       >
-        <a
-          className="flex items-center justify-center w-[108px] h-10 px-5 rounded-[48px] bg-primary text-white text-p font-medium whitespace-nowrap"
-          href="#booking"
-        >
-          Book Now
-        </a>
+        <div className="flex flex-col items-center gap-8">
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-[14px] leading-[17px] text-center text-black/75">
+              Facial and Eyebrow Threading
+            </p>
+            <h1 className="w-[519px] font-sans text-[40px] leading-[48px] font-normal text-center text-black flex-none flex-grow-0 max-[879px]:w-full">
+              Detail makes the difference
+            </h1>
+          </div>
+          <a
+            className="flex items-center justify-center w-[108px] h-10 px-5 rounded-[48px] bg-primary text-white text-p font-medium whitespace-nowrap"
+            href="#booking"
+          >
+            Book Now
+          </a>
+        </div>
       </section>
 
       <section className="flex justify-center w-full px-6 pb-12 pt-8 max-[879px]:px-5">
