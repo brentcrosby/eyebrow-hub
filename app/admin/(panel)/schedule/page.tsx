@@ -24,6 +24,13 @@ function getWeekRange(date: Date) {
   return `${startMonth} ${startDay}–${endMonth} ${endDay}`;
 }
 
+function formatHour(hour: number) {
+  if (hour === 0) return "12:00 AM";
+  if (hour < 12) return `${hour}:00 AM`;
+  if (hour === 12) return "12:00 PM";
+  return `${hour - 12}:00 PM`;
+}
+
 const weekDays = [
   "Sunday",
   "Monday",
@@ -34,18 +41,7 @@ const weekDays = [
   "Saturday",
 ];
 
-const timeLabels = [
-  "8:00 AM",
-  "9:00 AM",
-  "10:00 AM",
-  "11:00 AM",
-  "12:00 PM",
-  "1:00 PM",
-  "2:00 PM",
-  "3:00 PM",
-  "4:00 PM",
-  "5:00 PM",
-];
+const timeLabels = Array.from({ length: 24 }, (_, hour) => formatHour(hour));
 
 export default function AdminSchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -100,27 +96,29 @@ export default function AdminSchedulePage() {
           ))}
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)]">
-          {timeLabels.map((time, rowIndex) => {
-            const isLastRow = rowIndex === timeLabels.length - 1;
+        <div className="schedule-scroll mt-4 max-h-[650px] overflow-y-auto">
+          <div className="grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)]">
+            {timeLabels.map((time, rowIndex) => {
+              const isLastRow = rowIndex === timeLabels.length - 1;
 
-            return (
-              <div key={time} className="contents">
-                <div className="flex h-[clamp(56px,8vh,96px)] items-center justify-center pr-1 text-[10px] text-gray-700 sm:pr-3 sm:text-sm">
-                  {time}
+              return (
+                <div key={time} className="contents">
+                  <div className="flex h-[clamp(56px,8vh,96px)] items-center justify-center pr-1 text-[10px] text-gray-700 sm:pr-3 sm:text-sm">
+                    {time}
+                  </div>
+
+                  {weekDays.map((day) => (
+                    <div
+                      key={`${day}-${time}`}
+                      className={`h-[clamp(56px,8vh,96px)] border-l border-gray-200 ${
+                        !isLastRow ? "border-b border-gray-200" : ""
+                      } ${day === "Sunday" ? "border-l-0" : ""}`}
+                    />
+                  ))}
                 </div>
-
-                {weekDays.map((day) => (
-                  <div
-                    key={`${day}-${time}`}
-                    className={`h-[clamp(56px,8vh,96px)] border-l border-gray-200 ${
-                      !isLastRow ? "border-b border-gray-200" : ""
-                    } ${day === "Sunday" ? "border-l-0" : ""}`}
-                  />
-                ))}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
     </main>
