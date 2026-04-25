@@ -21,6 +21,20 @@ type ScheduleAppointment = {
   };
 };
 
+type AvailabilityBlock = {
+  id: number;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+// TEMPORARY TEST FLAG:
+// Keep this true while the database has no availability block records.
+// Change this to false once real availability blocks exist in the database.
+const USE_MOCK_AVAILABILITY_BLOCKS = true;
+
 function getStartOfWeek(date: Date) {
   const dayOfWeek = date.getDay();
 
@@ -156,6 +170,39 @@ function getMockAppointments(currentDate: Date): ScheduleAppointment[] {
   ];
 }
 
+function getMockAvailabilityBlocks(currentDate: Date): AvailabilityBlock[] {
+  const startOfWeek = getStartOfWeek(currentDate);
+
+  const tuesday = new Date(startOfWeek);
+  tuesday.setDate(startOfWeek.getDate() + 2);
+  tuesday.setHours(12, 0, 0, 0);
+
+  const tuesdayEnd = new Date(tuesday);
+  tuesdayEnd.setHours(tuesday.getHours() + 1);
+
+  const thursday = new Date(startOfWeek);
+  thursday.setDate(startOfWeek.getDate() + 4);
+  thursday.setHours(9, 0, 0, 0);
+
+  const thursdayEnd = new Date(thursday);
+  thursdayEnd.setMinutes(thursday.getMinutes() + 30);
+
+  return [
+    {
+      id: 1,
+      startTime: tuesday.toISOString(),
+      endTime: tuesdayEnd.toISOString(),
+      reason: "Lunch break",
+    },
+    {
+      id: 2,
+      startTime: thursday.toISOString(),
+      endTime: thursdayEnd.toISOString(),
+      reason: "Unavailable",
+    },
+  ];
+}
+
 const weekDays = [
   "Sunday",
   "Monday",
@@ -171,9 +218,15 @@ const timeLabels = Array.from({ length: 24 }, (_, hour) => formatHour(hour));
 export default function AdminSchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<ScheduleAppointment[]>([]);
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<
+    AvailabilityBlock[]
+  >([]);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(
     null
   );
+  const [availabilityBlocksMessage, setAvailabilityBlocksMessage] = useState<
+    string | null
+  >(null);
 
   const currentWeekRange = getWeekRange(currentDate);
 
@@ -222,7 +275,56 @@ export default function AdminSchedulePage() {
       }
     }
 
+    async function fetchAvailabilityBlocks() {
+      const startOfWeek = getStartOfWeek(currentDate);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+      try {
+        const response = await fetch(
+          `/api/admin/availability-blocks?start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch availability blocks");
+        }
+
+        const data: AvailabilityBlock[] = await response.json();
+
+        /*
+          TEMPORARY MOCK AVAILABILITY BLOCKS:
+
+          The availability-blocks API works, but the database may not have real
+          blocked time records yet. Keep USE_MOCK_AVAILABILITY_BLOCKS true to
+          force mock unavailable times to appear for UI testing.
+
+          AFTER REAL AVAILABILITY BLOCKS EXIST IN THE DATABASE:
+          1. Change USE_MOCK_AVAILABILITY_BLOCKS to false.
+          2. Or remove this if/else and just keep:
+             setAvailabilityBlocks(data);
+             setAvailabilityBlocksMessage(null);
+        */
+
+        if (USE_MOCK_AVAILABILITY_BLOCKS) {
+          setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
+          setAvailabilityBlocksMessage(
+            "Using mock availability blocks until real blocked times exist."
+          );
+        } else {
+          setAvailabilityBlocks(data);
+          setAvailabilityBlocksMessage(null);
+        }
+      } catch {
+        setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
+        setAvailabilityBlocksMessage(
+          "Using mock availability blocks until backend is ready."
+        );
+      }
+    }
+
     fetchAppointments();
+    fetchAvailabilityBlocks();
   }, [currentDate]);
 
   function handlePreviousWeek() {
@@ -244,6 +346,16 @@ export default function AdminSchedulePage() {
       return (
         appointmentStart.getDay() === dayIndex &&
         appointmentStart.getHours() === hourIndex
+      );
+    });
+  }
+
+  function getAvailabilityBlocksForSlot(dayIndex: number, hourIndex: number) {
+    return availabilityBlocks.filter((block) => {
+      const blockStart = new Date(block.startTime);
+
+      return (
+        blockStart.getDay() === dayIndex && blockStart.getHours() === hourIndex
       );
     });
   }
@@ -279,6 +391,12 @@ export default function AdminSchedulePage() {
           <p className="mt-4 text-sm text-red-600">{appointmentsError}</p>
         )}
 
+        {availabilityBlocksMessage && (
+          <p className="mt-2 text-sm text-red-600">
+            {availabilityBlocksMessage}
+          </p>
+        )}
+
         <div className="mt-6 grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)] pb-3 text-center text-sm font-medium text-gray-700 sm:text-base">
           <div />
           {weekDays.map((day) => (
@@ -305,6 +423,9 @@ export default function AdminSchedulePage() {
                       rowIndex
                     );
 
+                    const slotAvailabilityBlocks =
+                      getAvailabilityBlocksForSlot(dayIndex, rowIndex);
+
                     return (
                       <div
                         key={`${day}-${time}`}
@@ -312,6 +433,26 @@ export default function AdminSchedulePage() {
                           !isLastRow ? "border-b border-gray-200" : ""
                         } ${day === "Sunday" ? "border-l-0" : ""}`}
                       >
+                        {slotAvailabilityBlocks.map((block) => (
+                          <div
+                            key={block.id}
+                            className="mb-1 w-full rounded-md bg-gray-200 px-2 py-1 text-left text-[10px] text-gray-700 sm:text-xs"
+                          >
+                            <span className="block truncate font-medium">
+                              Unavailable
+                            </span>
+                            <span className="block truncate">
+                              {block.reason ?? "Blocked time"}
+                            </span>
+                            <span className="block truncate">
+                              {formatAppointmentTime(
+                                block.startTime,
+                                block.endTime
+                              )}
+                            </span>
+                          </div>
+                        ))}
+
                         {slotAppointments.map((appointment) => (
                           <button
                             key={appointment.id}
