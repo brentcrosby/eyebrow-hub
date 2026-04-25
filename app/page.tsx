@@ -62,7 +62,7 @@ export default function Home() {
             </section>
           </div>
 
-          <aside className="w-full max-w-[368px] max-[879px]:max-w-full sticky top-20 self-start">
+          <aside className="w-full max-w-[368px] max-[879px]:max-w-full sticky top-12 self-start">
             <section id="booking" className="w-full">
               <BookingContainer />
             </section>
