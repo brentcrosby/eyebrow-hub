@@ -8,8 +8,8 @@ export const scheduleAppointmentStatusSchema = z.enum([
 
 export const scheduleAppointmentSchema = z.object({
   time: z.string().min(1, "Time is required"),
-  serviceName: z.string().min(1, "Service name is required").optional(),
-  customerName: z.string().min(1, "Customer name is required").optional(),
+  title: z.string().min(1, "Title is required"),
+  subtitle: z.string().min(1, "Subtitle is required").optional(),
   status: scheduleAppointmentStatusSchema,
 });
 

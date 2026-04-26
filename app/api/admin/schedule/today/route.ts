@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import type { TodayScheduleResponse } from "@/lib/validations/schedule";
 
+function formatScheduleTime(date: Date) {
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export async function GET(request: NextRequest) {
   if (!isAdminAuthenticated(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -36,9 +43,9 @@ export async function GET(request: NextRequest) {
 
     const payload: TodayScheduleResponse = {
       appointments: appointments.map((appointment) => ({
-        time: appointment.startTime.toISOString(),
-        serviceName: appointment.service.name,
-        customerName: appointment.customerName,
+        time: formatScheduleTime(appointment.startTime),
+        title: appointment.service.name,
+        subtitle: appointment.customerName,
         status: "booked",
       })),
     };
