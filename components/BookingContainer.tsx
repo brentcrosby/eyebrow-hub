@@ -18,23 +18,12 @@ type Stylist = {
 
 const NEXT_AVAILABLE = "Next Available";
 
-const TIME_SLOTS: TimeSlot[] = [
-  { time: "10:00 AM", available: false },
-  { time: "10:30 AM", available: false },
-  { time: "11:00 AM", available: true },
-  { time: "11:30 AM", available: true },
-  { time: "12:00 PM", available: true },
-  { time: "12:30 PM", available: true },
-  { time: "1:00 PM",  available: true },
-  { time: "1:30 PM",  available: true },
-  { time: "2:00 PM",  available: false },
-  { time: "2:30 PM",  available: true },
-  { time: "3:00 PM",  available: true },
-  { time: "3:30 PM",  available: true },
-  { time: "4:00 PM",  available: true },
-  { time: "4:30 PM",  available: true },
-  { time: "5:00 PM",  available: false },
-];
+function formatDateParam(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 type Step = "dropdowns" | "form" | "confirmation";
 
@@ -43,10 +32,15 @@ export default function BookingContainer() {
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+
+  const totalDuration = services
+    .filter((s) => selectedServices.includes(s.name))
+    .reduce((sum, s) => sum + s.durationMinutes, 0);
 
   useEffect(() => {
     fetch("/api/services")
@@ -66,6 +60,29 @@ export default function BookingContainer() {
       })
       .catch((err) => console.error("Failed to load available dates:", err));
   }, []);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setTimeSlots([]);
+      return;
+    }
+
+    const params = new URLSearchParams({ date: formatDateParam(selectedDate) });
+    if (totalDuration > 0) params.set("duration", String(totalDuration));
+
+    fetch(`/api/availability/times?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data: TimeSlot[]) => setTimeSlots(data))
+      .catch((err) => console.error("Failed to load time slots:", err));
+  }, [selectedDate, totalDuration]);
+
+  useEffect(() => {
+    if (!selectedTime) return;
+    const stillAvailable = timeSlots.some(
+      (s) => s.time === selectedTime && s.available
+    );
+    if (!stillAvailable) setSelectedTime("");
+  }, [timeSlots, selectedTime]);
 
   const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((s) => s.name)];
 
@@ -147,7 +164,7 @@ export default function BookingContainer() {
             label="Time"
             value={selectedTime}
             onChange={setSelectedTime}
-            slots={TIME_SLOTS}
+            slots={timeSlots}
           />
 
           <button
