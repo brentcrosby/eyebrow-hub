@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionToken } from "@/lib/admin-auth";
 
 type LoginBody = {
   email?: string;
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
-    const sessionToken = process.env.ADMIN_SESSION_TOKEN || "stub-session";
+    const sessionToken = getAdminSessionToken();
 
     if (!adminEmail || !adminPassword) {
       return NextResponse.json(
@@ -38,13 +39,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: "Login successful",
         token: sessionToken,
       },
       { status: 200 }
     );
+
+    response.cookies.set(ADMIN_SESSION_COOKIE, sessionToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+
+    return response;
   } catch {
     return NextResponse.json(
       { error: "Invalid request body" },
