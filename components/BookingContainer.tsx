@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MultiSelectDropdown, SingleSelectDropdown, DatePickerDropdown, TimePickerDropdown, TimeSlot } from "./Dropdown";
 import BookingForm from "./BookingForm";
+import type { BookingSelection } from "@/lib/validations/booking";
 
 type Service = {
   id: number;
@@ -37,6 +38,9 @@ export default function BookingContainer() {
   const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+  const [bookingSelection, setBookingSelection] = useState<BookingSelection | null>(null);
+  const [continueError, setContinueError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const totalDuration = services
     .filter((s) => selectedServices.includes(s.name))
@@ -110,7 +114,61 @@ export default function BookingContainer() {
   const canContinue =
     selectedServices.length > 0 &&
     selectedDate !== null &&
-    selectedTime !== "";
+    selectedTime !== "" &&
+    !submitting;
+
+  async function handleContinue() {
+    if (!selectedDate) return;
+
+    const serviceIds = services
+      .filter((s) => selectedServices.includes(s.name))
+      .map((s) => s.id);
+
+    const stylistId =
+      selectedStylist === NEXT_AVAILABLE
+        ? null
+        : stylists.find((s) => s.name === selectedStylist)?.id ?? null;
+
+    const payload: BookingSelection = {
+      serviceIds,
+      stylistId,
+      date: formatDateParam(selectedDate),
+      time: selectedTime,
+    };
+
+    setSubmitting(true);
+    setContinueError(null);
+
+    try {
+      const res = await fetch("/api/bookings/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const firstError =
+          body?.errors && typeof body.errors === "object"
+            ? Object.values(body.errors).flat()[0]
+            : null;
+        setContinueError(
+          typeof firstError === "string"
+            ? firstError
+            : "Your selection is no longer available. Please review and try again."
+        );
+        return;
+      }
+
+      setBookingSelection(payload);
+      setStep("form");
+    } catch (err) {
+      console.error("Failed to validate booking:", err);
+      setContinueError("Could not reach the server. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (step === "confirmation") {
     return (
@@ -188,8 +246,14 @@ export default function BookingContainer() {
             emptyMessage={selectedDate ? "No times available" : "Select a date first"}
           />
 
+          {continueError && (
+            <p className="text-[12px] leading-[15px] text-red-500 w-full">
+              {continueError}
+            </p>
+          )}
+
           <button
-            onClick={() => setStep("form")}
+            onClick={handleContinue}
             disabled={!canContinue}
             className="flex justify-center items-center w-full h-12 rounded-[48px] text-[14px] leading-[17px] font-medium text-white"
             style={{
@@ -198,11 +262,12 @@ export default function BookingContainer() {
               cursor: canContinue ? "pointer" : "not-allowed",
             }}
           >
-            Continue
+            {submitting ? "Checking…" : "Continue"}
           </button>
         </>
       ) : (
         <BookingForm
+          selection={bookingSelection}
           onBook={() => setStep("confirmation")}
           onBack={() => setStep("dropdowns")}
         />
