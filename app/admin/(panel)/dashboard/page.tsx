@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 type StatCard = {
   title: string;
   value: number;
@@ -20,12 +22,9 @@ type ScheduleItem = {
   subtitle?: string;
 };
 
-const statCards: StatCard[] = [
-  { title: "Pending Requests", value: 2 },
-  { title: "Today’s Appointments", value: 3 },
-  { title: "This Week", value: 22 },
-  { title: "Cancellations", value: 0 },
-];
+type DashboardStatsResponse = {
+  pendingRequestsCount: number;
+};
 
 const bookingRequests: BookingRequest[] = [
   {
@@ -137,6 +136,45 @@ function TodaysScheduleCard({ time, title, subtitle }: ScheduleItem) {
 }
 
 export default function AdminDashboardPage() {
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDashboardStats() {
+      try {
+        const response = await fetch("/api/admin/dashboard", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch dashboard stats");
+        }
+
+        const data: Partial<DashboardStatsResponse> = await response.json();
+
+        if (!ignore && typeof data.pendingRequestsCount === "number") {
+          setPendingRequestsCount(data.pendingRequestsCount);
+        }
+      } catch (error) {
+        console.error("Failed to load dashboard stats:", error);
+      }
+    }
+
+    loadDashboardStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const statCards: StatCard[] = [
+    { title: "Pending Requests", value: pendingRequestsCount },
+    { title: "Today’s Appointments", value: 3 },
+    { title: "This Week", value: 22 },
+    { title: "Cancellations", value: 0 },
+  ];
+
   return (
     <main className="min-h-full p-4 sm:p-6">
       <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-7xl rounded-[28px] bg-[#fcf8f3] px-5 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
