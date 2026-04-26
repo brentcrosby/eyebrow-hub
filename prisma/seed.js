@@ -28,8 +28,14 @@ async function main() {
     { name: "Eyebrows/Lip/Chin",     price: 22,   durationMinutes: 15, active: true },
   ];
 
+  const canonicalNames = services.map(s => s.name);
+
+  await prisma.service.deleteMany({
+    where: { name: { notIn: canonicalNames } }
+  });
+
   const existing = await prisma.service.findMany({
-    where: { name: { in: services.map(s => s.name) } },
+    where: { name: { in: canonicalNames } },
     select: { name: true }
   });
 
