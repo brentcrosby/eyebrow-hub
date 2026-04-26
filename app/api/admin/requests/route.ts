@@ -9,6 +9,9 @@ export async function GET(request: NextRequest) {
   try {
     const { db } = await import("@/lib/db");
     const bookingRequests = await db.bookingRequest.findMany({
+      where: {
+        status: "PENDING",
+      },
       include: {
         service: {
           select: {
