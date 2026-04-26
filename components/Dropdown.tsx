@@ -85,9 +85,17 @@ interface DatePickerDropdownProps {
   label: string;
   value: Date | null;
   onChange: (date: Date) => void;
+  unavailableDates?: Set<string>;
 }
 
-export function DatePickerDropdown({ label, value, onChange }: DatePickerDropdownProps) {
+function dateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function DatePickerDropdown({ label, value, onChange, unavailableDates }: DatePickerDropdownProps) {
   const today = new Date();
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear());
@@ -178,7 +186,8 @@ export function DatePickerDropdown({ label, value, onChange }: DatePickerDropdow
               const isToday = isSameDay(date, today);
               const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
               const isPast = date < todayMidnight;
-              const disabled = isPast;
+              const isUnavailable = unavailableDates?.has(dateKey(date)) ?? false;
+              const disabled = isPast || isUnavailable;
               return (
                 <button
                   key={i}

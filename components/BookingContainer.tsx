@@ -42,6 +42,7 @@ export default function BookingContainer() {
   const [step, setStep] = useState<Step>("dropdowns");
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -57,6 +58,13 @@ export default function BookingContainer() {
       .then((res) => res.json())
       .then((data: Stylist[]) => setStylists(data))
       .catch((err) => console.error("Failed to load stylists:", err));
+
+    fetch("/api/availability/dates")
+      .then((res) => res.json())
+      .then((data: { date: string; available: boolean }[]) => {
+        setUnavailableDates(new Set(data.filter((d) => !d.available).map((d) => d.date)));
+      })
+      .catch((err) => console.error("Failed to load available dates:", err));
   }, []);
 
   const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((s) => s.name)];
@@ -132,6 +140,7 @@ export default function BookingContainer() {
             label="Date"
             value={selectedDate}
             onChange={setSelectedDate}
+            unavailableDates={unavailableDates}
           />
 
           <TimePickerDropdown
