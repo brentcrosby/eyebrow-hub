@@ -1,65 +1,174 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MultiSelectDropdown, SingleSelectDropdown, DatePickerDropdown, TimePickerDropdown, TimeSlot } from "./Dropdown";
 import BookingForm from "./BookingForm";
+import type { BookingSelection } from "@/lib/validations/booking";
 
-const SERVICES = [
-  "Brow Consult",
-  "Eyebrow",
-  "Chin/Lip",
-  "Cheeks",
-  "Forehead",
-  "Full Face",
-  "Half Face",
-  "Lip",
-  "Unibrow",
-  "Men's Eyebrow/Cheeks",
-  "Sideburns",
-  "Eyebrows/Forehead",
-  "Eyebrows/Lip/Chin",
-];
+type Service = {
+  id: number;
+  name: string;
+  price: number;
+  durationMinutes: number;
+};
 
-const TIME_SLOTS: TimeSlot[] = [
-  { time: "10:00 AM", available: false },
-  { time: "10:30 AM", available: false },
-  { time: "11:00 AM", available: true },
-  { time: "11:30 AM", available: true },
-  { time: "12:00 PM", available: true },
-  { time: "12:30 PM", available: true },
-  { time: "1:00 PM",  available: true },
-  { time: "1:30 PM",  available: true },
-  { time: "2:00 PM",  available: false },
-  { time: "2:30 PM",  available: true },
-  { time: "3:00 PM",  available: true },
-  { time: "3:30 PM",  available: true },
-  { time: "4:00 PM",  available: true },
-  { time: "4:30 PM",  available: true },
-  { time: "5:00 PM",  available: false },
-];
+type Stylist = {
+  id: number;
+  name: string;
+};
 
-const STYLISTS = [
-  "Next Available",
-  "Ava Nguyen",
-  "Maya Patel",
-  "Sofia Ramirez",
-  "Jasmine Lee",
-];
+const NEXT_AVAILABLE = "Next Available";
+
+function formatDateParam(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 type Step = "dropdowns" | "form" | "confirmation";
 
 export default function BookingContainer() {
   const [step, setStep] = useState<Step>("dropdowns");
+  const [services, setServices] = useState<Service[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedStylist, setSelectedStylist] = useState("Next Available");
+  const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+  const [bookingSelection, setBookingSelection] = useState<BookingSelection | null>(null);
+  const [continueError, setContinueError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const totalDuration = services
+    .filter((s) => selectedServices.includes(s.name))
+    .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data: Service[]) => setServices(data))
+      .catch((err) => console.error("Failed to load services:", err));
+
+    fetch("/api/stylists")
+      .then((res) => res.json())
+      .then((data: Stylist[]) => setStylists(data))
+      .catch((err) => console.error("Failed to load stylists:", err));
+
+    fetch("/api/availability/dates")
+      .then((res) => res.json())
+      .then((data: { date: string; available: boolean }[]) => {
+        setUnavailableDates(new Set(data.filter((d) => !d.available).map((d) => d.date)));
+      })
+      .catch((err) => console.error("Failed to load available dates:", err));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setTimeSlots([]);
+      return;
+    }
+
+    const params = new URLSearchParams({ date: formatDateParam(selectedDate) });
+    if (totalDuration > 0) params.set("duration", String(totalDuration));
+
+    fetch(`/api/availability/times?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data: TimeSlot[]) => setTimeSlots(data))
+      .catch((err) => console.error("Failed to load time slots:", err));
+  }, [selectedDate, totalDuration]);
+
+  useEffect(() => {
+    if (!selectedTime) return;
+    const stillAvailable = timeSlots.some(
+      (s) => s.time === selectedTime && s.available
+    );
+    if (!stillAvailable) setSelectedTime("");
+  }, [timeSlots, selectedTime]);
+
+  useEffect(() => {
+    if (services.length === 0) return;
+    const validNames = new Set(services.map((s) => s.name));
+    setSelectedServices((prev) => prev.filter((name) => validNames.has(name)));
+  }, [services]);
+
+  useEffect(() => {
+    if (selectedStylist === NEXT_AVAILABLE) return;
+    if (stylists.length === 0) return;
+    const valid = stylists.some((s) => s.name === selectedStylist);
+    if (!valid) setSelectedStylist(NEXT_AVAILABLE);
+  }, [stylists, selectedStylist]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    if (unavailableDates.has(formatDateParam(selectedDate))) {
+      setSelectedDate(null);
+    }
+  }, [unavailableDates, selectedDate]);
+
+  const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((s) => s.name)];
 
   // Stylist is always valid (any selection including "Next Available" counts)
   const canContinue =
     selectedServices.length > 0 &&
     selectedDate !== null &&
-    selectedTime !== "";
+    selectedTime !== "" &&
+    !submitting;
+
+  async function handleContinue() {
+    if (!selectedDate) return;
+
+    const serviceIds = services
+      .filter((s) => selectedServices.includes(s.name))
+      .map((s) => s.id);
+
+    const stylistId =
+      selectedStylist === NEXT_AVAILABLE
+        ? null
+        : stylists.find((s) => s.name === selectedStylist)?.id ?? null;
+
+    const payload: BookingSelection = {
+      serviceIds,
+      stylistId,
+      date: formatDateParam(selectedDate),
+      time: selectedTime,
+    };
+
+    setSubmitting(true);
+    setContinueError(null);
+
+    try {
+      const res = await fetch("/api/bookings/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const firstError =
+          body?.errors && typeof body.errors === "object"
+            ? Object.values(body.errors).flat()[0]
+            : null;
+        setContinueError(
+          typeof firstError === "string"
+            ? firstError
+            : "Your selection is no longer available. Please review and try again."
+        );
+        return;
+      }
+
+      setBookingSelection(payload);
+      setStep("form");
+    } catch (err) {
+      console.error("Failed to validate booking:", err);
+      setContinueError("Could not reach the server. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (step === "confirmation") {
     return (
@@ -110,14 +219,14 @@ export default function BookingContainer() {
           <MultiSelectDropdown
             label="Service"
             placeholder="Select Service(s)"
-            options={SERVICES}
+            options={services.map((s) => s.name)}
             selected={selectedServices}
             onChange={setSelectedServices}
           />
 
           <SingleSelectDropdown
             label="Stylist"
-            options={STYLISTS}
+            options={stylistOptions}
             value={selectedStylist}
             onChange={setSelectedStylist}
           />
@@ -126,17 +235,25 @@ export default function BookingContainer() {
             label="Date"
             value={selectedDate}
             onChange={setSelectedDate}
+            unavailableDates={unavailableDates}
           />
 
           <TimePickerDropdown
             label="Time"
             value={selectedTime}
             onChange={setSelectedTime}
-            slots={TIME_SLOTS}
+            slots={timeSlots}
+            emptyMessage={selectedDate ? "No times available" : "Select a date first"}
           />
 
+          {continueError && (
+            <p className="text-[12px] leading-[15px] text-red-500 w-full">
+              {continueError}
+            </p>
+          )}
+
           <button
-            onClick={() => setStep("form")}
+            onClick={handleContinue}
             disabled={!canContinue}
             className="flex justify-center items-center w-full h-12 rounded-[48px] text-[14px] leading-[17px] font-medium text-white"
             style={{
@@ -145,11 +262,12 @@ export default function BookingContainer() {
               cursor: canContinue ? "pointer" : "not-allowed",
             }}
           >
-            Continue
+            {submitting ? "Checking…" : "Continue"}
           </button>
         </>
       ) : (
         <BookingForm
+          selection={bookingSelection}
           onBook={() => setStep("confirmation")}
           onBack={() => setStep("dropdowns")}
         />

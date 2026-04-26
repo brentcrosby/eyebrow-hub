@@ -1,21 +1,28 @@
-const services = [
-  { name: "Brow Consult", price: "Free" },
-  { name: "Eyebrow", price: "$15" },
-  { name: "Eyebrow/Lip", price: "$15" },
-  { name: "Chin/Lip", price: "$12" },
-  { name: "Cheeks", price: "$7" },
-  { name: "Forehead", price: "$7" },
-  { name: "Full Face", price: "$30" },
-  { name: "Half Face", price: "$25" },
-  { name: "Lip", price: "$6" },
-  { name: "Unibrow", price: "$5" },
-  { name: "Men’s Eyebrow/Cheeks", price: "$17" },
-  { name: "Sideburns", price: "$10" },
-  { name: "Eyebrows/Forehead", price: "$15" },
-  { name: "Eyebrows/Lip/Chin", price: "$22" },
-];
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Service = {
+  id: number;
+  name: string;
+  price: number;
+  durationMinutes: number;
+};
+
+function formatPrice(price: number): string {
+  return price === 0 ? "Free" : `$${price}`;
+}
 
 export default function ServicesSection() {
+  const [services, setServices] = useState<Service[]>([]);
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data: Service[]) => setServices(data))
+      .catch((err) => console.error("Failed to load services:", err));
+  }, []);
+
   return (
     <section id="services" className="w-full">
       <h2 className="text-subtitle leading-none font-normal">Services</h2>
@@ -29,11 +36,11 @@ export default function ServicesSection() {
         <div className="space-y-3">
           {services.map((service) => (
             <div
-              key={service.name}
+              key={service.id}
               className="flex items-center justify-between border-b border-[#e8e3de] pb-2 text-[13px] text-[#1f1f1f]"
             >
               <span>{service.name}</span>
-              <span>{service.price}</span>
+              <span>{formatPrice(service.price)}</span>
             </div>
           ))}
         </div>

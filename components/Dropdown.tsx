@@ -85,9 +85,17 @@ interface DatePickerDropdownProps {
   label: string;
   value: Date | null;
   onChange: (date: Date) => void;
+  unavailableDates?: Set<string>;
 }
 
-export function DatePickerDropdown({ label, value, onChange }: DatePickerDropdownProps) {
+function dateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function DatePickerDropdown({ label, value, onChange, unavailableDates }: DatePickerDropdownProps) {
   const today = new Date();
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear());
@@ -178,7 +186,8 @@ export function DatePickerDropdown({ label, value, onChange }: DatePickerDropdow
               const isToday = isSameDay(date, today);
               const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
               const isPast = date < todayMidnight;
-              const disabled = isPast;
+              const isUnavailable = unavailableDates?.has(dateKey(date)) ?? false;
+              const disabled = isPast || isUnavailable;
               return (
                 <button
                   key={i}
@@ -214,9 +223,10 @@ interface TimePickerDropdownProps {
   value: string;
   onChange: (time: string) => void;
   slots: TimeSlot[];
+  emptyMessage?: string;
 }
 
-export function TimePickerDropdown({ label, value, onChange, slots }: TimePickerDropdownProps) {
+export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage = "No times available" }: TimePickerDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -259,6 +269,12 @@ export function TimePickerDropdown({ label, value, onChange, slots }: TimePicker
               Choose a time
             </span>
           </button>
+
+          {slots.length === 0 && (
+            <div className="px-4 py-3 text-[14px] leading-[17px] text-black/40">
+              {emptyMessage}
+            </div>
+          )}
 
           {slots.map(({ time, available }) => (
             <button

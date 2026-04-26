@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { BookingSelection } from "@/lib/validations/booking";
 
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 10);
@@ -52,11 +53,12 @@ function FormField({ label, type = "text", placeholder, value, onChange, onBlur,
 }
 
 interface BookingFormProps {
+  selection: BookingSelection | null;
   onBook: () => void;
   onBack: () => void;
 }
 
-export default function BookingForm({ onBook, onBack }: BookingFormProps) {
+export default function BookingForm({ selection, onBook, onBack }: BookingFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
