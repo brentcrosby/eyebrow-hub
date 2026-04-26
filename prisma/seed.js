@@ -39,6 +39,25 @@ async function main() {
   if (toCreate.length > 0) {
     await prisma.service.createMany({ data: toCreate });
   }
+
+  const stylists = [
+    { name: "Ava Nguyen",     active: true },
+    { name: "Maya Patel",     active: true },
+    { name: "Sofia Ramirez",  active: true },
+    { name: "Jasmine Lee",    active: true },
+  ];
+
+  const existingStylists = await prisma.stylist.findMany({
+    where: { name: { in: stylists.map(s => s.name) } },
+    select: { name: true }
+  });
+
+  const existingStylistNames = new Set(existingStylists.map(s => s.name));
+  const stylistsToCreate = stylists.filter(s => !existingStylistNames.has(s.name));
+
+  if (stylistsToCreate.length > 0) {
+    await prisma.stylist.createMany({ data: stylistsToCreate });
+  }
 }
 
 main()

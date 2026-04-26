@@ -11,6 +11,13 @@ type Service = {
   durationMinutes: number;
 };
 
+type Stylist = {
+  id: number;
+  name: string;
+};
+
+const NEXT_AVAILABLE = "Next Available";
+
 const TIME_SLOTS: TimeSlot[] = [
   { time: "10:00 AM", available: false },
   { time: "10:30 AM", available: false },
@@ -29,21 +36,14 @@ const TIME_SLOTS: TimeSlot[] = [
   { time: "5:00 PM",  available: false },
 ];
 
-const STYLISTS = [
-  "Next Available",
-  "Ava Nguyen",
-  "Maya Patel",
-  "Sofia Ramirez",
-  "Jasmine Lee",
-];
-
 type Step = "dropdowns" | "form" | "confirmation";
 
 export default function BookingContainer() {
   const [step, setStep] = useState<Step>("dropdowns");
   const [services, setServices] = useState<Service[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedStylist, setSelectedStylist] = useState("Next Available");
+  const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
 
@@ -52,7 +52,14 @@ export default function BookingContainer() {
       .then((res) => res.json())
       .then((data: Service[]) => setServices(data))
       .catch((err) => console.error("Failed to load services:", err));
+
+    fetch("/api/stylists")
+      .then((res) => res.json())
+      .then((data: Stylist[]) => setStylists(data))
+      .catch((err) => console.error("Failed to load stylists:", err));
   }, []);
+
+  const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((s) => s.name)];
 
   // Stylist is always valid (any selection including "Next Available" counts)
   const canContinue =
@@ -116,7 +123,7 @@ export default function BookingContainer() {
 
           <SingleSelectDropdown
             label="Stylist"
-            options={STYLISTS}
+            options={stylistOptions}
             value={selectedStylist}
             onChange={setSelectedStylist}
           />
