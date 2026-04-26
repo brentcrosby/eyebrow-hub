@@ -1,24 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MultiSelectDropdown, SingleSelectDropdown, DatePickerDropdown, TimePickerDropdown, TimeSlot } from "./Dropdown";
 import BookingForm from "./BookingForm";
 
-const SERVICES = [
-  "Brow Consult",
-  "Eyebrow",
-  "Chin/Lip",
-  "Cheeks",
-  "Forehead",
-  "Full Face",
-  "Half Face",
-  "Lip",
-  "Unibrow",
-  "Men's Eyebrow/Cheeks",
-  "Sideburns",
-  "Eyebrows/Forehead",
-  "Eyebrows/Lip/Chin",
-];
+type Service = {
+  id: number;
+  name: string;
+  price: number;
+  durationMinutes: number;
+};
 
 const TIME_SLOTS: TimeSlot[] = [
   { time: "10:00 AM", available: false },
@@ -50,10 +41,18 @@ type Step = "dropdowns" | "form" | "confirmation";
 
 export default function BookingContainer() {
   const [step, setStep] = useState<Step>("dropdowns");
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylist, setSelectedStylist] = useState("Next Available");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data: Service[]) => setServices(data))
+      .catch((err) => console.error("Failed to load services:", err));
+  }, []);
 
   // Stylist is always valid (any selection including "Next Available" counts)
   const canContinue =
@@ -110,7 +109,7 @@ export default function BookingContainer() {
           <MultiSelectDropdown
             label="Service"
             placeholder="Select Service(s)"
-            options={SERVICES}
+            options={services.map((s) => s.name)}
             selected={selectedServices}
             onChange={setSelectedServices}
           />

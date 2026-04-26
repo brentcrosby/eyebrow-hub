@@ -4,40 +4,43 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-// Create a PostgreSQL connection pool using the connection string from environment variables
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
-// Create a Prisma adapter using the PostgreSQL connection pool
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-    // Define the services to be seeded
   const services = [
-    { name: "Waxing service", price: 45.0, durationMinutes: 30, active: true },
-    { name: "Manicure", price: 110.0, durationMinutes: 50, active: true },
-    { name: "Follow-up", price: 40.0, durationMinutes: 45, active: true },
-    { name: "Nail extensions", price: 20.0, durationMinutes: 30, active: true },
-    { name: "Facial Treatment", price: 90.0, durationMinutes: 50, active: true },
-    { name: "Hair Styling", price: 75.0, durationMinutes: 45, active: true },
-    { name: "Pedicure", price: 65.0, durationMinutes: 40, active: true }
+    { name: "Brow Consult",          price: 0,    durationMinutes: 15, active: true },
+    { name: "Eyebrow",               price: 15,   durationMinutes: 15, active: true },
+    { name: "Eyebrow/Lip",           price: 15,   durationMinutes: 15, active: true },
+    { name: "Chin/Lip",              price: 12,   durationMinutes: 15, active: true },
+    { name: "Cheeks",                price: 7,    durationMinutes: 15, active: true },
+    { name: "Forehead",              price: 7,    durationMinutes: 15, active: true },
+    { name: "Full Face",             price: 30,   durationMinutes: 15, active: true },
+    { name: "Half Face",             price: 25,   durationMinutes: 15, active: true },
+    { name: "Lip",                   price: 6,    durationMinutes: 15, active: true },
+    { name: "Unibrow",               price: 5,    durationMinutes: 15, active: true },
+    { name: "Men's Eyebrow/Cheeks",  price: 17,   durationMinutes: 15, active: true },
+    { name: "Sideburns",             price: 10,   durationMinutes: 15, active: true },
+    { name: "Eyebrows/Forehead",     price: 15,   durationMinutes: 15, active: true },
+    { name: "Eyebrows/Lip/Chin",     price: 22,   durationMinutes: 15, active: true },
   ];
 
-  // Prevent duplicates by checking existing names
   const existing = await prisma.service.findMany({
     where: { name: { in: services.map(s => s.name) } },
     select: { name: true }
   });
 
-  const existingServices = new Set(existing.map(s => s.name));
-  const Create  = services.filter(s => !existingServices.has(s.name));
+  const existingNames = new Set(existing.map(s => s.name));
+  const toCreate = services.filter(s => !existingNames.has(s.name));
 
-  if (Create.length > 0) {
+  if (toCreate.length > 0) {
     await prisma.service.createMany({ data: toCreate });
   }
 }
-// Execute the main function and handle any errors if needed
+
 main()
   .catch((e) => {
     console.error(e);
