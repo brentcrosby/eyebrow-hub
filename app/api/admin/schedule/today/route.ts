@@ -9,7 +9,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const { db } = await import("@/lib/db");
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfToday.getDate() + 1);
+
     const appointments = await db.appointment.findMany({
+      where: {
+        startTime: {
+          gte: startOfToday,
+          lt: startOfTomorrow,
+        },
+      },
       include: {
         service: {
           select: {
