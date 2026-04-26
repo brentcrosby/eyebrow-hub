@@ -84,6 +84,26 @@ export default function BookingContainer() {
     if (!stillAvailable) setSelectedTime("");
   }, [timeSlots, selectedTime]);
 
+  useEffect(() => {
+    if (services.length === 0) return;
+    const validNames = new Set(services.map((s) => s.name));
+    setSelectedServices((prev) => prev.filter((name) => validNames.has(name)));
+  }, [services]);
+
+  useEffect(() => {
+    if (selectedStylist === NEXT_AVAILABLE) return;
+    if (stylists.length === 0) return;
+    const valid = stylists.some((s) => s.name === selectedStylist);
+    if (!valid) setSelectedStylist(NEXT_AVAILABLE);
+  }, [stylists, selectedStylist]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    if (unavailableDates.has(formatDateParam(selectedDate))) {
+      setSelectedDate(null);
+    }
+  }, [unavailableDates, selectedDate]);
+
   const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((s) => s.name)];
 
   // Stylist is always valid (any selection including "Next Available" counts)
@@ -165,6 +185,7 @@ export default function BookingContainer() {
             value={selectedTime}
             onChange={setSelectedTime}
             slots={timeSlots}
+            emptyMessage={selectedDate ? "No times available" : "Select a date first"}
           />
 
           <button

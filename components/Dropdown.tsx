@@ -223,9 +223,10 @@ interface TimePickerDropdownProps {
   value: string;
   onChange: (time: string) => void;
   slots: TimeSlot[];
+  emptyMessage?: string;
 }
 
-export function TimePickerDropdown({ label, value, onChange, slots }: TimePickerDropdownProps) {
+export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage = "No times available" }: TimePickerDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -268,6 +269,12 @@ export function TimePickerDropdown({ label, value, onChange, slots }: TimePicker
               Choose a time
             </span>
           </button>
+
+          {slots.length === 0 && (
+            <div className="px-4 py-3 text-[14px] leading-[17px] text-black/40">
+              {emptyMessage}
+            </div>
+          )}
 
           {slots.map(({ time, available }) => (
             <button
