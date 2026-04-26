@@ -6,30 +6,37 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BookingRequestStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+}
+
 model Service {
-  id              Int           @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   name            String
-  price           Decimal       @db.Decimal(10, 2)
+  price           Decimal          @db.Decimal(10, 2)
   durationMinutes Int
-  active          Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   appointments    Appointment[]
+  bookingRequests BookingRequest[]
 }
 
 model Appointment {
-  id              Int      @id @default(autoincrement())
-  serviceId       Int
-  service         Service  @relation(fields: [serviceId], references: [id])
-  startTime       DateTime
-  endTime         DateTime
-  customerName    String
-  customerPhone   String
-  customerEmail   String?
-  notes           String?
-  status          String   @default("pending")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  serviceId     Int
+  service       Service  @relation(fields: [serviceId], references: [id])
+  startTime     DateTime
+  endTime       DateTime
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  notes         String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Stylist {
@@ -47,6 +54,20 @@ model AvailabilityBlock {
   reason    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model BookingRequest {
+  id                Int                  @id @default(autoincrement())
+  customerName      String
+  serviceId         Int
+  service           Service              @relation(fields: [serviceId], references: [id])
+  requestedDateTime DateTime
+  status            BookingRequestStatus @default(PENDING)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([status])
+  @@index([requestedDateTime])
 }
 
 model AdminUser {
