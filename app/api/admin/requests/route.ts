@@ -8,22 +8,29 @@ export async function GET(request: NextRequest) {
 
   try {
     const { db } = await import("@/lib/db");
-    const bookingRequests = await db.bookingRequest.findMany({
-      where: {
-        status: "PENDING",
-      },
-      include: {
-        service: {
-          select: {
-            id: true,
-            name: true,
+    const pendingRequestWhere = {
+      status: "PENDING" as const,
+    };
+
+    const [bookingRequests, pendingCount] = await db.$transaction([
+      db.bookingRequest.findMany({
+        where: pendingRequestWhere,
+        include: {
+          service: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      db.bookingRequest.count({
+        where: pendingRequestWhere,
+      }),
+    ]);
 
     const payload = bookingRequests.map((bookingRequest) => ({
       id: bookingRequest.id,
@@ -36,7 +43,13 @@ export async function GET(request: NextRequest) {
       updatedAt: bookingRequest.updatedAt.toISOString(),
     }));
 
-    return NextResponse.json(payload, { status: 200 });
+    return NextResponse.json(
+      {
+        requests: payload,
+        pendingCount,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Failed to fetch booking requests:", error);
 
