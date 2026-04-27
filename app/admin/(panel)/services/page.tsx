@@ -59,6 +59,7 @@ export default function AdminServicesPage() {
 
   async function fetchEmployeeServices(employeeId: number) {
     try {
+      setLoading(true);
       const response = await fetch(`/api/admin/employee-services?employeeId=${employeeId}`);
       if (response.ok) {
         const data = await response.json();
@@ -175,7 +176,7 @@ export default function AdminServicesPage() {
         <div className="mt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
-              value={selectedEmployee ?? ''}
+              value={selectedEmployee || ""}
               onChange={(event) => setSelectedEmployee(Number(event.target.value))}
               className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm capitalize text-[#7a5a3c] outline-none hover:border-[#bfa17a] transition-colors"
             >
