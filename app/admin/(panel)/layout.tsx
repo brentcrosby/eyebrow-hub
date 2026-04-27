@@ -69,6 +69,14 @@ const navItems = [
 
 function AdminSideNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  function handleLogout() {
+    localStorage.removeItem("adminAccessToken");
+    document.cookie =
+      "adminAccessToken=; path=/admin; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.replace("/admin/login");
+  }
 
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col bg-[#FFFAF4] px-8 py-8 shadow-[2px_0_12px_rgba(167,140,122,0.15)]">
@@ -106,6 +114,7 @@ function AdminSideNav() {
 
         <button
           type="button"
+          onClick={handleLogout}
           className="mt-1 flex w-full items-center gap-4 rounded-xl px-5 py-3 text-base font-medium text-[#7a5a3c] transition-colors hover:bg-[rgba(167,140,122,0.15)] hover:text-[#5e3d1e]"
         >
           <span className="text-[#A78C7A]">
