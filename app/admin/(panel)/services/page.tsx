@@ -196,6 +196,12 @@ export default function AdminServicesPage() {
             </button>
           </div>
 
+          {selectedEmployee !== null && (
+            <p className="mt-4 text-sm font-medium text-[#7a5a3c]">
+              Showing services for <span className="capitalize">{employees.find((employee) => employee.id === selectedEmployee)?.name ?? "Employee"}</span>
+            </p>
+          )}
+
           {showAddForm && (
             <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 sm:flex-row sm:items-center shadow-sm">
               <input
