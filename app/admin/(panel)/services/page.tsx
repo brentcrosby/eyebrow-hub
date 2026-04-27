@@ -1,51 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function AdminServicesPage() {
-  // Employee type definition
   type Employee = {
     name: string;
   };
-  // temporary employee data to be replaced with actual data from the database
   const employees: Employee[] = [
     { name: "jeline doe" },
     { name: "tana mathews" }
   ];
-  // Service type definition
   type Service = {
-    service: string;
-    duration: string;
-    price: number;
+    id: number;
+    name: string;
+    durationMinutes: number;
+    price: string;
     active: boolean;
   };
 
-  const services: Service[] = [
-    { service: "nails", duration: "30 mins", price: 25, active: true },
-    { service: "manicure", duration: "20 mins", price: 15, active: true },
-    { service: "padicure", duration: "25 mins", price: 20, active: false }
-  ];
-
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<string>(employees[0].name);
-  const [serviceList, setServiceList] = useState<Service[]>(services);
   const [newService, setNewService] = useState<string>("");
   const [newDuration, setNewDuration] = useState<string>("");
-  const [newPrice, setNewPrice] = useState<number>(0);
+  const [newPrice, setNewPrice] = useState<string>("");
   const [newActive, setNewActive] = useState<boolean>(true);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [error, setError] = useState<string>("");
 
-  // basic validation functions for fields in the add service form
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  async function fetchServices() {
+    try {
+      const response = await fetch('/api/admin/services');
+      if (response.ok) {
+        const data: Service[] = await response.json();
+        setServices(data);
+      } else {
+        setError('Failed to fetch services');
+        console.error('Failed to fetch services:', response.status);
+      }
+    } catch (err) {
+      setError('Failed to fetch services');
+      console.error('Failed to fetch services:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function validateService(): boolean {
     if (!newService.trim()) {
       setError("Service name is required.");
       return false;
     }
-    if (!newDuration.trim()) {
-      setError("Duration is required.");
+    const duration = parseFloat(newDuration);
+    if (!newDuration.trim() || isNaN(duration) || duration <= 0) {
+      setError("Duration must be a positive number.");
       return false;
     }
-    if (isNaN(newPrice) || newPrice <= 0) {
+    const price = parseFloat(newPrice);
+    if (!newPrice.trim() || isNaN(price) || price <= 0) {
       setError("Price must be a positive number.");
       return false;
     }
@@ -56,27 +73,52 @@ export default function AdminServicesPage() {
   function handleAddService() {
     if (!validateService()) return;
 
-    // Create a new service entry based on the form inputs
     const newServiceEntry: Service = {
-      service: newService.trim(),
-      duration: newDuration,
+      id: Math.max(...services.map(s => s.id), 0) + 1,
+      name: newService.trim(),
+      durationMinutes: parseInt(newDuration),
       price: newPrice,
       active: newActive
     };
-    // add the new service entry to the existing services list
-    setServiceList([...serviceList, newServiceEntry]);
-    // Reset form fields and hide the add form
-    setNewService("");
-    setNewDuration("");
-    setNewPrice(0);
-    setNewActive(true);
-    setShowAddForm(false);
+    setServices([...services, newServiceEntry]);
+    resetForm();
   }
 
-  
-  function handleDeleteService(serviceName: string) {
-    const updatedServices = serviceList.filter(service => service.service !== serviceName);
-    setServiceList(updatedServices);
+  function handleEditService(service: Service) {
+    setEditingService(service);
+    setNewService(service.name);
+    setNewDuration(service.durationMinutes.toString());
+    setNewPrice(service.price);
+    setNewActive(service.active);
+    setShowAddForm(true);
+  }
+
+  function handleUpdateService() {
+    if (!validateService() || !editingService) return;
+
+    const updatedServices = services.map(s =>
+      s.id === editingService.id
+        ? { ...s, name: newService.trim(), durationMinutes: parseInt(newDuration), price: newPrice, active: newActive }
+        : s
+    );
+    setServices(updatedServices);
+    resetForm();
+    setEditingService(null);
+  }
+
+  function handleDeleteService(id: number) {
+    const updatedServices = services.filter(service => service.id !== id);
+    setServices(updatedServices);
+  }
+
+  function resetForm() {
+    setNewService("");
+    setNewDuration("");
+    setNewPrice("");
+    setNewActive(true);
+    setShowAddForm(false);
+    setEditingService(null);
+    setError("");
   }
 
   return (
@@ -121,16 +163,17 @@ export default function AdminServicesPage() {
                 className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
               />
               <input
-                type="text"
+                type="number"
                 value={newDuration}
                 onChange={(event) => setNewDuration(event.target.value)}
-                placeholder="Enter duration"
+                placeholder="Enter duration (minutes)"
                 className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
               />
               <input
-                type="text"
+                type="number"
+                step="0.01"
                 value={newPrice}
-                onChange={(event) => setNewPrice(Number(event.target.value))}
+                onChange={(event) => setNewPrice(event.target.value)}
                 placeholder="Enter price"
                 className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
               />
@@ -147,21 +190,17 @@ export default function AdminServicesPage() {
 
               <button
                 type="button"
-                onClick={handleAddService}
+                onClick={editingService ? handleUpdateService : handleAddService}
                 className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
               >
-                Save
+                {editingService ? 'Update' : 'Save'}
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setNewDuration("");
-                  setNewPrice(0);
-                  setNewService("");
-                  setNewActive(true);
-                  setShowAddForm(false);
-                  setError("");
+                  resetForm();
+                  setEditingService(null);
                 }}
                 className="rounded-full border border-[#dccab5] px-4 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f7f1eb] transition-colors"
               >
@@ -173,35 +212,50 @@ export default function AdminServicesPage() {
         </div>
 
         <div className="sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
-          <div className="grid grid-cols-5 gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f725d]">
-            <p>Services</p>
-            <p>Duration</p>
+          <div className="grid grid-cols-6 gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f725d]">
+            <p>Name</p>
+            <p>Duration (min)</p>
             <p>Price</p>
-            <p className="text-center">Active Toggle</p>
-            <p className="text-center">Actions</p>
+            <p className="text-center">Active</p>
+            <p className="text-center">Edit</p>
+            <p className="text-center">Delete</p>
           </div>
         </div>
 
         <div className="mt-3 overflow-hidden rounded-2xl border border-[#eadfce] bg-white shadow-sm">
-          {serviceList.map((item, index) => (
-            <div
-              key={`${item.service}-${index}`}
-              className="grid grid-cols-5 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0 items-center hover:bg-[#fff7f0] transition-colors"
-            >
-              <p>{item.service}</p>
-              <p>{item.duration}</p>
-              <p>${item.price}</p>
-              <p className="text-center">{item.active ? "Active" : "Inactive"}</p>
-              <div className="flex justify-center">
-                <button
-                  onClick={() => handleDeleteService(item.service)}
-                  className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
-                >
-                  Delete
-                </button>
+          {loading ? (
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">Loading services...</div>
+          ) : services.length === 0 ? (
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">No services found.</div>
+          ) : (
+            services.map((item) => (
+              <div
+                key={item.id}
+                className="grid grid-cols-6 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0 items-center hover:bg-[#fff7f0] transition-colors"
+              >
+                <p>{item.name}</p>
+                <p>{item.durationMinutes}</p>
+                <p>${parseFloat(item.price).toFixed(2)}</p>
+                <p className="text-center">{item.active ? "Active" : "Inactive"}</p>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => handleEditService(item)}
+                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => handleDeleteService(item.id)}
+                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section> 
     </main>
