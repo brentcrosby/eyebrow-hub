@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseClient } from "@/lib/supabase";
 
 type LoginBody = {
   email?: string;
@@ -7,33 +8,34 @@ type LoginBody = {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LoginBody = await request.json();
-    const { email, password } = body;
+    const body: LoginBody = await request.json().catch(() => null);
 
-    if (!email || !password) {
+    if (!body) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { message: "Invalid request body" },
         { status: 400 }
       );
     }
 
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const sessionToken = process.env.ADMIN_SESSION_TOKEN || "stub-session";
+    const { email, password } = body;
 
-    if (!adminEmail || !adminPassword) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Admin credentials are not configured" },
-        { status: 500 }
+        { message: "Email and password are required" },
+        { status: 400 }
       );
     }
 
-    // When seeded admin data exists, replace the bottom line with a database query to validate credentials
-    const isValid = email === adminEmail && password === adminPassword;
+    const supabase = createSupabaseClient();
 
-    if (!isValid) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error || !data.user) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { message: "Invalid email or password" },
         { status: 401 }
       );
     }
@@ -41,14 +43,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message: "Login successful",
-        token: sessionToken,
+        user: data.user,
+        session: data.session,
       },
       { status: 200 }
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 }
-    );
+  } catch (error) {
+    if (error instanceof Error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Login failed" }, { status: 500 });
   }
 }
