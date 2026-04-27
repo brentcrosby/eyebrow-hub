@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (email === testAdminEmail && password === testAdminPassword) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           message: "Login successful",
           user: {
@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
         },
         { status: 200 }
       );
+
+      response.cookies.set("adminAccessToken", "test-admin-session", {
+        path: "/admin",
+        sameSite: "lax",
+      });
+
+      return response;
     }
 
     const supabase = createSupabaseClient();
@@ -59,7 +66,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         message: "Login successful",
         user: data.user,
@@ -67,6 +74,15 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    if (data.session?.access_token) {
+      response.cookies.set("adminAccessToken", data.session.access_token, {
+        path: "/admin",
+        sameSite: "lax",
+      });
+    }
+
+    return response;
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json({ message: error.message }, { status: 500 });
