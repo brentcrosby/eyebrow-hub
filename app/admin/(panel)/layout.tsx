@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import brownLogo from "@/app/assests/logos/brown logo.png";
 
 const navItems = [
@@ -126,6 +127,22 @@ export default function AdminPanelLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const token =
+    typeof window === "undefined"
+      ? null
+      : localStorage.getItem("adminAccessToken");
+
+  useEffect(() => {
+    if (!token) {
+      router.replace("/admin/login");
+    }
+  }, [router, token]);
+
+  if (!token) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f5f1eb]">
       <AdminSideNav />
