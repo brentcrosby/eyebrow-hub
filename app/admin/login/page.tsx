@@ -57,6 +57,10 @@ export default function AdminLoginPage() {
         return;
       }
 
+      if (data?.session?.access_token) {
+        localStorage.setItem("adminAccessToken", data.session.access_token);
+      }
+
       setSuccessMessage(data?.message || "Login successful.");
       router.push("/admin/dashboard");
     } catch {
