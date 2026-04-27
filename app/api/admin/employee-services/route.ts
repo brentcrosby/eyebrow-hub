@@ -55,3 +55,43 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const serviceId = url.searchParams.get("serviceId");
+
+    if (!serviceId) {
+      return NextResponse.json(
+        { error: "Service ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const service = await db.service.findUnique({
+      where: { id: Number(serviceId) },
+    });
+
+    if (!service) {
+      return NextResponse.json(
+        { error: "Service not found" },
+        { status: 404 }
+      );
+    }
+
+    await db.service.delete({
+      where: { id: Number(serviceId) },
+    });
+
+    return NextResponse.json(
+      { message: "Service deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Failed to delete service:", error);
+    return NextResponse.json(
+      { error: "Failed to delete service" },
+      { status: 500 }
+    );
+  }
+}
