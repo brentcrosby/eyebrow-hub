@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import brownLogo from "@/app/assests/logos/brown logo.png";
 
 const navItems = [
@@ -68,6 +68,14 @@ const navItems = [
 
 function AdminSideNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  function handleLogout() {
+    localStorage.removeItem("adminAccessToken");
+    document.cookie =
+      "adminAccessToken=; path=/; max-age=0; SameSite=Lax";
+    router.replace("/admin/login");
+  }
 
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col bg-[#FFFAF4] px-8 py-8 shadow-[2px_0_12px_rgba(167,140,122,0.15)]">
@@ -105,6 +113,7 @@ function AdminSideNav() {
 
         <button
           type="button"
+          onClick={handleLogout}
           className="mt-1 flex w-full items-center gap-4 rounded-xl px-5 py-3 text-base font-medium text-[#7a5a3c] transition-colors hover:bg-[rgba(167,140,122,0.15)] hover:text-[#5e3d1e]"
         >
           <span className="text-[#A78C7A]">
