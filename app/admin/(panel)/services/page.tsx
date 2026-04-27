@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export default function AdminServicesPage() {
   type Employee = {
+    id: number;
     name: string;
+    active: boolean;
   };
-  const employees: Employee[] = [
-    { name: "jeline doe" },
-    { name: "tana mathews" }
-  ];
   type Service = {
     id: number;
     name: string;
@@ -18,9 +16,10 @@ export default function AdminServicesPage() {
     active: boolean;
   };
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>(employees[0].name);
+  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
   const [newService, setNewService] = useState<string>("");
   const [newDuration, setNewDuration] = useState<string>("");
   const [newPrice, setNewPrice] = useState<string>("");
@@ -29,23 +28,49 @@ export default function AdminServicesPage() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [error, setError] = useState<string>("");
 
-  useEffect(() => {
-    fetchServices();
-  }, []);
-
-  async function fetchServices() {
+  const fetchEmployees = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/services');
+      const response = await fetch('/api/stylists');
       if (response.ok) {
-        const data: Service[] = await response.json();
-        setServices(data);
+        const data: Employee[] = await response.json();
+        setEmployees(data);
+        if (data.length > 0) {
+          setSelectedEmployee(data[0].id);
+        }
       } else {
-        setError('Failed to fetch services');
-        console.error('Failed to fetch services:', response.status);
+        setError('Failed to fetch employees');
+        console.error('Failed to fetch employees:', response.status);
       }
     } catch (err) {
-      setError('Failed to fetch services');
-      console.error('Failed to fetch services:', err);
+      setError('Failed to fetch employees');
+      console.error('Failed to fetch employees:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  useEffect(() => {
+    if (selectedEmployee !== null) {
+      fetchEmployeeServices(selectedEmployee);
+    }
+  }, [selectedEmployee]);
+
+  async function fetchEmployeeServices(employeeId: number) {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/employee-services?employeeId=${employeeId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setServices(data.services);
+      } else {
+        setError('Failed to fetch employee services');
+        console.error('Failed to fetch employee services:', response.status);
+      }
+    } catch (err) {
+      setError('Failed to fetch employee services');
+      console.error('Failed to fetch employee services:', err);
     } finally {
       setLoading(false);
     }
@@ -106,9 +131,27 @@ export default function AdminServicesPage() {
     setEditingService(null);
   }
 
-  function handleDeleteService(id: number) {
-    const updatedServices = services.filter(service => service.id !== id);
-    setServices(updatedServices);
+  const handleDeleteClick = async (id: number) => {
+    await handleDeleteService(id);
+  };
+
+  async function handleDeleteService(id: number) {
+    try {
+      const response = await fetch(`/api/admin/employee-services?serviceId=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const updatedServices = services.filter(service => service.id !== id);
+        setServices(updatedServices);
+      } else {
+        setError('Failed to delete service');
+        console.error('Failed to delete service:', response.status);
+      }
+    } catch (err) {
+      setError('Failed to delete service');
+      console.error('Failed to delete service:', err);
+    }
   }
 
   function resetForm() {
@@ -133,12 +176,12 @@ export default function AdminServicesPage() {
         <div className="mt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
-              value={selectedEmployee}
-              onChange={(event) => setSelectedEmployee(event.target.value)}
+              value={selectedEmployee || ""}
+              onChange={(event) => setSelectedEmployee(Number(event.target.value))}
               className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm capitalize text-[#7a5a3c] outline-none hover:border-[#bfa17a] transition-colors"
             >
-              {employees.map((employee, index) => (
-                <option key={index} value={employee.name}>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
                   {employee.name}
                 </option>
               ))}
@@ -247,7 +290,7 @@ export default function AdminServicesPage() {
                 </div>
                 <div className="flex justify-center">
                   <button
-                    onClick={() => handleDeleteService(item.id)}
+                    onClick={() => handleDeleteClick(item.id)}
                     className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
                   >
                     Delete
