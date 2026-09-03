@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { addDays, startOfWeek } from "@/lib/dateUtils";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { BusinessHoursDay } from "@/lib/businessHours";
+import {
+  addDays,
+  parseDateParam,
+  startOfDay,
+  startOfWeek,
+  toDateParam,
+} from "@/lib/dateUtils";
+import DayScheduleGrid from "@/components/admin/schedule/DayScheduleGrid";
+import ScheduleDayNav from "@/components/admin/schedule/ScheduleDayNav";
 import WeekScheduleGrid from "@/components/admin/schedule/WeekScheduleGrid";
 import {
   getMockAppointments,
@@ -10,32 +20,33 @@ import {
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
+  ScheduleView,
 } from "@/components/admin/schedule/types";
 
 // TEMPORARY TEST FLAG:
 // Keep this true while the database has no availability block records.
-// Change this to false once real availability blocks exist in the database.
+// DT-467 seeds real data and removes this along with the mock fallbacks.
 const USE_MOCK_AVAILABILITY_BLOCKS = true;
 
-function getWeekRange(date: Date) {
-  const weekStart = startOfWeek(date);
-  const weekEnd = addDays(weekStart, 6);
+function SchedulePageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const startMonth = weekStart.toLocaleString("en-US", { month: "long" });
-  const endMonth = weekEnd.toLocaleString("en-US", { month: "long" });
+  const dateParam = searchParams.get("date");
+  const view: ScheduleView =
+    searchParams.get("view") === "week" ? "week" : "day";
 
-  const startDay = weekStart.getDate();
-  const endDay = weekEnd.getDate();
+  // Memoised on the raw param so the fetch effect is not re-run by a new Date
+  // instance on every render. An unparseable or missing date falls back to
+  // today rather than rendering a plausible but wrong day.
+  const selectedDate = useMemo(
+    () => parseDateParam(dateParam) ?? startOfDay(new Date()),
+    [dateParam]
+  );
 
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay}–${endDay}`;
-  }
-
-  return `${startMonth} ${startDay}–${endMonth} ${endDay}`;
-}
-
-export default function AdminSchedulePage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [businessHours, setBusinessHours] = useState<BusinessHoursDay[] | null>(
+    null
+  );
   const [appointments, setAppointments] = useState<ScheduleAppointment[]>([]);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<
     AvailabilityBlock[]
@@ -47,17 +58,46 @@ export default function AdminSchedulePage() {
     string | null
   >(null);
 
-  const currentWeekRange = getWeekRange(currentDate);
+  const hoursForDay =
+    businessHours?.find((day) => day.dayOfWeek === selectedDate.getDay()) ??
+    null;
+
+  function updateParams(next: { date?: Date; view?: ScheduleView }) {
+    const params = new URLSearchParams();
+    params.set("date", toDateParam(next.date ?? selectedDate));
+    params.set("view", next.view ?? view);
+
+    router.replace(`/admin/schedule?${params.toString()}`);
+  }
 
   useEffect(() => {
-    const weekStart = startOfWeek(currentDate);
-    const weekEnd = addDays(weekStart, 7);
+    const controller = new AbortController();
+
+    fetch("/api/business-hours", { signal: controller.signal })
+      .then((response) => response.json())
+      .then((data: BusinessHoursDay[]) => setBusinessHours(data))
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        console.error("Failed to load business hours:", error);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const rangeStart =
+      view === "week" ? startOfWeek(selectedDate) : startOfDay(selectedDate);
+    const rangeEnd = addDays(rangeStart, view === "week" ? 7 : 1);
+
+    const range = `start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`;
 
     async function fetchAppointments() {
       try {
-        const response = await fetch(
-          `/api/admin/appointments?start=${weekStart.toISOString()}&end=${weekEnd.toISOString()}`
-        );
+        const response = await fetch(`/api/admin/appointments?${range}`, {
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           throw new Error("Failed to fetch appointments");
@@ -67,16 +107,11 @@ export default function AdminSchedulePage() {
 
         setAppointments(data);
         setAppointmentsError(null);
-      } catch {
-        /*
-          TEMPORARY MOCK DATA:
+      } catch (error) {
+        if ((error as Error)?.name === "AbortError") return;
 
-          This is only here because the database has no appointment seed data
-          yet. It lets us test that appointments appear in the correct day and
-          time slots. DT-467 seeds real data and removes this fallback.
-        */
-
-        setAppointments(getMockAppointments(currentDate));
+        // TEMPORARY MOCK DATA — removed in DT-467 once the seed provides rows.
+        setAppointments(getMockAppointments(selectedDate));
         setAppointmentsError("Using mock appointments until backend is ready.");
       }
     }
@@ -84,7 +119,8 @@ export default function AdminSchedulePage() {
     async function fetchAvailabilityBlocks() {
       try {
         const response = await fetch(
-          `/api/admin/availability-blocks?start=${weekStart.toISOString()}&end=${weekEnd.toISOString()}`
+          `/api/admin/availability-blocks?${range}`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -93,15 +129,9 @@ export default function AdminSchedulePage() {
 
         const data: AvailabilityBlock[] = await response.json();
 
-        /*
-          TEMPORARY MOCK AVAILABILITY BLOCKS:
-
-          The availability-blocks API works, but the database may not have real
-          blocked time records yet. DT-467 seeds real data and removes this.
-        */
-
+        // TEMPORARY MOCK BLOCKS — removed in DT-467.
         if (USE_MOCK_AVAILABILITY_BLOCKS) {
-          setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
+          setAvailabilityBlocks(getMockAvailabilityBlocks(selectedDate));
           setAvailabilityBlocksMessage(
             "Using mock availability blocks until real blocked times exist."
           );
@@ -109,8 +139,10 @@ export default function AdminSchedulePage() {
           setAvailabilityBlocks(data);
           setAvailabilityBlocksMessage(null);
         }
-      } catch {
-        setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
+      } catch (error) {
+        if ((error as Error)?.name === "AbortError") return;
+
+        setAvailabilityBlocks(getMockAvailabilityBlocks(selectedDate));
         setAvailabilityBlocksMessage(
           "Using mock availability blocks until backend is ready."
         );
@@ -119,42 +151,20 @@ export default function AdminSchedulePage() {
 
     fetchAppointments();
     fetchAvailabilityBlocks();
-  }, [currentDate]);
 
-  function handlePreviousWeek() {
-    setCurrentDate((date) => addDays(date, -7));
-  }
-
-  function handleNextWeek() {
-    setCurrentDate((date) => addDays(date, 7));
-  }
+    return () => controller.abort();
+  }, [selectedDate, view]);
 
   return (
-    <main className="min-h-screen p-4 sm:p-6">
-      <section className="mx-auto w-full max-w-[1400px]">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-lg border border-gray-200 p-4">
-          <button
-            type="button"
-            onClick={handlePreviousWeek}
-            className="rounded border border-gray-200 px-3 py-1"
-            aria-label="Previous week"
-          >
-            ←
-          </button>
-
-          <h2 className="text-center text-lg font-medium sm:text-xl">
-            {currentWeekRange}
-          </h2>
-
-          <button
-            type="button"
-            onClick={handleNextWeek}
-            className="rounded border border-gray-200 px-3 py-1"
-            aria-label="Next week"
-          >
-            →
-          </button>
-        </div>
+    <main className="min-h-full p-3 sm:p-6">
+      <section className="mx-auto w-full max-w-[1400px] rounded-[28px] bg-[#fcf8f3] px-3 py-5 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
+        <ScheduleDayNav
+          selectedDate={selectedDate}
+          view={view}
+          hours={hoursForDay}
+          onDateChange={(date) => updateParams({ date })}
+          onViewChange={(nextView) => updateParams({ view: nextView })}
+        />
 
         {appointmentsError && (
           <p className="mt-4 text-sm text-red-600">{appointmentsError}</p>
@@ -166,11 +176,38 @@ export default function AdminSchedulePage() {
           </p>
         )}
 
-        <WeekScheduleGrid
-          appointments={appointments}
-          availabilityBlocks={availabilityBlocks}
-        />
+        {view === "week" ? (
+          <WeekScheduleGrid
+            appointments={appointments}
+            availabilityBlocks={availabilityBlocks}
+          />
+        ) : hoursForDay ? (
+          <DayScheduleGrid
+            date={selectedDate}
+            hours={hoursForDay}
+            appointments={appointments}
+            availabilityBlocks={availabilityBlocks}
+          />
+        ) : (
+          <p className="mt-6 text-sm text-[#7a5a3c]">Loading schedule…</p>
+        )}
       </section>
     </main>
+  );
+}
+
+export default function AdminSchedulePage() {
+  // useSearchParams needs a Suspense boundary or the production build fails
+  // while prerendering this route.
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-full p-3 sm:p-6">
+          <p className="text-sm text-[#7a5a3c]">Loading schedule…</p>
+        </main>
+      }
+    >
+      <SchedulePageContent />
+    </Suspense>
   );
 }
