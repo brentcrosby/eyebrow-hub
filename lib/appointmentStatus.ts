@@ -36,10 +36,13 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
 };
 
 /** Tailwind classes for a status badge; unknown statuses use the admin palette. */
-export function getStatusBadgeClasses(status: string | null | undefined): string {
+export function getStatusBadgeClasses(
+  status: string | null | undefined
+): string {
   const value = isCancelled(status) ? CANCELLED_STATUS : normalize(status);
 
   return (
-    STATUS_BADGE_CLASSES[value] ?? "bg-[#f3ebe2] text-[#7a5a3c] border-[#eadfce]"
+    STATUS_BADGE_CLASSES[value] ??
+    "bg-[#f3ebe2] text-[#7a5a3c] border-[#eadfce]"
   );
 }

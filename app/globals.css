@@ -23,6 +23,21 @@
   }
 }
 
+/* Visually hidden but available to screen readers. Used to give the schedule
+   grid a linear text alternative, since absolutely-positioned blocks convey no
+   reading order. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .schedule-scroll {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
