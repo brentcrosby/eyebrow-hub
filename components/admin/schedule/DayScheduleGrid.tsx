@@ -124,6 +124,18 @@ export default function DayScheduleGrid({
     })
   );
 
+  // Both kinds live in one container sorted by time. Absolute positioning means
+  // DOM order does not affect layout, so ordering chronologically gives screen
+  // readers the correct reading order without a duplicated summary list, while
+  // z-index alone keeps blocked time behind appointments.
+  const renderables = [
+    ...placedBlocks.map((entry) => ({ kind: "block" as const, entry })),
+    ...placedAppointments.map((entry) => ({
+      kind: "appointment" as const,
+      entry,
+    })),
+  ].sort((a, b) => a.entry.start.getTime() - b.entry.start.getTime());
+
   return (
     <div className={`mt-6 ${HOUR_HEIGHT_CLASSES}`}>
       <div className="flex">
@@ -142,34 +154,31 @@ export default function DayScheduleGrid({
           {hourRows.map((hour) => (
             <div
               key={hour}
+              aria-hidden="true"
               className="h-[var(--hour-h)] border-b border-[#eadfce]"
             />
           ))}
 
-          {/* Blocked time sits beneath appointments and spans the full width,
-              so it never narrows an appointment column. */}
           <div className="absolute inset-0 pr-1">
-            {placedBlocks.map((entry) => (
-              <BlockedTimeBlock
-                key={`block-${entry.item.id}`}
-                block={entry.item}
-                start={entry.start}
-                end={entry.end}
-                geometry={entry.geometry}
-              />
-            ))}
-          </div>
-
-          <div className="absolute inset-0 pr-1">
-            {placedAppointments.map((entry) => (
-              <AppointmentBlock
-                key={`appointment-${entry.item.id}`}
-                appointment={entry.item}
-                start={entry.start}
-                end={entry.end}
-                geometry={entry.geometry}
-              />
-            ))}
+            {renderables.map(({ kind, entry }) =>
+              kind === "block" ? (
+                <BlockedTimeBlock
+                  key={`block-${entry.item.id}`}
+                  block={entry.item as AvailabilityBlock}
+                  start={entry.start}
+                  end={entry.end}
+                  geometry={entry.geometry}
+                />
+              ) : (
+                <AppointmentBlock
+                  key={`appointment-${entry.item.id}`}
+                  appointment={entry.item as ScheduleAppointment}
+                  start={entry.start}
+                  end={entry.end}
+                  geometry={entry.geometry}
+                />
+              )
+            )}
           </div>
         </div>
       </div>

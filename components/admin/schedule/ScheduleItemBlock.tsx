@@ -41,7 +41,7 @@ export function AppointmentBlock({
 
   return (
     <div
-      className="absolute"
+      className="absolute z-10"
       style={{
         top: geometry.top,
         height: geometry.height,
@@ -97,7 +97,7 @@ export function BlockedTimeBlock({
       // Hatching, a dashed border and a muted ground make blocked time read as
       // a different kind of thing from an appointment card, not just a
       // differently coloured one.
-      className={`absolute overflow-hidden rounded-md border border-dashed border-[#c2b1a0] bg-[#ece5dd] px-1.5 py-0.5 ${clipClasses(
+      className={`absolute z-0 overflow-hidden rounded-md border border-dashed border-[#c2b1a0] bg-[#ece5dd] px-1.5 py-0.5 ${clipClasses(
         geometry
       )}`}
       style={{
