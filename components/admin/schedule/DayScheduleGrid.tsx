@@ -1,8 +1,9 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { DAY_NAMES, formatHourLabel } from "@/lib/businessHours";
-import { minutesBetween } from "@/lib/dateUtils";
+import { isSameDay, minutesBetween } from "@/lib/dateUtils";
 import { layoutScheduleItems } from "@/lib/scheduleLayout";
 import type { BlockGeometry } from "./ScheduleItemBlock";
 import { AppointmentBlock, BlockedTimeBlock } from "./ScheduleItemBlock";
@@ -12,8 +13,34 @@ import type { AvailabilityBlock, ScheduleAppointment } from "./types";
 // grid and the item blocks scale together at each breakpoint without JS.
 const HOUR_HEIGHT_CLASSES = "[--hour-h:56px] sm:[--hour-h:64px]";
 
-// Floor so a 15-minute service is still tall enough to read.
-const MIN_BLOCK_HEIGHT = "22px";
+// Floor tall enough for both lines of a card at their natural height, plus
+// padding and border. The card's lines are shrink-0, so anything less would
+// clip the time range rather than squash it: flex children compress silently,
+// which is how the second line ended up 9px tall on short appointments.
+const MIN_BLOCK_HEIGHT = "46px";
+
+// A lone appointment stretched across a full-width desktop grid looked absurd
+// for two short lines of text, so the lanes column is capped. Overlapping
+// items still divide this width between them: at three columns each lane is
+// still wide enough for a truncated service name and its time.
+const LANES_MAX_WIDTH = "max-w-md";
+
+const MINUTE_MS = 60000;
+
+function subscribeToMinute(onStoreChange: () => void) {
+  const id = setInterval(onStoreChange, MINUTE_MS);
+  return () => clearInterval(id);
+}
+
+/** Truncated to the minute so the value is stable between ticks. */
+function getMinuteSnapshot() {
+  return Math.floor(Date.now() / MINUTE_MS);
+}
+
+/** Null on the server: rendering a clock during SSR would mismatch on hydration. */
+function getServerMinuteSnapshot(): number | null {
+  return null;
+}
 
 type DayScheduleGridProps = {
   date: Date;
@@ -63,10 +90,18 @@ export default function DayScheduleGrid({
   appointments,
   availabilityBlocks,
 }: DayScheduleGridProps) {
+  // A subscription rather than an effect: this is external state changing on a
+  // timer, and it keeps the marker out of the server render entirely.
+  const currentMinute = useSyncExternalStore(
+    subscribeToMinute,
+    getMinuteSnapshot,
+    getServerMinuteSnapshot
+  );
+
   if (hours.closed) {
     return (
-      <div className="mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4] px-5 py-10 text-center">
-        <p className="text-sm text-[#7a5a3c]">
+      <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-5 py-10 text-center">
+        <p className="text-sm text-gray-700">
           Closed on {DAY_NAMES[date.getDay()]}.
         </p>
       </div>
@@ -82,6 +117,14 @@ export default function DayScheduleGrid({
     { length: hours.close - hours.open },
     (_, index) => hours.open + index
   );
+
+  // Only meaningful while looking at today, and only inside opening hours.
+  const now =
+    currentMinute === null ? null : new Date(currentMinute * MINUTE_MS);
+  const nowOffset =
+    now && isSameDay(now, date) ? minutesBetween(gridStart, now) : null;
+  const showNowMarker =
+    nowOffset !== null && nowOffset >= 0 && nowOffset <= totalMinutes;
 
   const placedBlocks: Placed<AvailabilityBlock>[] = availabilityBlocks
     .map((block) => {
@@ -143,23 +186,39 @@ export default function DayScheduleGrid({
           {hourRows.map((hour) => (
             <div
               key={hour}
-              className="flex h-[var(--hour-h)] items-start justify-end pr-2 text-[10px] text-[#a08a75] sm:pr-3 sm:text-xs"
+              className="flex h-[var(--hour-h)] items-start justify-end pr-2 text-[10px] text-gray-700 sm:pr-3 sm:text-sm"
             >
               {formatHourLabel(hour)}
             </div>
           ))}
         </div>
 
-        <div className="relative min-w-0 flex-1 border-l border-[#eadfce]">
+        <div
+          className={`relative min-w-0 flex-1 border-l border-gray-200 ${LANES_MAX_WIDTH}`}
+        >
           {hourRows.map((hour) => (
             <div
               key={hour}
               aria-hidden="true"
-              className="h-[var(--hour-h)] border-b border-[#eadfce]"
-            />
+              className="h-[var(--hour-h)] border-b border-gray-200"
+            >
+              {/* Half-hour subdivision: makes a :30 start readable at a glance. */}
+              <div className="h-1/2 border-b border-gray-100" />
+            </div>
           ))}
 
-          <div className="absolute inset-0 pr-1">
+          {showNowMarker && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 z-20 flex items-center"
+              style={{ top: `calc(var(--hour-h) * ${nowOffset} / 60)` }}
+            >
+              <span className="-ml-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+              <span className="h-px flex-1 bg-red-500/70" />
+            </div>
+          )}
+
+          <div className="absolute inset-0">
             {renderables.map(({ kind, entry }) =>
               kind === "block" ? (
                 <BlockedTimeBlock

@@ -46,3 +46,23 @@ export function getStatusBadgeClasses(
     "bg-[#f3ebe2] text-[#7a5a3c] border-[#eadfce]"
   );
 }
+
+const STATUS_ACCENT_CLASSES: Record<string, string> = {
+  [PENDING_STATUS]: "border-l-amber-400",
+  [CONFIRMED_STATUS]: "border-l-green-500",
+  [COMPLETED_STATUS]: "border-l-gray-400",
+  [CANCELLED_STATUS]: "border-l-red-400",
+};
+
+/**
+ * Left-edge accent for a schedule card. Carries the same meaning as the badge
+ * but survives truncation, so status stays scannable down a column of cards
+ * too narrow to show their label.
+ */
+export function getStatusAccentClasses(
+  status: string | null | undefined
+): string {
+  const value = isCancelled(status) ? CANCELLED_STATUS : normalize(status);
+
+  return STATUS_ACCENT_CLASSES[value] ?? "border-l-gray-300";
+}

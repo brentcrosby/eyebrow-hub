@@ -1,6 +1,10 @@
 "use client";
 
-import { getStatusBadgeClasses, getStatusLabel } from "@/lib/appointmentStatus";
+import {
+  getStatusAccentClasses,
+  getStatusBadgeClasses,
+  getStatusLabel,
+} from "@/lib/appointmentStatus";
 import { formatTimeRange } from "@/lib/dateUtils";
 import type { AvailabilityBlock, ScheduleAppointment } from "./types";
 
@@ -14,6 +18,17 @@ export type BlockGeometry = {
   /** The item ends after the grid closes, so its bottom edge is cut off. */
   clippedEnd: boolean;
 };
+
+// Padding on the positioned wrapper rather than the card itself. Because
+// box-sizing is border-box, the card's h-full/w-full resolve against the
+// wrapper's content box, so this insets the bubble on all four sides without
+// disturbing the geometry that positions it.
+const GUTTER = "px-[3px] py-[2px]";
+
+// Matches the weekly grid's card treatment: same radius, padding and type
+// scale, so the two views read as one component in different layouts.
+const CARD_BASE =
+  "flex h-full w-full flex-col overflow-hidden rounded-md px-2 py-1 text-[10px] text-gray-700 sm:text-xs";
 
 /** A cut edge is squared off and dashed, so a clipped block reads as continuing. */
 function clipClasses(geometry: BlockGeometry) {
@@ -41,7 +56,7 @@ export function AppointmentBlock({
 
   return (
     <div
-      className="absolute z-10"
+      className={`absolute z-10 ${GUTTER}`}
       style={{
         top: geometry.top,
         height: geometry.height,
@@ -53,12 +68,12 @@ export function AppointmentBlock({
         type="button"
         // The visual label truncates, so the full description goes here.
         aria-label={`${appointment.service.name}, ${timeRange}, ${statusLabel}, ${appointment.customerName}`}
-        className={`flex h-full w-full flex-col overflow-hidden rounded-md border border-[#d8c4ae] bg-[#f3ebe2] px-1.5 py-0.5 text-left transition-colors hover:bg-[#eadfce] ${clipClasses(
-          geometry
-        )}`}
+        className={`${CARD_BASE} border border-l-4 border-gray-200 bg-gray-100 text-left transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:outline-none ${getStatusAccentClasses(
+          appointment.status
+        )} ${clipClasses(geometry)}`}
       >
-        <span className="flex w-full items-center gap-1">
-          <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#5e3d1e] sm:text-xs">
+        <span className="flex w-full shrink-0 items-center gap-1">
+          <span className="min-w-0 truncate leading-tight font-medium">
             {appointment.service.name}
           </span>
           <span
@@ -70,7 +85,7 @@ export function AppointmentBlock({
           </span>
         </span>
 
-        <span className="block truncate text-[9px] text-[#7a5a3c] sm:text-[10px]">
+        <span className="block shrink-0 truncate leading-tight text-gray-500">
           {timeRange}
         </span>
       </button>
@@ -94,35 +109,42 @@ export function BlockedTimeBlock({
 
   return (
     <div
-      // Hatching, a dashed border and a muted ground make blocked time read as
-      // a different kind of thing from an appointment card, not just a
-      // differently coloured one.
-      className={`absolute z-0 overflow-hidden rounded-md border border-dashed border-[#c2b1a0] bg-[#ece5dd] px-1.5 py-0.5 ${clipClasses(
-        geometry
-      )}`}
+      className={`absolute z-0 ${GUTTER}`}
       style={{
         top: geometry.top,
         height: geometry.height,
         left: geometry.left,
         width: geometry.width,
-        backgroundImage:
-          "repeating-linear-gradient(45deg, rgba(120,95,70,0.00) 0 6px, rgba(120,95,70,0.12) 6px 12px)",
       }}
     >
-      <span className="sr-only">{`Blocked time, ${timeRange}, ${reason}`}</span>
+      <div
+        // Hatching and a dashed border keep blocked time a different kind of
+        // thing from an appointment card, not just a differently shaded one,
+        // while staying within the weekly grid's grey palette.
+        className={`${CARD_BASE} border border-l-4 border-dashed border-gray-300 border-l-gray-400 bg-gray-200 ${clipClasses(
+          geometry
+        )}`}
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, rgba(107,114,128,0.00) 0 6px, rgba(107,114,128,0.16) 6px 12px)",
+        }}
+      >
+        <span className="sr-only">{`Blocked time, ${timeRange}, ${reason}`}</span>
 
-      <span aria-hidden="true" className="flex w-full items-center gap-1">
-        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#6b5847] sm:text-xs">
+        <span
+          aria-hidden="true"
+          className="block shrink-0 truncate leading-tight font-medium"
+        >
           Unavailable
         </span>
-      </span>
 
-      <span
-        aria-hidden="true"
-        className="block truncate text-[9px] text-[#6b5847] sm:text-[10px]"
-      >
-        {reason}
-      </span>
+        <span
+          aria-hidden="true"
+          className="block shrink-0 truncate leading-tight text-gray-600"
+        >
+          {reason}
+        </span>
+      </div>
     </div>
   );
 }

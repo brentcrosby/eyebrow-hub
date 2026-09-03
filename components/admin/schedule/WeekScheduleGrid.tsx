@@ -6,6 +6,10 @@ import {
   formatHourLabel,
 } from "@/lib/businessHours";
 import { addDays, formatTimeRange, isSameDay } from "@/lib/dateUtils";
+import {
+  getStatusAccentClasses,
+  getStatusLabel,
+} from "@/lib/appointmentStatus";
 import type { AvailabilityBlock, ScheduleAppointment } from "./types";
 
 const timeLabels = Array.from({ length: 24 }, (_, hour) =>
@@ -98,7 +102,7 @@ export default function WeekScheduleGrid({
                           {slotAvailabilityBlocks.map((block) => (
                             <div
                               key={block.id}
-                              className="mb-1 w-full rounded-md bg-gray-200 px-2 py-1 text-left text-[10px] text-gray-700 sm:text-xs"
+                              className="mb-1 w-full rounded-md border-l-4 border-l-gray-400 bg-gray-200 px-2 py-1 text-left text-[10px] text-gray-700 sm:text-xs"
                             >
                               <span className="block truncate font-medium">
                                 Unavailable
@@ -119,7 +123,15 @@ export default function WeekScheduleGrid({
                             <button
                               key={appointment.id}
                               type="button"
-                              className="mb-1 w-full rounded-md bg-gray-100 px-2 py-1 text-left text-[10px] text-gray-700 hover:bg-gray-200 sm:text-xs"
+                              aria-label={`${appointment.service.name}, ${formatTimeRange(
+                                new Date(appointment.startTime),
+                                new Date(appointment.endTime)
+                              )}, ${getStatusLabel(appointment.status)}, ${
+                                appointment.customerName
+                              }`}
+                              className={`mb-1 w-full rounded-md border-l-4 bg-gray-100 px-2 py-1 text-left text-[10px] text-gray-700 hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:outline-none sm:text-xs ${getStatusAccentClasses(
+                                appointment.status
+                              )}`}
                             >
                               <span className="block truncate font-medium">
                                 {appointment.service.name}
