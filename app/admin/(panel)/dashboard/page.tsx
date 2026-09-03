@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { toDateParam } from "@/lib/dateUtils";
+
 type StatCard = {
   title: string;
   value: number;
@@ -197,12 +200,12 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="pt-4 text-center">
-              <button
-                type="button"
+              <Link
+                href={`/admin/schedule?date=${toDateParam(new Date())}&view=day`}
                 className="text-sm font-medium text-[#b39a81] hover:underline"
               >
                 View Full Schedule
-              </button>
+              </Link>
             </div>
           </section>
         </div>
