@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  DAY_NAMES,
+  getBusinessHoursList,
+  toTimeInputValue,
+} from "@/lib/businessHours";
 
 const sectionCards = [
   {
@@ -17,15 +22,15 @@ const sectionCards = [
   },
 ];
 
-const initialBusinessHours = [
-  { day: "Sunday", startTime: "09:00", endTime: "18:00", enabled: true },
-  { day: "Monday", startTime: "08:00", endTime: "19:00", enabled: true },
-  { day: "Tuesday", startTime: "09:00", endTime: "19:00", enabled: true },
-  { day: "Wednesday", startTime: "09:00", endTime: "19:00", enabled: true },
-  { day: "Thursday", startTime: "09:00", endTime: "19:00", enabled: true },
-  { day: "Friday", startTime: "09:00", endTime: "19:00", enabled: true },
-  { day: "Saturday", startTime: "09:00", endTime: "18:00", enabled: true },
-];
+// Seeded from the shared source so the editor opens on the hours that are
+// actually in effect. Edits are still local-only until this page is wired to an
+// API; see the availability persistence ticket.
+const initialBusinessHours = getBusinessHoursList().map((day) => ({
+  day: DAY_NAMES[day.dayOfWeek],
+  startTime: toTimeInputValue(day.open),
+  endTime: toTimeInputValue(day.close),
+  enabled: !day.closed,
+}));
 
 const initialBlockForm = {
   date: "",
