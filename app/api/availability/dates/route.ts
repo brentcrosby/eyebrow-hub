@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { toDateParam } from "@/lib/dateUtils";
 
 const DAYS_AHEAD = 60;
-
-function formatDate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export async function GET() {
   try {
@@ -39,7 +33,7 @@ export async function GET() {
       );
 
       result.push({
-        date: formatDate(dayStart),
+        date: toDateParam(dayStart),
         available: !fullDayBlocked,
       });
     }

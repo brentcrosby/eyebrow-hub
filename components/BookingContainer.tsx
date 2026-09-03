@@ -10,6 +10,7 @@ import {
 } from "./Dropdown";
 import BookingForm from "./BookingForm";
 import type { BookingSelection } from "@/lib/validations/booking";
+import { toDateParam } from "@/lib/dateUtils";
 
 type Service = {
   id: number;
@@ -38,13 +39,6 @@ export type BookingConfirmation = {
 };
 
 const NEXT_AVAILABLE = "Next Available";
-
-function formatDateParam(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function downloadCalendarFile(booking: BookingConfirmation) {
   const start = new Date(booking.startTime);
@@ -155,7 +149,7 @@ export default function BookingContainer() {
     }
 
     const params = new URLSearchParams({
-      date: formatDateParam(selectedDate),
+      date: toDateParam(selectedDate),
     });
 
     if (totalDuration > 0) {
@@ -204,7 +198,7 @@ export default function BookingContainer() {
   useEffect(() => {
     if (!selectedDate) return;
 
-    if (unavailableDates.has(formatDateParam(selectedDate))) {
+    if (unavailableDates.has(toDateParam(selectedDate))) {
       setSelectedDate(null);
     }
   }, [unavailableDates, selectedDate]);
@@ -232,7 +226,7 @@ export default function BookingContainer() {
     const payload: BookingSelection = {
       serviceIds,
       stylistId,
-      date: formatDateParam(selectedDate),
+      date: toDateParam(selectedDate),
       time: selectedTime,
     };
 
