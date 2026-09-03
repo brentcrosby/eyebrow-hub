@@ -178,6 +178,7 @@ function SchedulePageContent() {
 
         {view === "week" ? (
           <WeekScheduleGrid
+            weekStart={startOfWeek(selectedDate)}
             appointments={appointments}
             availabilityBlocks={availabilityBlocks}
           />

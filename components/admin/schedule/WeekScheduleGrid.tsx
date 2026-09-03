@@ -1,7 +1,7 @@
 "use client";
 
 import { DAY_NAMES, formatHourLabel } from "@/lib/businessHours";
-import { formatTimeRange } from "@/lib/dateUtils";
+import { addDays, formatTimeRange, isSameDay } from "@/lib/dateUtils";
 import type { AvailabilityBlock, ScheduleAppointment } from "./types";
 
 const timeLabels = Array.from({ length: 24 }, (_, hour) =>
@@ -9,31 +9,39 @@ const timeLabels = Array.from({ length: 24 }, (_, hour) =>
 );
 
 type WeekScheduleGridProps = {
+  weekStart: Date;
   appointments: ScheduleAppointment[];
   availabilityBlocks: AvailabilityBlock[];
 };
 
 export default function WeekScheduleGrid({
+  weekStart,
   appointments,
   availabilityBlocks,
 }: WeekScheduleGridProps) {
+  // Match on the actual calendar date, not just the weekday. Comparing getDay()
+  // alone placed an item from any other week into the same column.
   function getAppointmentsForSlot(dayIndex: number, hourIndex: number) {
+    const dayDate = addDays(weekStart, dayIndex);
+
     return appointments.filter((appointment) => {
       const appointmentStart = new Date(appointment.startTime);
 
       return (
-        appointmentStart.getDay() === dayIndex &&
+        isSameDay(appointmentStart, dayDate) &&
         appointmentStart.getHours() === hourIndex
       );
     });
   }
 
   function getAvailabilityBlocksForSlot(dayIndex: number, hourIndex: number) {
+    const dayDate = addDays(weekStart, dayIndex);
+
     return availabilityBlocks.filter((block) => {
       const blockStart = new Date(block.startTime);
 
       return (
-        blockStart.getDay() === dayIndex && blockStart.getHours() === hourIndex
+        isSameDay(blockStart, dayDate) && blockStart.getHours() === hourIndex
       );
     });
   }
