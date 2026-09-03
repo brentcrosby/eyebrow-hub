@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isCancelled } from "@/lib/appointmentStatus";
 
 // This endpoint is written for the intended camelCase Prisma schema.
 // It requires the Appointment table to have startTime/endTime fields
@@ -29,12 +30,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Overlap, not containment: an appointment that begins before the window
+    // but runs into it belongs on the schedule. Filtering on startTime alone
+    // dropped anything straddling the boundary.
     const appointments = await db.appointment.findMany({
       where: {
-        startTime: {
-          gte: startDate,
-          lt: endDate,
-        },
+        startTime: { lt: endDate },
+        endTime: { gt: startDate },
       },
       include: {
         service: true,
@@ -44,7 +46,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(appointments, { status: 200 });
+    // status is a free-text column, so cancelled rows are excluded here rather
+    // than in the query: isCancelled normalises case and accepts both
+    // spellings, which a SQL equality check would not.
+    const visible = appointments.filter(
+      (appointment) => !isCancelled(appointment.status)
+    );
+
+    return NextResponse.json(visible, { status: 200 });
   } catch (error) {
     console.error("Failed to fetch appointments:", error);
 
