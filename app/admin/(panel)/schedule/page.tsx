@@ -24,9 +24,10 @@ import type {
 } from "@/components/admin/schedule/types";
 
 // TEMPORARY TEST FLAG:
-// Keep this true while the database has no availability block records.
-// DT-467 seeds real data and removes this along with the mock fallbacks.
-const USE_MOCK_AVAILABILITY_BLOCKS = true;
+// Now false: real availability blocks exist, and overriding a successful API
+// response with fabricated ones hid the blocked time this view is meant to
+// show. The remaining mock fallbacks are removed in DT-467.
+const USE_MOCK_AVAILABILITY_BLOCKS = false;
 
 function SchedulePageContent() {
   const router = useRouter();

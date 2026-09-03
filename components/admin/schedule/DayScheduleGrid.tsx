@@ -2,7 +2,10 @@
 
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { DAY_NAMES, formatHourLabel } from "@/lib/businessHours";
-import { formatTimeRange, minutesBetween } from "@/lib/dateUtils";
+import { minutesBetween } from "@/lib/dateUtils";
+import { layoutScheduleItems } from "@/lib/scheduleLayout";
+import type { BlockGeometry } from "./ScheduleItemBlock";
+import { AppointmentBlock, BlockedTimeBlock } from "./ScheduleItemBlock";
 import type { AvailabilityBlock, ScheduleAppointment } from "./types";
 
 // Row height drives all vertical positioning. Kept as a CSS variable so the
@@ -19,13 +22,24 @@ type DayScheduleGridProps = {
   availabilityBlocks: AvailabilityBlock[];
 };
 
-/** Offset and height in CSS calc() terms, clamped to the business-hour window. */
-function getBlockGeometry(
+type Placed<T> = {
+  item: T;
+  start: Date;
+  end: Date;
+  geometry: BlockGeometry;
+};
+
+/**
+ * Vertical offset and height in CSS calc() terms, clamped to the business-hour
+ * window. Horizontal placement defaults to full width; overlapping
+ * appointments override it once their columns are known.
+ */
+function getGeometry(
   gridStart: Date,
   totalMinutes: number,
   start: Date,
   end: Date
-) {
+): BlockGeometry & { isVisible: boolean } {
   const rawStart = minutesBetween(gridStart, start);
   const rawEnd = minutesBetween(gridStart, end);
 
@@ -35,7 +49,10 @@ function getBlockGeometry(
   return {
     top: `calc(var(--hour-h) * ${startMinute} / 60)`,
     height: `max(calc(var(--hour-h) * ${endMinute - startMinute} / 60), ${MIN_BLOCK_HEIGHT})`,
-    // Entirely outside the window once clamped to a zero-length span.
+    left: "0%",
+    width: "100%",
+    clippedStart: rawStart < 0,
+    clippedEnd: rawEnd > totalMinutes,
     isVisible: endMinute > startMinute,
   };
 }
@@ -66,6 +83,47 @@ export default function DayScheduleGrid({
     (_, index) => hours.open + index
   );
 
+  const placedBlocks: Placed<AvailabilityBlock>[] = availabilityBlocks
+    .map((block) => {
+      const start = new Date(block.startTime);
+      const end = new Date(block.endTime);
+      return {
+        item: block,
+        start,
+        end,
+        geometry: getGeometry(gridStart, totalMinutes, start, end),
+      };
+    })
+    .filter((entry) => entry.geometry.isVisible);
+
+  // Items outside the window are dropped before packing so they cannot claim a
+  // column and narrow the appointments that are actually on screen. Columns are
+  // computed from real times, not clamped ones, since two appointments overlap
+  // regardless of where the grid happens to start.
+  const visibleAppointments = appointments
+    .map((appointment) => {
+      const start = new Date(appointment.startTime);
+      const end = new Date(appointment.endTime);
+      return {
+        item: appointment,
+        start,
+        end,
+        geometry: getGeometry(gridStart, totalMinutes, start, end),
+      };
+    })
+    .filter((entry) => entry.geometry.isVisible);
+
+  const placedAppointments = layoutScheduleItems(visibleAppointments).map(
+    (entry) => ({
+      ...entry,
+      geometry: {
+        ...entry.geometry,
+        left: `${(entry.column / entry.columnCount) * 100}%`,
+        width: `${(1 / entry.columnCount) * 100}%`,
+      },
+    })
+  );
+
   return (
     <div className={`mt-6 ${HOUR_HEIGHT_CLASSES}`}>
       <div className="flex">
@@ -88,63 +146,30 @@ export default function DayScheduleGrid({
             />
           ))}
 
-          <div className="absolute inset-0">
-            {availabilityBlocks.map((block) => {
-              const start = new Date(block.startTime);
-              const end = new Date(block.endTime);
-              const geometry = getBlockGeometry(
-                gridStart,
-                totalMinutes,
-                start,
-                end
-              );
+          {/* Blocked time sits beneath appointments and spans the full width,
+              so it never narrows an appointment column. */}
+          <div className="absolute inset-0 pr-1">
+            {placedBlocks.map((entry) => (
+              <BlockedTimeBlock
+                key={`block-${entry.item.id}`}
+                block={entry.item}
+                start={entry.start}
+                end={entry.end}
+                geometry={entry.geometry}
+              />
+            ))}
+          </div>
 
-              if (!geometry.isVisible) return null;
-
-              return (
-                <div
-                  key={`block-${block.id}`}
-                  style={{ top: geometry.top, height: geometry.height }}
-                  className="absolute inset-x-0 overflow-hidden rounded-md bg-gray-200/70 px-2 py-1"
-                >
-                  <span className="block truncate text-[10px] font-medium text-gray-700 sm:text-xs">
-                    Unavailable
-                  </span>
-                  <span className="block truncate text-[10px] text-gray-600">
-                    {block.reason ?? "Blocked time"}
-                  </span>
-                </div>
-              );
-            })}
-
-            {appointments.map((appointment) => {
-              const start = new Date(appointment.startTime);
-              const end = new Date(appointment.endTime);
-              const geometry = getBlockGeometry(
-                gridStart,
-                totalMinutes,
-                start,
-                end
-              );
-
-              if (!geometry.isVisible) return null;
-
-              return (
-                <button
-                  key={`appointment-${appointment.id}`}
-                  type="button"
-                  style={{ top: geometry.top, height: geometry.height }}
-                  className="absolute inset-x-0 mr-1 overflow-hidden rounded-md border border-[#eadfce] bg-[#f3ebe2] px-2 py-1 text-left hover:bg-[#eadfce]"
-                >
-                  <span className="block truncate text-[10px] font-medium text-[#5e3d1e] sm:text-xs">
-                    {appointment.service.name}
-                  </span>
-                  <span className="block truncate text-[10px] text-[#7a5a3c]">
-                    {formatTimeRange(start, end)}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="absolute inset-0 pr-1">
+            {placedAppointments.map((entry) => (
+              <AppointmentBlock
+                key={`appointment-${entry.item.id}`}
+                appointment={entry.item}
+                start={entry.start}
+                end={entry.end}
+                geometry={entry.geometry}
+              />
+            ))}
           </div>
         </div>
       </div>
