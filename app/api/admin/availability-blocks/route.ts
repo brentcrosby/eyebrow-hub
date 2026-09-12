@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Overlap, not containment: a block that begins before the window but runs
+    // into it still blocks time inside it.
     const availabilityBlocks = await db.availabilityBlock.findMany({
       where: {
-        startTime: {
-          gte: startDate,
-          lt: endDate,
-        },
+        startTime: { lt: endDate },
+        endTime: { gt: startDate },
       },
       orderBy: {
         startTime: "asc",

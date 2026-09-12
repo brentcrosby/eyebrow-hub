@@ -1,12 +1,24 @@
-const businessHours = [
-  { day: "Monday", hours: "10:00 am - 8:00 pm" },
-  { day: "Tuesday", hours: "10:00 am - 8:00 pm" },
-  { day: "Wednesday", hours: "10:00 am - 8:00 pm" },
-  { day: "Thursday", hours: "10:00 am - 8:00 pm" },
-  { day: "Friday", hours: "10:00 am - 8:00 pm" },
-  { day: "Saturday", hours: "10:00 am - 8:00 pm" },
-  { day: "Sunday", hours: "11:00 am - 6:00 pm" },
-];
+import {
+  DAY_NAMES,
+  formatHourLabel,
+  getBusinessHoursList,
+} from "@/lib/businessHours";
+
+// Monday first for display; the shared list is Sunday first to match getDay().
+const displayOrder = [1, 2, 3, 4, 5, 6, 0];
+
+const businessHours = displayOrder.map((dayOfWeek) => {
+  const day = getBusinessHoursList()[dayOfWeek];
+
+  return {
+    day: DAY_NAMES[dayOfWeek],
+    hours: day.closed
+      ? "Closed"
+      : `${formatHourLabel(day.open).toLowerCase()} - ${formatHourLabel(
+          day.close
+        ).toLowerCase()}`,
+  };
+});
 
 export default function BusinessHours() {
   return (

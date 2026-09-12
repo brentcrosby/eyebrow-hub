@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getHoursForDay } from "@/lib/businessHours";
+import { CANCELLED_STATUS } from "@/lib/appointmentStatus";
 
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 15;
-
-const BUSINESS_HOURS: Record<number, { open: number; close: number }> = {
-  0: { open: 11, close: 18 }, // Sun
-  1: { open: 10, close: 20 }, // Mon
-  2: { open: 10, close: 20 }, // Tue
-  3: { open: 10, close: 20 }, // Wed
-  4: { open: 10, close: 20 }, // Thu
-  5: { open: 10, close: 20 }, // Fri
-  6: { open: 10, close: 20 }, // Sat
-};
 
 function formatTime(d: Date): string {
   const hours = d.getHours();
@@ -58,9 +50,9 @@ export async function GET(request: NextRequest) {
     const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
     const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
     const dayOfWeek = dayStart.getDay();
-    const hours = BUSINESS_HOURS[dayOfWeek];
+    const hours = getHoursForDay(dayOfWeek);
 
-    if (!hours) {
+    if (hours.closed) {
       return NextResponse.json([], { status: 200 });
     }
 
@@ -76,7 +68,7 @@ export async function GET(request: NextRequest) {
         where: {
           startTime: { lt: dayEnd },
           endTime: { gt: dayStart },
-          status: { not: "cancelled" },
+          status: { not: CANCELLED_STATUS },
         },
         select: { startTime: true, endTime: true },
       }),

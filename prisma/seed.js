@@ -64,6 +64,99 @@ async function main() {
   if (stylistsToCreate.length > 0) {
     await prisma.stylist.createMany({ data: stylistsToCreate });
   }
+
+  await seedScheduleDemoData();
+}
+
+// Demo appointments and blocked time for the admin schedule.
+//
+// Without these the schedule has nothing to render, which is why the page
+// previously shipped with mock fixtures. Rows are anchored to today so the
+// schedule is populated whenever the seed runs, and are tagged in `notes` so
+// re-running replaces them instead of accumulating duplicates.
+//
+// Times sit inside 11:00-18:00, the narrowest day in the business-hours table
+// (Sunday), so every row lands within opening hours whichever day you seed on.
+// The 9:00 row is the deliberate exception: it is before opening on every day,
+// which is what exercises the grid's clamping.
+const DEMO_MARKER = "seed:demo";
+
+async function seedScheduleDemoData() {
+  await prisma.appointment.deleteMany({ where: { notes: DEMO_MARKER } });
+
+  // AvailabilityBlock has no notes column to tag, and one demo block
+  // deliberately has a null reason so that render path is covered — which a
+  // reason-prefix match alone would never clean up, so re-seeding would pile up
+  // duplicates. Scope the delete to the demo window instead. Anything outside
+  // these few days, and anything carrying a real reason, is left alone.
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - 2);
+  windowStart.setHours(0, 0, 0, 0);
+
+  const windowEnd = new Date();
+  windowEnd.setDate(windowEnd.getDate() + 3);
+  windowEnd.setHours(0, 0, 0, 0);
+
+  await prisma.availabilityBlock.deleteMany({
+    where: {
+      startTime: { gte: windowStart, lt: windowEnd },
+      OR: [{ reason: { startsWith: "[demo]" } }, { reason: null }],
+    },
+  });
+
+  const services = await prisma.service.findMany();
+  const byName = (name) => services.find((service) => service.name === name);
+
+  const at = (dayOffset, hour, minute) => {
+    const date = new Date();
+    date.setDate(date.getDate() + dayOffset);
+    date.setHours(hour, minute, 0, 0);
+    return date;
+  };
+
+  const appointments = [
+    // A short booking: proves 15 minutes still renders legibly.
+    { day: 0, from: [11, 0], to: [11, 15], service: "Eyebrow", status: "confirmed", customer: "Ava Chen" },
+    // An overlapping pair: proves overlaps stay readable side by side.
+    { day: 0, from: [12, 0], to: [13, 0], service: "Full Face", status: "confirmed", customer: "Priya Raman" },
+    { day: 0, from: [12, 30], to: [13, 30], service: "Half Face", status: "pending", customer: "Dana Brooks" },
+    { day: 0, from: [14, 0], to: [14, 30], service: "Eyebrows/Lip/Chin", status: "confirmed", customer: "Sam Ortiz" },
+    // Cancelled: must never appear on the schedule.
+    { day: 0, from: [15, 0], to: [15, 15], service: "Lip", status: "cancelled", customer: "Cancelled Booking" },
+    // Starts before opening on every weekday: proves the grid clamps it.
+    { day: 0, from: [9, 0], to: [11, 30], service: "Brow Consult", status: "confirmed", customer: "Early Arrival" },
+    // Neighbouring days, so prev/next navigation has something to show.
+    { day: 1, from: [11, 30], to: [12, 0], service: "Eyebrow", status: "pending", customer: "Jordan Lee" },
+    { day: 1, from: [13, 0], to: [13, 15], service: "Unibrow", status: "confirmed", customer: "Casey Nolan" },
+    { day: -1, from: [16, 0], to: [16, 30], service: "Sideburns", status: "confirmed", customer: "Riley Park" },
+  ];
+
+  for (const item of appointments) {
+    const service = byName(item.service);
+    if (!service) continue;
+
+    await prisma.appointment.create({
+      data: {
+        serviceId: service.id,
+        startTime: at(item.day, item.from[0], item.from[1]),
+        endTime: at(item.day, item.to[0], item.to[1]),
+        status: item.status,
+        customerName: item.customer,
+        customerPhone: "(555) 010-0100",
+        customerEmail: null,
+        notes: DEMO_MARKER,
+      },
+    });
+  }
+
+  await prisma.availabilityBlock.createMany({
+    data: [
+      // With a reason, and without one, so both render paths are covered.
+      { startTime: at(0, 16, 0), endTime: at(0, 17, 0), reason: "[demo] Staff meeting" },
+      { startTime: at(0, 17, 30), endTime: at(0, 18, 0), reason: null },
+      { startTime: at(1, 15, 0), endTime: at(1, 15, 30), reason: "[demo] Supply delivery" },
+    ],
+  });
 }
 
 main()

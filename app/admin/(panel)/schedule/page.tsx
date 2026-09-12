@@ -1,484 +1,208 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { BusinessHoursDay } from "@/lib/businessHours";
+import {
+  addDays,
+  parseDateParam,
+  startOfDay,
+  startOfWeek,
+  toDateParam,
+} from "@/lib/dateUtils";
+import DayScheduleGrid from "@/components/admin/schedule/DayScheduleGrid";
+import ScheduleDayNav from "@/components/admin/schedule/ScheduleDayNav";
+import WeekScheduleGrid from "@/components/admin/schedule/WeekScheduleGrid";
+import {
+  ScheduleEmptyState,
+  ScheduleErrorState,
+  ScheduleLoadingState,
+} from "@/components/admin/schedule/ScheduleStates";
+import type {
+  AvailabilityBlock,
+  ScheduleAppointment,
+  ScheduleView,
+} from "@/components/admin/schedule/types";
 
-type ScheduleAppointment = {
-  id: number;
-  serviceId: number;
-  startTime: string;
-  endTime: string;
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string | null;
-  notes: string | null;
-  status: string;
-  service: {
-    id: number;
-    name: string;
-    price: string;
-    durationMinutes: number;
-    active: boolean;
-  };
-};
-
-type AvailabilityBlock = {
-  id: number;
-  startTime: string;
-  endTime: string;
-  reason: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-// TEMPORARY TEST FLAG:
-// Keep this true while the database has no availability block records.
-// Change this to false once real availability blocks exist in the database.
-const USE_MOCK_AVAILABILITY_BLOCKS = true;
-
-function getStartOfWeek(date: Date) {
-  const dayOfWeek = date.getDay();
-
-  const startOfWeek = new Date(date);
-  startOfWeek.setDate(date.getDate() - dayOfWeek);
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  return startOfWeek;
+function isAbort(error: unknown) {
+  return (error as Error)?.name === "AbortError";
 }
 
-function getWeekRange(date: Date) {
-  const startOfWeek = getStartOfWeek(date);
+function SchedulePageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  const dateParam = searchParams.get("date");
+  const view: ScheduleView =
+    searchParams.get("view") === "week" ? "week" : "day";
 
-  const startMonth = startOfWeek.toLocaleString("en-US", { month: "long" });
-  const endMonth = endOfWeek.toLocaleString("en-US", { month: "long" });
+  // Memoised on the raw param so the fetch effect is not re-run by a new Date
+  // instance on every render. An unparseable or missing date falls back to
+  // today rather than rendering a plausible but wrong day.
+  const selectedDate = useMemo(
+    () => parseDateParam(dateParam) ?? startOfDay(new Date()),
+    [dateParam]
+  );
 
-  const startDay = startOfWeek.getDate();
-  const endDay = endOfWeek.getDate();
-
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay}–${endDay}`;
-  }
-
-  return `${startMonth} ${startDay}–${endMonth} ${endDay}`;
-}
-
-function formatHour(hour: number) {
-  if (hour === 0) return "12:00 AM";
-  if (hour < 12) return `${hour}:00 AM`;
-  if (hour === 12) return "12:00 PM";
-  return `${hour - 12}:00 PM`;
-}
-
-function formatAppointmentTime(startTime: string, endTime: string) {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-
-  const formattedStart = start.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-  const formattedEnd = end.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-  return `${formattedStart} - ${formattedEnd}`;
-}
-
-function getMockAppointments(currentDate: Date): ScheduleAppointment[] {
-  const startOfWeek = getStartOfWeek(currentDate);
-
-  const monday = new Date(startOfWeek);
-  monday.setDate(startOfWeek.getDate() + 1);
-  monday.setHours(10, 0, 0, 0);
-
-  const mondayEnd = new Date(monday);
-  mondayEnd.setMinutes(monday.getMinutes() + 30);
-
-  const wednesday = new Date(startOfWeek);
-  wednesday.setDate(startOfWeek.getDate() + 3);
-  wednesday.setHours(14, 0, 0, 0);
-
-  const wednesdayEnd = new Date(wednesday);
-  wednesdayEnd.setHours(wednesday.getHours() + 1);
-
-  const friday = new Date(startOfWeek);
-  friday.setDate(startOfWeek.getDate() + 5);
-  friday.setHours(16, 0, 0, 0);
-
-  const fridayEnd = new Date(friday);
-  fridayEnd.setMinutes(friday.getMinutes() + 45);
-
-  return [
-    {
-      id: 1,
-      serviceId: 1,
-      startTime: monday.toISOString(),
-      endTime: mondayEnd.toISOString(),
-      customerName: "Test Customer",
-      customerPhone: "555-555-5555",
-      customerEmail: null,
-      notes: null,
-      status: "pending",
-      service: {
-        id: 1,
-        name: "Eyebrow Threading",
-        price: "20.00",
-        durationMinutes: 30,
-        active: true,
-      },
-    },
-    {
-      id: 2,
-      serviceId: 2,
-      startTime: wednesday.toISOString(),
-      endTime: wednesdayEnd.toISOString(),
-      customerName: "Test Customer 2",
-      customerPhone: "555-555-5555",
-      customerEmail: "test@example.com",
-      notes: null,
-      status: "confirmed",
-      service: {
-        id: 2,
-        name: "Lash Lift",
-        price: "50.00",
-        durationMinutes: 60,
-        active: true,
-      },
-    },
-    {
-      id: 3,
-      serviceId: 3,
-      startTime: friday.toISOString(),
-      endTime: fridayEnd.toISOString(),
-      customerName: "Test Customer 3",
-      customerPhone: "555-555-5555",
-      customerEmail: "test3@example.com",
-      notes: null,
-      status: "confirmed",
-      service: {
-        id: 3,
-        name: "Brow Tint",
-        price: "30.00",
-        durationMinutes: 45,
-        active: true,
-      },
-    },
-  ];
-}
-
-function getMockAvailabilityBlocks(currentDate: Date): AvailabilityBlock[] {
-  const startOfWeek = getStartOfWeek(currentDate);
-
-  const tuesday = new Date(startOfWeek);
-  tuesday.setDate(startOfWeek.getDate() + 2);
-  tuesday.setHours(12, 0, 0, 0);
-
-  const tuesdayEnd = new Date(tuesday);
-  tuesdayEnd.setHours(tuesday.getHours() + 1);
-
-  const thursday = new Date(startOfWeek);
-  thursday.setDate(startOfWeek.getDate() + 4);
-  thursday.setHours(9, 0, 0, 0);
-
-  const thursdayEnd = new Date(thursday);
-  thursdayEnd.setMinutes(thursday.getMinutes() + 30);
-
-  return [
-    {
-      id: 1,
-      startTime: tuesday.toISOString(),
-      endTime: tuesdayEnd.toISOString(),
-      reason: "Lunch break",
-    },
-    {
-      id: 2,
-      startTime: thursday.toISOString(),
-      endTime: thursdayEnd.toISOString(),
-      reason: "Unavailable",
-    },
-  ];
-}
-
-const weekDays = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-const timeLabels = Array.from({ length: 24 }, (_, hour) => formatHour(hour));
-
-export default function AdminSchedulePage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [businessHours, setBusinessHours] = useState<BusinessHoursDay[] | null>(
+    null
+  );
   const [appointments, setAppointments] = useState<ScheduleAppointment[]>([]);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<
     AvailabilityBlock[]
   >([]);
-  const [appointmentsError, setAppointmentsError] = useState<string | null>(
-    null
-  );
-  const [availabilityBlocksMessage, setAvailabilityBlocksMessage] = useState<
-    string | null
-  >(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const currentWeekRange = getWeekRange(currentDate);
+  const retry = useCallback(() => setReloadKey((key) => key + 1), []);
+
+  const hoursForDay =
+    businessHours?.find((day) => day.dayOfWeek === selectedDate.getDay()) ??
+    null;
+
+  function updateParams(next: { date?: Date; view?: ScheduleView }) {
+    const params = new URLSearchParams();
+    params.set("date", toDateParam(next.date ?? selectedDate));
+    params.set("view", next.view ?? view);
+
+    router.replace(`/admin/schedule?${params.toString()}`);
+  }
 
   useEffect(() => {
-    async function fetchAppointments() {
-      const startOfWeek = getStartOfWeek(currentDate);
+    const controller = new AbortController();
 
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 7);
+    const rangeStart =
+      view === "week" ? startOfWeek(selectedDate) : startOfDay(selectedDate);
+    const rangeEnd = addDays(rangeStart, view === "week" ? 7 : 1);
+    const range = `start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`;
+
+    async function load() {
+      setIsLoading(true);
+      setError(null);
 
       try {
-        const response = await fetch(
-          `/api/admin/appointments?start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`
-        );
+        const [hoursResponse, appointmentsResponse, blocksResponse] =
+          await Promise.all([
+            fetch("/api/business-hours", { signal: controller.signal }),
+            fetch(`/api/admin/appointments?${range}`, {
+              signal: controller.signal,
+            }),
+            fetch(`/api/admin/availability-blocks?${range}`, {
+              signal: controller.signal,
+            }),
+          ]);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch appointments");
+        if (
+          !hoursResponse.ok ||
+          !appointmentsResponse.ok ||
+          !blocksResponse.ok
+        ) {
+          throw new Error("Request failed");
         }
 
-        const data: ScheduleAppointment[] = await response.json();
+        const [hours, appointmentData, blockData] = await Promise.all([
+          hoursResponse.json(),
+          appointmentsResponse.json(),
+          blocksResponse.json(),
+        ]);
 
-        setAppointments(data);
-        setAppointmentsError(null);
-      } catch {
-        /*
-          TEMPORARY MOCK DATA:
+        setBusinessHours(hours);
+        setAppointments(appointmentData);
+        setAvailabilityBlocks(blockData);
+        setIsLoading(false);
+      } catch (caught) {
+        if (isAbort(caught)) return;
 
-          This is only here because the backend/database schema is not fully synced yet.
-          It lets us test that appointments appear in the correct day and time slots.
+        console.error("Failed to load schedule:", caught);
 
-          AFTER THE BACKEND IS WORKING:
-          1. Remove these two lines:
-             setAppointments(getMockAppointments(currentDate));
-             setAppointmentsError("Using mock appointments until backend is ready.");
-
-          2. Uncomment the two lines below:
-             setAppointments([]);
-             setAppointmentsError("Appointments could not be loaded.");
-        */
-
-        setAppointments(getMockAppointments(currentDate));
-        setAppointmentsError("Using mock appointments until backend is ready.");
-
-        // setAppointments([]);
-        // setAppointmentsError("Appointments could not be loaded.");
+        // No fallback data: showing invented appointments would be worse than
+        // showing nothing, because staff cannot tell the difference.
+        setAppointments([]);
+        setAvailabilityBlocks([]);
+        setError("The schedule could not be loaded.");
+        setIsLoading(false);
       }
     }
 
-    async function fetchAvailabilityBlocks() {
-      const startOfWeek = getStartOfWeek(currentDate);
+    load();
 
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 7);
+    return () => controller.abort();
+  }, [selectedDate, view, reloadKey]);
 
-      try {
-        const response = await fetch(
-          `/api/admin/availability-blocks?start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`
-        );
+  const isEmpty =
+    !isLoading &&
+    !error &&
+    appointments.length === 0 &&
+    availabilityBlocks.length === 0;
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch availability blocks");
-        }
+  const emptyMessage =
+    view === "week"
+      ? "No appointments or blocked time this week."
+      : "No appointments or blocked time for this day.";
 
-        const data: AvailabilityBlock[] = await response.json();
-
-        /*
-          TEMPORARY MOCK AVAILABILITY BLOCKS:
-
-          The availability-blocks API works, but the database may not have real
-          blocked time records yet. Keep USE_MOCK_AVAILABILITY_BLOCKS true to
-          force mock unavailable times to appear for UI testing.
-
-          AFTER REAL AVAILABILITY BLOCKS EXIST IN THE DATABASE:
-          1. Change USE_MOCK_AVAILABILITY_BLOCKS to false.
-          2. Or remove this if/else and just keep:
-             setAvailabilityBlocks(data);
-             setAvailabilityBlocksMessage(null);
-        */
-
-        if (USE_MOCK_AVAILABILITY_BLOCKS) {
-          setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
-          setAvailabilityBlocksMessage(
-            "Using mock availability blocks until real blocked times exist."
-          );
-        } else {
-          setAvailabilityBlocks(data);
-          setAvailabilityBlocksMessage(null);
-        }
-      } catch {
-        setAvailabilityBlocks(getMockAvailabilityBlocks(currentDate));
-        setAvailabilityBlocksMessage(
-          "Using mock availability blocks until backend is ready."
-        );
-      }
+  function renderSchedule() {
+    if (error) {
+      return <ScheduleErrorState message={error} onRetry={retry} />;
     }
 
-    fetchAppointments();
-    fetchAvailabilityBlocks();
-  }, [currentDate]);
+    if (isLoading || !businessHours) {
+      return <ScheduleLoadingState rowCount={view === "week" ? 6 : 5} />;
+    }
 
-  function handlePreviousWeek() {
-    const previousWeek = new Date(currentDate);
-    previousWeek.setDate(currentDate.getDate() - 7);
-    setCurrentDate(previousWeek);
-  }
+    return (
+      <div className="relative">
+        {view === "week" ? (
+          <WeekScheduleGrid
+            weekStart={startOfWeek(selectedDate)}
+            appointments={appointments}
+            availabilityBlocks={availabilityBlocks}
+          />
+        ) : (
+          hoursForDay && (
+            <DayScheduleGrid
+              date={selectedDate}
+              hours={hoursForDay}
+              appointments={appointments}
+              availabilityBlocks={availabilityBlocks}
+            />
+          )
+        )}
 
-  function handleNextWeek() {
-    const nextWeek = new Date(currentDate);
-    nextWeek.setDate(currentDate.getDate() + 7);
-    setCurrentDate(nextWeek);
-  }
-
-  function getAppointmentsForSlot(dayIndex: number, hourIndex: number) {
-    return appointments.filter((appointment) => {
-      const appointmentStart = new Date(appointment.startTime);
-
-      return (
-        appointmentStart.getDay() === dayIndex &&
-        appointmentStart.getHours() === hourIndex
-      );
-    });
-  }
-
-  function getAvailabilityBlocksForSlot(dayIndex: number, hourIndex: number) {
-    return availabilityBlocks.filter((block) => {
-      const blockStart = new Date(block.startTime);
-
-      return (
-        blockStart.getDay() === dayIndex && blockStart.getHours() === hourIndex
-      );
-    });
+        {isEmpty && <ScheduleEmptyState message={emptyMessage} />}
+      </div>
+    );
   }
 
   return (
-    <main className="min-h-screen p-4 sm:p-6">
-      <section className="mx-auto w-full max-w-[1400px]">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-lg border border-gray-200 p-4">
-          <button
-            type="button"
-            onClick={handlePreviousWeek}
-            className="rounded border border-gray-200 px-3 py-1"
-            aria-label="Previous week"
-          >
-            ←
-          </button>
+    <main className="min-h-full p-3 sm:p-6">
+      <section className="mx-auto w-full max-w-[1400px] rounded-[28px] bg-[#fcf8f3] px-3 py-5 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
+        <ScheduleDayNav
+          selectedDate={selectedDate}
+          view={view}
+          hours={hoursForDay}
+          onDateChange={(date) => updateParams({ date })}
+          onViewChange={(nextView) => updateParams({ view: nextView })}
+        />
 
-          <h2 className="text-center text-lg font-medium sm:text-xl">
-            {currentWeekRange}
-          </h2>
-
-          <button
-            type="button"
-            onClick={handleNextWeek}
-            className="rounded border border-gray-200 px-3 py-1"
-            aria-label="Next week"
-          >
-            →
-          </button>
-        </div>
-
-        {appointmentsError && (
-          <p className="mt-4 text-sm text-red-600">{appointmentsError}</p>
-        )}
-
-        {availabilityBlocksMessage && (
-          <p className="mt-2 text-sm text-red-600">
-            {availabilityBlocksMessage}
-          </p>
-        )}
-
-        <div className="mt-6 grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)] pb-3 text-center text-sm font-medium text-gray-700 sm:text-base">
-          <div />
-          {weekDays.map((day) => (
-            <div key={day} className="min-w-0">
-              <span className="block truncate">{day}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="schedule-scroll mt-4 max-h-[650px] overflow-y-auto">
-          <div className="grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)]">
-            {timeLabels.map((time, rowIndex) => {
-              const isLastRow = rowIndex === timeLabels.length - 1;
-
-              return (
-                <div key={time} className="contents">
-                  <div className="flex h-[clamp(56px,8vh,96px)] items-center justify-center pr-1 text-[10px] text-gray-700 sm:pr-3 sm:text-sm">
-                    {time}
-                  </div>
-
-                  {weekDays.map((day, dayIndex) => {
-                    const slotAppointments = getAppointmentsForSlot(
-                      dayIndex,
-                      rowIndex
-                    );
-
-                    const slotAvailabilityBlocks =
-                      getAvailabilityBlocksForSlot(dayIndex, rowIndex);
-
-                    return (
-                      <div
-                        key={`${day}-${time}`}
-                        className={`h-[clamp(56px,8vh,96px)] border-l border-gray-200 p-1 ${
-                          !isLastRow ? "border-b border-gray-200" : ""
-                        } ${day === "Sunday" ? "border-l-0" : ""}`}
-                      >
-                        {slotAvailabilityBlocks.map((block) => (
-                          <div
-                            key={block.id}
-                            className="mb-1 w-full rounded-md bg-gray-200 px-2 py-1 text-left text-[10px] text-gray-700 sm:text-xs"
-                          >
-                            <span className="block truncate font-medium">
-                              Unavailable
-                            </span>
-                            <span className="block truncate">
-                              {block.reason ?? "Blocked time"}
-                            </span>
-                            <span className="block truncate">
-                              {formatAppointmentTime(
-                                block.startTime,
-                                block.endTime
-                              )}
-                            </span>
-                          </div>
-                        ))}
-
-                        {slotAppointments.map((appointment) => (
-                          <button
-                            key={appointment.id}
-                            type="button"
-                            className="mb-1 w-full rounded-md bg-gray-100 px-2 py-1 text-left text-[10px] text-gray-700 hover:bg-gray-200 sm:text-xs"
-                          >
-                            <span className="block truncate font-medium">
-                              {appointment.service.name}
-                            </span>
-                            <span className="block truncate">
-                              {formatAppointmentTime(
-                                appointment.startTime,
-                                appointment.endTime
-                              )}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {renderSchedule()}
       </section>
     </main>
+  );
+}
+
+export default function AdminSchedulePage() {
+  // useSearchParams needs a Suspense boundary or the production build fails
+  // while prerendering this route.
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-full p-3 sm:p-6">
+          <p className="text-sm text-[#7a5a3c]">Loading schedule…</p>
+        </main>
+      }
+    >
+      <SchedulePageContent />
+    </Suspense>
   );
 }
