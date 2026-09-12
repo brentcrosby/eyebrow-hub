@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isCancelled } from "@/lib/appointmentStatus";
 import { requireAdmin } from "@/lib/adminAuth";
@@ -83,9 +84,41 @@ function parseDateTime(date: string, time: string) {
   );
 }
 
-// Staff-entered phone/walk-in appointments. Availability/conflict checking
-// (DT-464) is deliberately not done here yet — this only validates the
-// submitted fields and saves the appointment.
+class SchedulingConflictError extends Error {}
+
+// Blocked time always conflicts, regardless of stylist. An appointment only
+// conflicts when it's booked with the *same* stylist — a different stylist
+// at the same time is not a conflict. When no stylist is assigned, only
+// blocked time is checked, since there is no specific resource to double-book.
+async function hasSchedulingConflict(
+  tx: Prisma.TransactionClient,
+  startTime: Date,
+  endTime: Date,
+  stylistId: number | null
+): Promise<boolean> {
+  const [blocks, appointments] = await Promise.all([
+    tx.availabilityBlock.findMany({
+      where: { startTime: { lt: endTime }, endTime: { gt: startTime } },
+      select: { id: true },
+    }),
+    stylistId !== null
+      ? tx.appointment.findMany({
+          where: {
+            stylistId,
+            startTime: { lt: endTime },
+            endTime: { gt: startTime },
+          },
+          select: { status: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  if (blocks.length > 0) return true;
+
+  return appointments.some((appointment) => !isCancelled(appointment.status));
+}
+
+// Staff-entered phone/walk-in appointments.
 export async function POST(request: NextRequest) {
   const unauthorized = requireAdmin(request);
   if (unauthorized) return unauthorized;
@@ -156,29 +189,64 @@ export async function POST(request: NextRequest) {
       startTime.getTime() + service.durationMinutes * 60_000
     );
 
-    // A single db.appointment.create() is already atomic — there is no
-    // multi-table write here for a failure to leave half-finished.
-    const appointment = await db.appointment.create({
-      data: {
-        serviceId: service.id,
-        stylistId,
-        startTime,
-        endTime,
-        customerName: customerName.trim(),
-        customerPhone,
-        customerEmail: customerEmail?.trim() || null,
-        notes: notes?.trim() || null,
-        status,
-        source: MANUAL_SOURCE,
+    // The conflict check and the create happen inside one serializable
+    // transaction, so a second, near-simultaneous request for the same
+    // stylist and time cannot also pass the check before the first request's
+    // row becomes visible.
+    const appointment = await db.$transaction(
+      async (tx) => {
+        const conflict = await hasSchedulingConflict(
+          tx,
+          startTime,
+          endTime,
+          stylistId
+        );
+
+        if (conflict) {
+          throw new SchedulingConflictError();
+        }
+
+        return tx.appointment.create({
+          data: {
+            serviceId: service.id,
+            stylistId,
+            startTime,
+            endTime,
+            customerName: customerName.trim(),
+            customerPhone,
+            customerEmail: customerEmail?.trim() || null,
+            notes: notes?.trim() || null,
+            status,
+            source: MANUAL_SOURCE,
+          },
+          include: {
+            service: true,
+            stylist: true,
+          },
+        });
       },
-      include: {
-        service: true,
-        stylist: true,
-      },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     return NextResponse.json({ success: true, appointment }, { status: 201 });
   } catch (error) {
+    const isConflict =
+      error instanceof SchedulingConflictError ||
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034");
+
+    if (isConflict) {
+      return NextResponse.json(
+        {
+          success: false,
+          errors: {
+            time: "This stylist is no longer available at that time",
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     console.error("Failed to create manual appointment:", error);
 
     return NextResponse.json(
