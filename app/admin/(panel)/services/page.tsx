@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 export default function AdminServicesPage() {
   type Employee = {
@@ -28,52 +28,55 @@ export default function AdminServicesPage() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [error, setError] = useState<string>("");
 
-  const fetchEmployees = useCallback(async () => {
-    try {
-      const response = await fetch('/api/stylists');
-      if (response.ok) {
-        const data: Employee[] = await response.json();
-        setEmployees(data);
-        if (data.length > 0) {
-          setSelectedEmployee(data[0].id);
+  useEffect(() => {
+    async function fetchEmployees() {
+      try {
+        const response = await fetch("/api/stylists");
+        if (response.ok) {
+          const data: Employee[] = await response.json();
+          setEmployees(data);
+          if (data.length > 0) {
+            setSelectedEmployee(data[0].id);
+          }
+        } else {
+          setError("Failed to fetch employees");
+          console.error("Failed to fetch employees:", response.status);
         }
-      } else {
-        setError('Failed to fetch employees');
-        console.error('Failed to fetch employees:', response.status);
+      } catch (err) {
+        setError("Failed to fetch employees");
+        console.error("Failed to fetch employees:", err);
       }
-    } catch (err) {
-      setError('Failed to fetch employees');
-      console.error('Failed to fetch employees:', err);
     }
+    void fetchEmployees();
   }, []);
 
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
-
-  useEffect(() => {
-    if (selectedEmployee !== null) {
-      fetchEmployeeServices(selectedEmployee);
+    if (selectedEmployee === null) return;
+    async function fetchEmployeeServices() {
+      try {
+        const response = await fetch(
+          `/api/admin/employee-services?employeeId=${selectedEmployee}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setServices(data.services);
+        } else {
+          setError("Failed to fetch employee services");
+          console.error("Failed to fetch employee services:", response.status);
+        }
+      } catch (err) {
+        setError("Failed to fetch employee services");
+        console.error("Failed to fetch employee services:", err);
+      } finally {
+        setLoading(false);
+      }
     }
+    void fetchEmployeeServices();
   }, [selectedEmployee]);
 
-  async function fetchEmployeeServices(employeeId: number) {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/employee-services?employeeId=${employeeId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setServices(data.services);
-      } else {
-        setError('Failed to fetch employee services');
-        console.error('Failed to fetch employee services:', response.status);
-      }
-    } catch (err) {
-      setError('Failed to fetch employee services');
-      console.error('Failed to fetch employee services:', err);
-    } finally {
-      setLoading(false);
-    }
+  function handleEmployeeChange(employeeId: number) {
+    setLoading(true);
+    setSelectedEmployee(employeeId);
   }
 
   function validateService(): boolean {
@@ -99,11 +102,11 @@ export default function AdminServicesPage() {
     if (!validateService()) return;
 
     const newServiceEntry: Service = {
-      id: Math.max(...services.map(s => s.id), 0) + 1,
+      id: Math.max(...services.map((s) => s.id), 0) + 1,
       name: newService.trim(),
       durationMinutes: parseInt(newDuration),
       price: newPrice,
-      active: newActive
+      active: newActive,
     };
     setServices([...services, newServiceEntry]);
     resetForm();
@@ -121,9 +124,15 @@ export default function AdminServicesPage() {
   function handleUpdateService() {
     if (!validateService() || !editingService) return;
 
-    const updatedServices = services.map(s =>
+    const updatedServices = services.map((s) =>
       s.id === editingService.id
-        ? { ...s, name: newService.trim(), durationMinutes: parseInt(newDuration), price: newPrice, active: newActive }
+        ? {
+            ...s,
+            name: newService.trim(),
+            durationMinutes: parseInt(newDuration),
+            price: newPrice,
+            active: newActive,
+          }
         : s
     );
     setServices(updatedServices);
@@ -137,20 +146,23 @@ export default function AdminServicesPage() {
 
   async function handleDeleteService(id: number) {
     try {
-      const response = await fetch(`/api/admin/employee-services?serviceId=${id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/admin/employee-services?serviceId=${id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (response.ok) {
-        const updatedServices = services.filter(service => service.id !== id);
+        const updatedServices = services.filter((service) => service.id !== id);
         setServices(updatedServices);
       } else {
-        setError('Failed to delete service');
-        console.error('Failed to delete service:', response.status);
+        setError("Failed to delete service");
+        console.error("Failed to delete service:", response.status);
       }
     } catch (err) {
-      setError('Failed to delete service');
-      console.error('Failed to delete service:', err);
+      setError("Failed to delete service");
+      console.error("Failed to delete service:", err);
     }
   }
 
@@ -177,7 +189,9 @@ export default function AdminServicesPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
               value={selectedEmployee || ""}
-              onChange={(event) => setSelectedEmployee(Number(event.target.value))}
+              onChange={(event) =>
+                handleEmployeeChange(Number(event.target.value))
+              }
               className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm capitalize text-[#7a5a3c] outline-none hover:border-[#bfa17a] transition-colors"
             >
               {employees.map((employee) => (
@@ -198,7 +212,11 @@ export default function AdminServicesPage() {
 
           {selectedEmployee !== null && (
             <p className="mt-4 text-sm font-medium text-[#7a5a3c]">
-              Showing services for <span className="capitalize">{employees.find((employee) => employee.id === selectedEmployee)?.name ?? "Employee"}</span>
+              Showing services for{" "}
+              <span className="capitalize">
+                {employees.find((employee) => employee.id === selectedEmployee)
+                  ?.name ?? "Employee"}
+              </span>
             </p>
           )}
 
@@ -239,10 +257,12 @@ export default function AdminServicesPage() {
 
               <button
                 type="button"
-                onClick={editingService ? handleUpdateService : handleAddService}
+                onClick={
+                  editingService ? handleUpdateService : handleAddService
+                }
                 className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
               >
-                {editingService ? 'Update' : 'Save'}
+                {editingService ? "Update" : "Save"}
               </button>
 
               <button
@@ -273,9 +293,13 @@ export default function AdminServicesPage() {
 
         <div className="mt-3 overflow-hidden rounded-2xl border border-[#eadfce] bg-white shadow-sm">
           {loading ? (
-            <div className="px-4 py-3 text-sm text-[#7a5a3c]">Loading services...</div>
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">
+              Loading services...
+            </div>
           ) : services.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-[#7a5a3c]">No services found.</div>
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">
+              No services found.
+            </div>
           ) : (
             services.map((item) => (
               <div
@@ -285,7 +309,9 @@ export default function AdminServicesPage() {
                 <p>{item.name}</p>
                 <p>{item.durationMinutes}</p>
                 <p>${parseFloat(item.price).toFixed(2)}</p>
-                <p className="text-center">{item.active ? "Active" : "Inactive"}</p>
+                <p className="text-center">
+                  {item.active ? "Active" : "Inactive"}
+                </p>
                 <div className="flex justify-center">
                   <button
                     onClick={() => handleEditService(item)}
@@ -306,7 +332,7 @@ export default function AdminServicesPage() {
             ))
           )}
         </div>
-      </section> 
+      </section>
     </main>
   );
 }

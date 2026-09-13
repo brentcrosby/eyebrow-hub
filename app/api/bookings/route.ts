@@ -4,7 +4,8 @@ import { bookingRequestSchema } from "@/lib/validations/booking";
 
 function parseDateTime(date: string, time: string) {
   const [hhmm, ampm] = time.split(" ");
-  let [hour, minute] = hhmm.split(":").map(Number);
+  const [parsedHour, minute] = hhmm.split(":").map(Number);
+  let hour = parsedHour;
 
   if (ampm === "PM" && hour !== 12) hour += 12;
   if (ampm === "AM" && hour === 12) hour = 0;
@@ -33,7 +34,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { serviceIds, stylistId, date, time, name, email, phone } = parsed.data;
+    const { serviceIds, stylistId, date, time, name, email, phone } =
+      parsed.data;
 
     const errors: Record<string, string> = {};
 

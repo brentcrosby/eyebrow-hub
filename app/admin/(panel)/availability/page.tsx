@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DAY_NAMES } from "@/lib/businessHours";
 
 type BusinessHour = {
@@ -34,16 +34,13 @@ const timeToMinutes = (time: string) => {
 };
 
 export default function AdminAvailabilityPage() {
-  const [businessHours, setBusinessHours] = useState<
-    BusinessHour[]
-  >([]);
+  const [businessHours, setBusinessHours] = useState<BusinessHour[]>([]);
 
-  const [schedulingRule, setSchedulingRule] =
-    useState<SchedulingRule>({
-      minimumNoticeMinutes: 120,
-      maximumAdvanceDays: 30,
-      bufferMinutes: 15,
-    });
+  const [schedulingRule, setSchedulingRule] = useState<SchedulingRule>({
+    minimumNoticeMinutes: 120,
+    maximumAdvanceDays: 30,
+    bufferMinutes: 15,
+  });
 
   const [blocks, setBlocks] = useState<Block[]>([]);
 
@@ -57,19 +54,16 @@ export default function AdminAvailabilityPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setMessage("");
+  useEffect(() => {
+    async function load() {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setFullYear(end.getFullYear() + 1);
 
-    const end = new Date(start);
-    end.setFullYear(end.getFullYear() + 1);
-
-    try {
-      const [settingsResponse, blocksResponse] =
-        await Promise.all([
+      try {
+        const [settingsResponse, blocksResponse] = await Promise.all([
           fetch("/api/admin/availability-settings"),
           fetch(
             `/api/admin/availability-blocks?start=${encodeURIComponent(
@@ -78,45 +72,37 @@ export default function AdminAvailabilityPage() {
           ),
         ]);
 
-      const settings = await settingsResponse.json();
-      const savedBlocks = await blocksResponse.json();
+        const settings = await settingsResponse.json();
+        const savedBlocks = await blocksResponse.json();
 
-      if (!settingsResponse.ok) {
-        throw new Error(
-          settings.error ??
-            "Could not load availability settings"
+        if (!settingsResponse.ok) {
+          throw new Error(
+            settings.error ?? "Could not load availability settings"
+          );
+        }
+
+        if (!blocksResponse.ok) {
+          throw new Error(
+            savedBlocks.error ?? "Could not load unavailable times"
+          );
+        }
+
+        setBusinessHours(settings.businessHours);
+        setSchedulingRule(settings.schedulingRule);
+        setBlocks(savedBlocks);
+      } catch (error) {
+        setMessage(
+          error instanceof Error ? error.message : "Could not load availability"
         );
+      } finally {
+        setLoading(false);
       }
-
-      if (!blocksResponse.ok) {
-        throw new Error(
-          savedBlocks.error ??
-            "Could not load unavailable times"
-        );
-      }
-
-      setBusinessHours(settings.businessHours);
-      setSchedulingRule(settings.schedulingRule);
-      setBlocks(savedBlocks);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not load availability"
-      );
-    } finally {
-      setLoading(false);
     }
+
+    void load();
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  function updateHour(
-    dayOfWeek: number,
-    changes: Partial<BusinessHour>
-  ) {
+  function updateHour(dayOfWeek: number, changes: Partial<BusinessHour>) {
     setBusinessHours((current) =>
       current.map((day) =>
         day.dayOfWeek === dayOfWeek
@@ -132,26 +118,21 @@ export default function AdminAvailabilityPage() {
   async function saveSettings() {
     setMessage("");
 
-    const response = await fetch(
-      "/api/admin/availability-settings",
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          businessHours,
-          schedulingRule,
-        }),
-      }
-    );
+    const response = await fetch("/api/admin/availability-settings", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        businessHours,
+        schedulingRule,
+      }),
+    });
 
     const result = await response.json();
 
     if (!response.ok) {
-      setMessage(
-        result.error ?? "Could not save settings"
-      );
+      setMessage(result.error ?? "Could not save settings");
       return;
     }
 
@@ -163,42 +144,31 @@ export default function AdminAvailabilityPage() {
   async function addBlock() {
     setMessage("");
 
-    if (
-      !blockForm.date ||
-      !blockForm.startTime ||
-      !blockForm.endTime
-    ) {
-      setMessage(
-        "Date, start time, and end time are required."
-      );
+    if (!blockForm.date || !blockForm.startTime || !blockForm.endTime) {
+      setMessage("Date, start time, and end time are required.");
       return;
     }
 
-    const response = await fetch(
-      "/api/admin/availability-blocks",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          startTime: new Date(
-            `${blockForm.date}T${blockForm.startTime}:00`
-          ).toISOString(),
-          endTime: new Date(
-            `${blockForm.date}T${blockForm.endTime}:00`
-          ).toISOString(),
-          reason: blockForm.reason,
-        }),
-      }
-    );
+    const response = await fetch("/api/admin/availability-blocks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        startTime: new Date(
+          `${blockForm.date}T${blockForm.startTime}:00`
+        ).toISOString(),
+        endTime: new Date(
+          `${blockForm.date}T${blockForm.endTime}:00`
+        ).toISOString(),
+        reason: blockForm.reason,
+      }),
+    });
 
     const result = await response.json();
 
     if (!response.ok) {
-      setMessage(
-        result.error ?? "Could not add unavailable time"
-      );
+      setMessage(result.error ?? "Could not add unavailable time");
       return;
     }
 
@@ -221,25 +191,18 @@ export default function AdminAvailabilityPage() {
   async function deleteBlock(id: number) {
     setMessage("");
 
-    const response = await fetch(
-      `/api/admin/availability-blocks?id=${id}`,
-      {
-        method: "DELETE",
-      }
-    );
+    const response = await fetch(`/api/admin/availability-blocks?id=${id}`, {
+      method: "DELETE",
+    });
 
     if (!response.ok) {
       const result = await response.json();
 
-      setMessage(
-        result.error ?? "Could not delete unavailable time"
-      );
+      setMessage(result.error ?? "Could not delete unavailable time");
       return;
     }
 
-    setBlocks((current) =>
-      current.filter((block) => block.id !== id)
-    );
+    setBlocks((current) => current.filter((block) => block.id !== id));
 
     setMessage("Unavailable time deleted.");
   }
@@ -267,9 +230,7 @@ export default function AdminAvailabilityPage() {
         )}
 
         {loading ? (
-          <p className="mt-8 text-[#7a5a3c]">
-            Loading saved availability...
-          </p>
+          <p className="mt-8 text-[#7a5a3c]">Loading saved availability...</p>
         ) : (
           <div className="mt-8 space-y-6">
             <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
@@ -294,9 +255,7 @@ export default function AdminAvailabilityPage() {
                       value={minutesToTime(day.openMinutes)}
                       onChange={(event) =>
                         updateHour(day.dayOfWeek, {
-                          openMinutes: timeToMinutes(
-                            event.target.value
-                          ),
+                          openMinutes: timeToMinutes(event.target.value),
                         })
                       }
                       className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm"
@@ -309,9 +268,7 @@ export default function AdminAvailabilityPage() {
                       value={minutesToTime(day.closeMinutes)}
                       onChange={(event) =>
                         updateHour(day.dayOfWeek, {
-                          closeMinutes: timeToMinutes(
-                            event.target.value
-                          ),
+                          closeMinutes: timeToMinutes(event.target.value),
                         })
                       }
                       className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm"
@@ -325,20 +282,14 @@ export default function AdminAvailabilityPage() {
                         })
                       }
                       className={`flex h-8 w-14 items-center rounded-full p-1 ${
-                        day.enabled
-                          ? "bg-[#5f8444]"
-                          : "bg-[#d7c9bb]"
+                        day.enabled ? "bg-[#5f8444]" : "bg-[#d7c9bb]"
                       }`}
                       aria-pressed={day.enabled}
-                      aria-label={`Toggle ${
-                        DAY_NAMES[day.dayOfWeek]
-                      }`}
+                      aria-label={`Toggle ${DAY_NAMES[day.dayOfWeek]}`}
                     >
                       <span
                         className={`h-6 w-6 rounded-full bg-white transition ${
-                          day.enabled
-                            ? "translate-x-6"
-                            : ""
+                          day.enabled ? "translate-x-6" : ""
                         }`}
                       />
                     </button>
@@ -438,17 +389,13 @@ export default function AdminAvailabilityPage() {
                           </p>
 
                           {block.reason && (
-                            <p className="text-[#9a816b]">
-                              {block.reason}
-                            </p>
+                            <p className="text-[#9a816b]">{block.reason}</p>
                           )}
                         </div>
 
                         <button
                           type="button"
-                          onClick={() =>
-                            deleteBlock(block.id)
-                          }
+                          onClick={() => deleteBlock(block.id)}
                           className="rounded-full border border-[#dccab5] px-3 py-1"
                         >
                           Delete
@@ -467,19 +414,14 @@ export default function AdminAvailabilityPage() {
                 <div className="mt-4 grid gap-4">
                   <label className="grid gap-2 text-sm text-[#7a5a3c]">
                     Minimum Notice (minutes)
-
                     <input
                       type="number"
                       min="0"
-                      value={
-                        schedulingRule.minimumNoticeMinutes
-                      }
+                      value={schedulingRule.minimumNoticeMinutes}
                       onChange={(event) =>
                         setSchedulingRule({
                           ...schedulingRule,
-                          minimumNoticeMinutes: Number(
-                            event.target.value
-                          ),
+                          minimumNoticeMinutes: Number(event.target.value),
                         })
                       }
                       className="rounded-full border border-[#dccab5] px-4 py-2"
@@ -488,19 +430,14 @@ export default function AdminAvailabilityPage() {
 
                   <label className="grid gap-2 text-sm text-[#7a5a3c]">
                     Maximum Advance Booking (days)
-
                     <input
                       type="number"
                       min="1"
-                      value={
-                        schedulingRule.maximumAdvanceDays
-                      }
+                      value={schedulingRule.maximumAdvanceDays}
                       onChange={(event) =>
                         setSchedulingRule({
                           ...schedulingRule,
-                          maximumAdvanceDays: Number(
-                            event.target.value
-                          ),
+                          maximumAdvanceDays: Number(event.target.value),
                         })
                       }
                       className="rounded-full border border-[#dccab5] px-4 py-2"
@@ -509,7 +446,6 @@ export default function AdminAvailabilityPage() {
 
                   <label className="grid gap-2 text-sm text-[#7a5a3c]">
                     Buffer Between Appointments (minutes)
-
                     <input
                       type="number"
                       min="0"
@@ -517,9 +453,7 @@ export default function AdminAvailabilityPage() {
                       onChange={(event) =>
                         setSchedulingRule({
                           ...schedulingRule,
-                          bufferMinutes: Number(
-                            event.target.value
-                          ),
+                          bufferMinutes: Number(event.target.value),
                         })
                       }
                       className="rounded-full border border-[#dccab5] px-4 py-2"

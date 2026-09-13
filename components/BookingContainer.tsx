@@ -47,7 +47,9 @@ function downloadCalendarFile(booking: BookingConfirmation) {
   const formatCalendarDate = (date: Date) =>
     date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
-  const serviceNames = booking.services.map((service) => service.name).join(", ");
+  const serviceNames = booking.services
+    .map((service) => service.name)
+    .join(", ");
 
   const calendarContent = [
     "BEGIN:VCALENDAR",
@@ -109,12 +111,26 @@ export default function BookingContainer() {
   useEffect(() => {
     fetch("/api/services")
       .then((res) => res.json())
-      .then((data: Service[]) => setServices(data))
+      .then((data: Service[]) => {
+        setServices(data);
+        const validNames = new Set(data.map((service) => service.name));
+        setSelectedServices((current) =>
+          current.filter((serviceName) => validNames.has(serviceName))
+        );
+      })
       .catch((err) => console.error("Failed to load services:", err));
 
     fetch("/api/stylists")
       .then((res) => res.json())
-      .then((data: Stylist[]) => setStylists(data))
+      .then((data: Stylist[]) => {
+        setStylists(data);
+        const validNames = new Set(data.map((stylist) => stylist.name));
+        setSelectedStylist((current) =>
+          current === NEXT_AVAILABLE || validNames.has(current)
+            ? current
+            : NEXT_AVAILABLE
+        );
+      })
       .catch((err) => console.error("Failed to load stylists:", err));
 
     fetch("/api/availability/dates")
@@ -127,15 +143,19 @@ export default function BookingContainer() {
             available?: boolean;
           }[]
         ) => {
-          setUnavailableDates(
-            new Set(
-              data
-                .filter(
-                  (dateInfo) =>
-                    dateInfo.unavailable === true || dateInfo.available === false
-                )
-                .map((dateInfo) => dateInfo.date)
-            )
+          const unavailableDateSet = new Set(
+            data
+              .filter(
+                (dateInfo) =>
+                  dateInfo.unavailable === true || dateInfo.available === false
+              )
+              .map((dateInfo) => dateInfo.date)
+          );
+          setUnavailableDates(unavailableDateSet);
+          setSelectedDate((current) =>
+            current && unavailableDateSet.has(toDateParam(current))
+              ? null
+              : current
           );
         }
       )
@@ -143,10 +163,7 @@ export default function BookingContainer() {
   }, []);
 
   useEffect(() => {
-    if (!selectedDate) {
-      setTimeSlots([]);
-      return;
-    }
+    if (!selectedDate) return;
 
     const params = new URLSearchParams({
       date: toDateParam(selectedDate),
@@ -158,57 +175,28 @@ export default function BookingContainer() {
 
     fetch(`/api/availability/times?${params.toString()}`)
       .then((res) => res.json())
-      .then((data: TimeSlot[]) => setTimeSlots(data))
+      .then((data: TimeSlot[]) => {
+        setTimeSlots(data);
+        setSelectedTime((current) =>
+          current &&
+          !data.some((slot) => slot.time === current && slot.available)
+            ? ""
+            : current
+        );
+      })
       .catch((err) => console.error("Failed to load time slots:", err));
   }, [selectedDate, totalDuration]);
 
-  useEffect(() => {
-    if (!selectedTime) return;
-
-    const stillAvailable = timeSlots.some(
-      (slot) => slot.time === selectedTime && slot.available
-    );
-
-    if (!stillAvailable) {
-      setSelectedTime("");
-    }
-  }, [timeSlots, selectedTime]);
-
-  useEffect(() => {
-    if (services.length === 0) return;
-
-    const validNames = new Set(services.map((service) => service.name));
-
-    setSelectedServices((prev) =>
-      prev.filter((serviceName) => validNames.has(serviceName))
-    );
-  }, [services]);
-
-  useEffect(() => {
-    if (selectedStylist === NEXT_AVAILABLE) return;
-    if (stylists.length === 0) return;
-
-    const valid = stylists.some((stylist) => stylist.name === selectedStylist);
-
-    if (!valid) {
-      setSelectedStylist(NEXT_AVAILABLE);
-    }
-  }, [stylists, selectedStylist]);
-
-  useEffect(() => {
-    if (!selectedDate) return;
-
-    if (unavailableDates.has(toDateParam(selectedDate))) {
-      setSelectedDate(null);
-    }
-  }, [unavailableDates, selectedDate]);
-
-  const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((stylist) => stylist.name)];
+  const stylistOptions = [
+    NEXT_AVAILABLE,
+    ...stylists.map((stylist) => stylist.name),
+  ];
 
   const canContinue =
     selectedServices.length > 0 &&
     selectedDate !== null &&
     selectedTime !== "" &&
+    timeSlots.some((slot) => slot.time === selectedTime && slot.available) &&
     !submitting;
 
   async function handleContinue() {
@@ -221,7 +209,8 @@ export default function BookingContainer() {
     const stylistId =
       selectedStylist === NEXT_AVAILABLE
         ? null
-        : stylists.find((stylist) => stylist.name === selectedStylist)?.id ?? null;
+        : (stylists.find((stylist) => stylist.name === selectedStylist)?.id ??
+          null);
 
     const payload: BookingSelection = {
       serviceIds,
@@ -400,7 +389,9 @@ export default function BookingContainer() {
             value={selectedTime}
             onChange={setSelectedTime}
             slots={timeSlots}
-            emptyMessage={selectedDate ? "No times available" : "Select a date first"}
+            emptyMessage={
+              selectedDate ? "No times available" : "Select a date first"
+            }
           />
 
           {continueError && (
