@@ -92,6 +92,16 @@ export async function POST(request: NextRequest) {
       `${request.nextUrl.origin}/api/availability/times?${params.toString()}`
     );
 
+    if (!slotsResponse.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Could not verify appointment availability",
+        },
+        { status: 503 }
+      );
+    }
+
     const slots: { time: string; available: boolean }[] =
       await slotsResponse.json();
 
@@ -115,30 +125,28 @@ export async function POST(request: NextRequest) {
 
     let currentStart = parseDateTime(date, time);
 
-    const appointments = [];
-
-    for (const service of services) {
+    const appointmentData = services.map((service) => {
       const startTime = new Date(currentStart);
       const endTime = new Date(
         startTime.getTime() + service.durationMinutes * 60_000
       );
-
-      const appointment = await db.appointment.create({
-        data: {
-          serviceId: service.id,
-          startTime,
-          endTime,
-          customerName: name.trim(),
-          customerEmail: email.trim(),
-          customerPhone: phone,
-          notes: notes ?? null,
-          status: "pending",
-        },
-      });
-
-      appointments.push(appointment);
       currentStart = endTime;
-    }
+
+      return {
+        serviceId: service.id,
+        startTime,
+        endTime,
+        customerName: name.trim(),
+        customerEmail: email.trim(),
+        customerPhone: phone,
+        notes: notes ?? null,
+        status: "pending",
+      };
+    });
+
+    const appointments = await db.$transaction(
+      appointmentData.map((data) => db.appointment.create({ data }))
+    );
 
     const firstAppointment = appointments[0];
     const lastAppointment = appointments[appointments.length - 1];
