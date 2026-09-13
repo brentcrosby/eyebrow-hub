@@ -34,7 +34,9 @@ export default function ServiceList() {
       return;
     }
 
-    console.log("Selected:", selected);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Selected:", selected);
+    }
   };
 
   return (
