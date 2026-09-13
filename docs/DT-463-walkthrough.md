@@ -12,11 +12,11 @@ What changed across twenty commits, where each change lives in the code, and why
 
 One story, three subtasks. Staff needed a focused daily view instead of scanning a full week.
 
-| Subtask | Goal |
-| --- | --- |
-| **DT-465** | Navigate between days, and show only business hours. |
+| Subtask    | Goal                                                           |
+| ---------- | -------------------------------------------------------------- |
+| **DT-465** | Navigate between days, and show only business hours.           |
 | **DT-466** | Put appointments and blocked time at the right place and size. |
-| **DT-467** | Use real data, work on a phone, handle loading and errors. |
+| **DT-467** | Use real data, work on a phone, handle loading and errors.     |
 
 All three are delivered. The rest of this document explains what stood in the way.
 
@@ -47,8 +47,8 @@ short.
 
 ### Business hours
 
-The acceptance criterion says the schedule must begin and end according to hours *returned by the
-API* — and there was no such API. Worse, the three hardcoded copies contradicted one another: the
+The acceptance criterion says the schedule must begin and end according to hours _returned by the
+API_ — and there was no such API. Worse, the three hardcoded copies contradicted one another: the
 admin editor showed Monday as 8:00–19:00 while the booking engine enforced 10:00–20:00. Staff could
 edit hours on a screen that changed nothing.
 
@@ -179,7 +179,7 @@ confirmed absent from both the API response and the rendered grid, then deleted.
 
 > **Severity:** missing data
 
-Both schedule endpoints asked only "does this appointment *start* inside the day?". An appointment
+Both schedule endpoints asked only "does this appointment _start_ inside the day?". An appointment
 running from 11:30 PM into 12:30 AM therefore vanished from the day it ran into. Fixed at
 `app/api/admin/appointments/route.ts:38-39` and `app/api/admin/availability-blocks/route.ts:34-35`.
 
@@ -206,7 +206,7 @@ new one returns.
 
 > **Severity:** wrong placement
 
-The weekly view decided which column an appointment belonged in by looking at its *weekday only* —
+The weekly view decided which column an appointment belonged in by looking at its _weekday only_ —
 "it's a Saturday, put it in the Saturday column" — without checking the actual date. Fixed at
 `components/admin/schedule/WeekScheduleGrid.tsx:33-39`.
 
@@ -239,7 +239,7 @@ On a 15-minute booking the time underneath the service name was unreadable. The 
 the text overflows its box — was wrong, and the first fix based on that diagnosis appeared to work
 while the text was still broken.
 
-**What was actually happening:** the card is a flexible column, and flexible children *compress* to
+**What was actually happening:** the card is a flexible column, and flexible children _compress_ to
 fit rather than overflow. The browser reported no overflow at all, because there was none. The time
 line was being rendered **9 pixels tall against a natural 15** — the glyphs were being crushed.
 
@@ -257,7 +257,7 @@ The fix marks both text lines as non-shrinkable and raises the card's minimum he
 natural size — `DayScheduleGrid.tsx:20` and `ScheduleItemBlock.tsx:75,88`. Every card now measures a
 consistent 15px time line on desktop and 13px on mobile.
 
-Worth noting as a method point: measuring the *symptom* that was described, rather than the property
+Worth noting as a method point: measuring the _symptom_ that was described, rather than the property
 that seemed related, is what found this.
 
 </details>
@@ -299,7 +299,7 @@ guarded so it is a no-op on existing environments that already have the table.
 
 The old page answered a failed request with fabricated appointments. That is worse than showing
 nothing, because staff had no way to tell invented rows from real ones. There are now three states
-that differ in *shape*, not just wording, so they are not distinguished by colour alone —
+that differ in _shape_, not just wording, so they are not distinguished by colour alone —
 `components/admin/schedule/ScheduleStates.tsx`.
 
 <details>
@@ -311,7 +311,7 @@ panel with a working "Try again" button, the first retry affordance anywhere in 
 
 All three were verified in a real browser: throttled to slow 3G the skeleton holds and is announced;
 a far-future date gives the empty state; blocking the endpoint at the network layer produces the
-error with *no* invented rows, and the retry recovers to the real eight items.
+error with _no_ invented rows, and the retry recovers to the real eight items.
 
 </details>
 
@@ -330,7 +330,7 @@ never given room to exist.
 
 Below large screens the sidebar is now a drawer behind a menu button, and the content column is
 allowed to shrink — `app/admin/(panel)/layout.tsx:211-235`. Content is now the full 375 pixels on
-*all five* admin pages. This one change touches every admin screen.
+_all five_ admin pages. This one change touches every admin screen.
 
 <details>
 <summary><b>Technical detail</b></summary>
@@ -416,23 +416,23 @@ Chrome was driven directly over its debugging protocol using the WebSocket built
 rendering the components to HTML on their own. The layout, date and status modules were written as
 pure functions specifically so a proper test suite can be added later without rewriting them.
 
-| What | Before | After | Why it matters |
-| --- | --- | --- | --- |
-| Content width at 375px | `55px` | `375px` | Panel was unusable on a phone |
-| Time line on a short card | `9px` | `15px` | Text was being crushed, not clipped |
-| Copies of business hours | `3` | `1` | The three disagreed with each other |
-| Appointments in the seed | `0` | `9` | Root cause of the invented data |
-| 10:30 booking position | `row top` | `32px in` | Half way down a 64px hour row |
-| Overlapping pair width | `stacked` | `50% / 50%` | Both are now readable |
+| What                      | Before    | After       | Why it matters                      |
+| ------------------------- | --------- | ----------- | ----------------------------------- |
+| Content width at 375px    | `55px`    | `375px`     | Panel was unusable on a phone       |
+| Time line on a short card | `9px`     | `15px`      | Text was being crushed, not clipped |
+| Copies of business hours  | `3`       | `1`         | The three disagreed with each other |
+| Appointments in the seed  | `0`       | `9`         | Root cause of the invented data     |
+| 10:30 booking position    | `row top` | `32px in`   | Half way down a 64px hour row       |
+| Overlapping pair width    | `stacked` | `50% / 50%` | Both are now readable               |
 
 ![The finished day schedule for Wednesday 2 September, showing six appointments with green and amber status stripes, an overlapping pair sharing the width, and a red current-time line at 1:10 PM.](images/dt-463-day-schedule.png)
 
-*The finished day view, on real seeded data. The grid runs 10:00 AM to 8:00 PM because that is what
+_The finished day view, on real seeded data. The grid runs 10:00 AM to 8:00 PM because that is what
 the business-hours API returns for a Wednesday. Green and amber left edges carry status; the 12:00
 and 12:30 bookings share the width rather than stacking; the 9:00 appointment is clipped at the top
 because it starts before opening; and the red line is the current time, captured with the clock held
 at 1:10 PM so the marker is visible. A cancelled booking exists at 3:00 PM on this day and is
-correctly absent.*
+correctly absent._
 
 ---
 
@@ -441,28 +441,28 @@ correctly absent.*
 Each commit is one idea and explains its own reasoning, so the history is reviewable a step at a
 time rather than as one large drop.
 
-| SHA | Change |
-| --- | --- |
-| `145f3f3` | Shared business hours module and API |
-| `0142ead` | Shared local-time date utilities |
-| `b7f4a36` | Appointment status helpers |
-| `7a4dfcd` | Overlap layout helper |
+| SHA       | Change                                        |
+| --------- | --------------------------------------------- |
+| `145f3f3` | Shared business hours module and API          |
+| `0142ead` | Shared local-time date utilities              |
+| `b7f4a36` | Appointment status helpers                    |
+| `7a4dfcd` | Overlap layout helper                         |
 | `c2adf83` | Reuse shared business hours in existing views |
-| `20dcca5` | Reuse shared date helper in booking flow |
-| `e9b1c3f` | Screen-reader-only utility |
-| `c0c0999` | Extract schedule types and grid |
-| `93d455a` | Business-hour day grid |
-| `2e5383b` | Drive date and view from the URL |
-| `467c603` | Link the dashboard to the day schedule |
-| `3c2ec4c` | Exclude cancelled and fix the query window |
-| `bc59d27` | Place week items by date, not weekday |
-| `000b444` | Show status, blocked time and overlaps |
-| `aef274a` | Add the missing Stylist migration |
-| `cd6abae` | Seed demo appointments and blocked time |
-| `d7f3672` | Remove mock data, add real states |
-| `e6ac05b` | Make the admin panel usable at 375px |
-| `029414e` | Replace dashboard mock data with real data |
-| `ca83ee1` | Refine and polish the day grid |
+| `20dcca5` | Reuse shared date helper in booking flow      |
+| `e9b1c3f` | Screen-reader-only utility                    |
+| `c0c0999` | Extract schedule types and grid               |
+| `93d455a` | Business-hour day grid                        |
+| `2e5383b` | Drive date and view from the URL              |
+| `467c603` | Link the dashboard to the day schedule        |
+| `3c2ec4c` | Exclude cancelled and fix the query window    |
+| `bc59d27` | Place week items by date, not weekday         |
+| `000b444` | Show status, blocked time and overlaps        |
+| `aef274a` | Add the missing Stylist migration             |
+| `cd6abae` | Seed demo appointments and blocked time       |
+| `d7f3672` | Remove mock data, add real states             |
+| `e6ac05b` | Make the admin panel usable at 375px          |
+| `029414e` | Replace dashboard mock data with real data    |
+| `ca83ee1` | Refine and polish the day grid                |
 
 <details>
 <summary><b>Technical detail</b></summary>
@@ -481,7 +481,7 @@ history.
 Found during this work, deliberately left out of scope. Each deserves its own ticket.
 
 **The admin API endpoints have no authentication.**
-The route guard covers admin *pages* but not the `/api/admin/*` endpoints beneath them, so
+The route guard covers admin _pages_ but not the `/api/admin/*` endpoints beneath them, so
 appointment and customer data is readable without logging in. The guard also only checks that a
 login cookie is non-empty; it never validates it. This is the most important item on this list.
 
@@ -510,4 +510,4 @@ ones. It can be removed if demo data needs to look production-clean.
 
 ---
 
-*DT-463 · Staff day-schedule view · merged to `main` via PR #61 · build, typecheck and lint passing*
+_DT-463 · Staff day-schedule view · merged to `main` via PR #61 · build, typecheck and lint passing_

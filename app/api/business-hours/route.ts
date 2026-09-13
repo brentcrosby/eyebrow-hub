@@ -3,8 +3,7 @@ import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 
 export async function GET() {
   try {
-    const { businessHours } =
-      await getAvailabilitySettings();
+    const { businessHours } = await getAvailabilitySettings();
 
     return NextResponse.json(
       businessHours.map((hours) => ({

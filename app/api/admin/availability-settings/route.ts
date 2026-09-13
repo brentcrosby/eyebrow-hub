@@ -12,14 +12,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(
-      await getAvailabilitySettings()
-    );
+    return NextResponse.json(await getAvailabilitySettings());
   } catch (error) {
-    console.error(
-      "Failed to load availability settings:",
-      error
-    );
+    console.error("Failed to load availability settings:", error);
 
     return NextResponse.json(
       {
@@ -42,8 +37,7 @@ export async function PUT(request: NextRequest) {
   try {
     const body: unknown = await request.json();
 
-    const validation =
-      availabilitySettingsSchema.safeParse(body);
+    const validation = availabilitySettingsSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -58,8 +52,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { businessHours, schedulingRule } =
-      validation.data;
+    const { businessHours, schedulingRule } = validation.data;
 
     await db.$transaction([
       ...businessHours.map((hours) =>
@@ -85,33 +78,22 @@ export async function PUT(request: NextRequest) {
           id: 1,
         },
         update: {
-          minimumNoticeMinutes:
-            schedulingRule.minimumNoticeMinutes,
-          maximumAdvanceDays:
-            schedulingRule.maximumAdvanceDays,
-          bufferMinutes:
-            schedulingRule.bufferMinutes,
+          minimumNoticeMinutes: schedulingRule.minimumNoticeMinutes,
+          maximumAdvanceDays: schedulingRule.maximumAdvanceDays,
+          bufferMinutes: schedulingRule.bufferMinutes,
         },
         create: {
           id: 1,
-          minimumNoticeMinutes:
-            schedulingRule.minimumNoticeMinutes,
-          maximumAdvanceDays:
-            schedulingRule.maximumAdvanceDays,
-          bufferMinutes:
-            schedulingRule.bufferMinutes,
+          minimumNoticeMinutes: schedulingRule.minimumNoticeMinutes,
+          maximumAdvanceDays: schedulingRule.maximumAdvanceDays,
+          bufferMinutes: schedulingRule.bufferMinutes,
         },
       }),
     ]);
 
-    return NextResponse.json(
-      await getAvailabilitySettings()
-    );
+    return NextResponse.json(await getAvailabilitySettings());
   } catch (error) {
-    console.error(
-      "Failed to save availability settings:",
-      error
-    );
+    console.error("Failed to save availability settings:", error);
 
     return NextResponse.json(
       {

@@ -10,8 +10,7 @@ function formatTime(date: Date): string {
   const hours = date.getHours();
   const minutes = date.getMinutes();
   const period = hours >= 12 ? "PM" : "AM";
-  const displayHours =
-    hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
   const displayMinutes = String(minutes).padStart(2, "0");
 
   return `${displayHours}:${displayMinutes} ${period}`;
@@ -66,8 +65,7 @@ export async function GET(request: NextRequest) {
     const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
     const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
 
-    const { businessHours, schedulingRule } =
-      await getAvailabilitySettings();
+    const { businessHours, schedulingRule } = await getAvailabilitySettings();
 
     const hours = businessHours.find(
       (item) => item.dayOfWeek === dayStart.getDay()
@@ -82,15 +80,13 @@ export async function GET(request: NextRequest) {
     const now = new Date();
 
     const bookingCutoff = new Date(
-      now.getTime() +
-        schedulingRule.minimumNoticeMinutes * 60_000
+      now.getTime() + schedulingRule.minimumNoticeMinutes * 60_000
     );
 
     const maximumDate = new Date(now);
     maximumDate.setHours(0, 0, 0, 0);
     maximumDate.setDate(
-      maximumDate.getDate() +
-        schedulingRule.maximumAdvanceDays
+      maximumDate.getDate() + schedulingRule.maximumAdvanceDays
     );
 
     if (dayStart > maximumDate) {
@@ -138,15 +134,7 @@ export async function GET(request: NextRequest) {
       available: boolean;
     }[] = [];
 
-    const openTime = new Date(
-      year,
-      month - 1,
-      day,
-      0,
-      hours.openMinutes,
-      0,
-      0
-    );
+    const openTime = new Date(year, month - 1, day, 0, hours.openMinutes, 0, 0);
 
     const closeTime = new Date(
       year,
@@ -160,48 +148,32 @@ export async function GET(request: NextRequest) {
 
     for (
       let slotStart = new Date(openTime);
-      slotStart.getTime() + duration * 60_000 <=
-      closeTime.getTime();
-      slotStart = new Date(
-        slotStart.getTime() +
-          SLOT_INTERVAL_MINUTES * 60_000
-      )
+      slotStart.getTime() + duration * 60_000 <= closeTime.getTime();
+      slotStart = new Date(slotStart.getTime() + SLOT_INTERVAL_MINUTES * 60_000)
     ) {
-      const slotEnd = new Date(
-        slotStart.getTime() + duration * 60_000
-      );
+      const slotEnd = new Date(slotStart.getTime() + duration * 60_000);
 
       const overlapsBlock = blocks.some(
-        (block) =>
-          block.startTime < slotEnd &&
-          block.endTime > slotStart
+        (block) => block.startTime < slotEnd && block.endTime > slotStart
       );
 
-      const overlapsAppointment = appointments.some(
-        (appointment) => {
-          const bufferedStart = new Date(
-            appointment.startTime.getTime() -
-              schedulingRule.bufferMinutes * 60_000
-          );
+      const overlapsAppointment = appointments.some((appointment) => {
+        const bufferedStart = new Date(
+          appointment.startTime.getTime() -
+            schedulingRule.bufferMinutes * 60_000
+        );
 
-          const bufferedEnd = new Date(
-            appointment.endTime.getTime() +
-              schedulingRule.bufferMinutes * 60_000
-          );
+        const bufferedEnd = new Date(
+          appointment.endTime.getTime() + schedulingRule.bufferMinutes * 60_000
+        );
 
-          return (
-            bufferedStart < slotEnd &&
-            bufferedEnd > slotStart
-          );
-        }
-      );
+        return bufferedStart < slotEnd && bufferedEnd > slotStart;
+      });
 
       slots.push({
         time: formatTime(slotStart),
         available:
-          slotStart >= bookingCutoff &&
-          !overlapsBlock &&
-          !overlapsAppointment,
+          slotStart >= bookingCutoff && !overlapsBlock && !overlapsAppointment,
       });
     }
 
@@ -209,10 +181,7 @@ export async function GET(request: NextRequest) {
       status: 200,
     });
   } catch (error) {
-    console.error(
-      "Failed to fetch available time slots:",
-      error
-    );
+    console.error("Failed to fetch available time slots:", error);
 
     return NextResponse.json(
       {

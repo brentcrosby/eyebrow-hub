@@ -19,6 +19,7 @@ Built by **Haki Stack** · CSC 190/191 Senior Project · California State Univer
 Eyebrow Hub is a small beauty business in Yuba City, CA that currently relies on calls and texts to manage appointments. This project replaces that workflow with a clean, mobile-friendly single-page website and an online appointment scheduling system, plus a secure admin portal for managing appointments, services, and availability.
 
 **Project goals:**
+
 - Give customers a fast, simple way to book online from any device
 - Reduce time spent on phone scheduling and prevent double-booking
 - Give the owner a single dashboard to manage the day's appointments, services, and time blocks
@@ -31,12 +32,14 @@ This repo contains the public-facing site, the admin portal, and the API/databas
 ## Features
 
 ### Public Website (Customer-Facing)
+
 - Single-page scrollable layout with sticky **Book Now** CTA
 - Sections: Home/Hero, Services, Booking, Business Hours, Contact/Location, Policies, About
 - Mobile-first responsive design
 - Service catalog with live pricing and duration
 
 ### Booking Flow
+
 - Customer selects service(s), stylist (or "Next Available"), date, and time
 - Required contact info (name, phone, email) plus optional note
 - Confirmation via email and/or SMS
@@ -44,6 +47,7 @@ This repo contains the public-facing site, the admin portal, and the API/databas
 - Prevents double-booking at the slot level
 
 ### Admin Portal (Owner-Facing, Auth Required)
+
 - Secure login for owner and staff (role-based)
 - Dashboard with pending requests, today's appointments, weekly counts, and cancellations
 - Approve/reject pending booking requests
@@ -75,21 +79,21 @@ This repo contains the public-facing site, the admin portal, and the API/databas
 
 These reflect what's shown on the live prototype — final values stay configurable from the admin portal.
 
-| Service | Price |
-|---|---|
-| Brow Consult | Free |
-| Eyebrow | $15 |
-| Eyebrow / Lip | $15 |
-| Chin / Lip | $12 |
-| Cheeks | $7 |
-| Forehead | $7 |
-| Full Face | $30 |
-| Half Face | $25 |
+| Service       | Price |
+| ------------- | ----- |
+| Brow Consult  | Free  |
+| Eyebrow       | $15   |
+| Eyebrow / Lip | $15   |
+| Chin / Lip    | $12   |
+| Cheeks        | $7    |
+| Forehead      | $7    |
+| Full Face     | $30   |
+| Half Face     | $25   |
 
-| Day | Hours |
-|---|---|
+| Day       | Hours              |
+| --------- | ------------------ |
 | Mon – Sat | 10:00 AM – 8:00 PM |
-| Sun | 11:00 AM – 6:00 PM |
+| Sun       | 11:00 AM – 6:00 PM |
 
 ---
 
@@ -136,6 +140,7 @@ These reflect what's shown on the live prototype — final values stay configura
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20 or newer
 - npm 10 or newer
 
@@ -166,6 +171,7 @@ DATABASE_URL="postgresql://YOUR_USER:YOUR_PASSWORD@YOUR_HOST:YOUR_PORT/YOUR_DB?Y
 Use the exact string from your Supabase dashboard; the line above is only the shape of the variable — swap in your own values locally.
 
 > **Note:** Prisma's CLI loads `.env` by default, not `.env.local`. Use the `dotenv` helper so commands read `.env.local`:
+>
 > ```bash
 > npx dotenv -e .env.local -- <command>
 > ```
@@ -198,26 +204,26 @@ Open [http://localhost:3000](http://localhost:3000) for the site and [http://loc
 
 ## Folder Overview
 
-| Folder | What's in it |
-|---|---|
-| `app/` | App Router pages, layouts, global styles, API route handlers |
-| `app/assests/` | Logos and prototype/design images |
-| `components/` | Shared UI components |
-| `lib/` | Shared utilities, helpers, and service code |
-| `prisma/` | Prisma schema and migration files |
-| `public/` | Static assets |
-| `docs/` | Project notes and architecture docs |
+| Folder         | What's in it                                                 |
+| -------------- | ------------------------------------------------------------ |
+| `app/`         | App Router pages, layouts, global styles, API route handlers |
+| `app/assests/` | Logos and prototype/design images                            |
+| `components/`  | Shared UI components                                         |
+| `lib/`         | Shared utilities, helpers, and service code                  |
+| `prisma/`      | Prisma schema and migration files                            |
+| `public/`      | Static assets                                                |
+| `docs/`        | Project notes and architecture docs                          |
 
 ---
 
 ## Scripts
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Start the local dev server |
-| `npm run build` | Build for production |
-| `npm run start` | Start the production server |
-| `npm run lint` | Run ESLint |
+| Command          | What it does                 |
+| ---------------- | ---------------------------- |
+| `npm run dev`    | Start the local dev server   |
+| `npm run build`  | Build for production         |
+| `npm run start`  | Start the production server  |
+| `npm run lint`   | Run ESLint                   |
 | `npm run format` | Run Prettier across the repo |
 
 Database commands (with `.env.local` loaded) are documented under [Database Setup](#database-setup-supabase).
@@ -283,8 +289,8 @@ tests/
 Tests use `mockDatabaseQueries()` to mock the entire Prisma client:
 
 ```typescript
-import { mockDatabaseQueries } from '../utils/test-helpers';
-import { vi } from 'vitest';
+import { mockDatabaseQueries } from "../utils/test-helpers";
+import { vi } from "vitest";
 
 // In your test
 const db = mockDatabaseQueries();
@@ -362,19 +368,19 @@ chore/<short-description>     e.g. chore/upgrade-prisma
 
 Timeline for **CSC 191 (Spring 2026)** based on user stories in the JIRA backlog. Sprints are two weeks each.
 
-| Sprint | Dates | Key Milestones |
-|---|---|---|
-| **Sprint 0** | Jan 26 – Feb 22 | Repo skeleton, Supabase + Prisma setup, design system, charter signed, initial wireframes |
-| **Sprint 1** | Feb 23 – Mar 8 | Public site shell — hero, services, contact, policies sections; responsive layout |
-| **Sprint 2** | Mar 9 – Mar 22 | Service catalog data model + admin CRUD for services; public services section reads from DB |
-| **Sprint 3** | Mar 30 – Apr 12 | Customer booking flow MVP — service selection, calendar, slot picker, contact form, confirmation |
-| **Sprint 4** | Apr 13 – Apr 26 | Booking rules engine — buffer time, lead time, advance window; double-booking prevention |
-| **Sprint 5** | Aug 24 – Sep 6 | Admin auth + schedule day view; manual appointment creation |
-| **Sprint 6** | Sep 7 – Sep 20 | Edit/reschedule/cancel appointments; block off time for breaks and closures |
-| **Sprint 7** | Sep 21 – Oct 4 | Email/SMS booking confirmations; owner notifications for new bookings |
-| **Sprint 8** | Oct 5 – Oct 18 | Cancellation flow (customer-side) + cancellation rules; no-show tracking |
-| **Sprint 9** | Oct 19 – Nov 1 | E2E test suite, accessibility pass, polish, stretch features (history view, daily export) |
-| **Sprint 10** | Nov 1 – Nov 14 | Production deploy, owner training, documentation handoff, final demo prep |
+| Sprint        | Dates           | Key Milestones                                                                                   |
+| ------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| **Sprint 0**  | Jan 26 – Feb 22 | Repo skeleton, Supabase + Prisma setup, design system, charter signed, initial wireframes        |
+| **Sprint 1**  | Feb 23 – Mar 8  | Public site shell — hero, services, contact, policies sections; responsive layout                |
+| **Sprint 2**  | Mar 9 – Mar 22  | Service catalog data model + admin CRUD for services; public services section reads from DB      |
+| **Sprint 3**  | Mar 30 – Apr 12 | Customer booking flow MVP — service selection, calendar, slot picker, contact form, confirmation |
+| **Sprint 4**  | Apr 13 – Apr 26 | Booking rules engine — buffer time, lead time, advance window; double-booking prevention         |
+| **Sprint 5**  | Aug 24 – Sep 6  | Admin auth + schedule day view; manual appointment creation                                      |
+| **Sprint 6**  | Sep 7 – Sep 20  | Edit/reschedule/cancel appointments; block off time for breaks and closures                      |
+| **Sprint 7**  | Sep 21 – Oct 4  | Email/SMS booking confirmations; owner notifications for new bookings                            |
+| **Sprint 8**  | Oct 5 – Oct 18  | Cancellation flow (customer-side) + cancellation rules; no-show tracking                         |
+| **Sprint 9**  | Oct 19 – Nov 1  | E2E test suite, accessibility pass, polish, stretch features (history view, daily export)        |
+| **Sprint 10** | Nov 1 – Nov 14  | Production deploy, owner training, documentation handoff, final demo prep                        |
 
 > Milestone scope is driven by user stories and estimates in the JIRA backlog and will be refined sprint-by-sprint with the Product Owner.
 
@@ -384,16 +390,16 @@ Timeline for **CSC 191 (Spring 2026)** based on user stories in the JIRA backlog
 
 **Haki Stack** — California State University, Sacramento
 
-| Member | Email |
-|---|---|
-| Suyog Neupane | suyograjneupane@csus.edu |
-| Babar Chechi | babarchechi@csus.edu |
-| Brent Crosby | bcrosby@csus.edu |
-| Fraz Ahmed | ahmeddfraz887@gmail.com |
-| Mohamed Thameezudeen | mthameezudeen@csus.edu |
-| Swechha Shrestha | swechhashrestha8@gmail.com |
-| Essam Mashal | essammashal123@gmail.com |
-| Mosab Abumarkhieh | mosab.abumarkhieh@gmail.com |
+| Member               | Email                       |
+| -------------------- | --------------------------- |
+| Suyog Neupane        | suyograjneupane@csus.edu    |
+| Babar Chechi         | babarchechi@csus.edu        |
+| Brent Crosby         | bcrosby@csus.edu            |
+| Fraz Ahmed           | ahmeddfraz887@gmail.com     |
+| Mohamed Thameezudeen | mthameezudeen@csus.edu      |
+| Swechha Shrestha     | swechhashrestha8@gmail.com  |
+| Essam Mashal         | essammashal123@gmail.com    |
+| Mosab Abumarkhieh    | mosab.abumarkhieh@gmail.com |
 
 **Product Owner:** Talwinderi Kattaria, Owner, Eyebrow Hub (Yuba City, CA)
 

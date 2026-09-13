@@ -2,10 +2,17 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 
-function useDropdownMaxHeight(containerRef: React.RefObject<HTMLDivElement | null>, open: boolean, minHeight = 160): number | undefined {
+function useDropdownMaxHeight(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  open: boolean,
+  minHeight = 160
+): number | undefined {
   const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!open || !containerRef.current) { setMaxHeight(undefined); return; }
+    if (!open || !containerRef.current) {
+      setMaxHeight(undefined);
+      return;
+    }
     const rect = containerRef.current.getBoundingClientRect();
     const available = window.innerHeight - rect.bottom - 8;
     setMaxHeight(available >= minHeight ? available : undefined);
@@ -13,7 +20,10 @@ function useDropdownMaxHeight(containerRef: React.RefObject<HTMLDivElement | nul
   return maxHeight;
 }
 
-function useOutsideClick(ref: React.RefObject<HTMLDivElement | null>, onClose: () => void) {
+function useOutsideClick(
+  ref: React.RefObject<HTMLDivElement | null>,
+  onClose: () => void
+) {
   useEffect(() => {
     function handle(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
@@ -31,7 +41,10 @@ function ChevronIcon({ open }: { open?: boolean }) {
       viewBox="0 0 16 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+      style={{
+        transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.2s",
+      }}
     >
       <path
         d="M4 6L8 10L12 6"
@@ -52,7 +65,10 @@ const dropdownPanelStyle = {
 
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function buildCalendarDays(year: number, month: number): { date: Date; currentMonth: boolean }[] {
+function buildCalendarDays(
+  year: number,
+  month: number
+): { date: Date; currentMonth: boolean }[] {
   const first = new Date(year, month, 1);
   // Sunday-anchored: getDay() returns 0=Sun, which is already correct
   const startOffset = first.getDay();
@@ -73,12 +89,27 @@ function buildCalendarDays(year: number, month: number): { date: Date; currentMo
 }
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 function isSameDay(a: Date, b: Date | null) {
-  return b !== null && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    b !== null &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 interface DatePickerDropdownProps {
@@ -95,42 +126,72 @@ function dateKey(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function DatePickerDropdown({ label, value, onChange, unavailableDates }: DatePickerDropdownProps) {
+export function DatePickerDropdown({
+  label,
+  value,
+  onChange,
+  unavailableDates,
+}: DatePickerDropdownProps) {
   const today = new Date();
   const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(value?.getMonth() ?? today.getMonth());
+  const [viewYear, setViewYear] = useState(
+    value?.getFullYear() ?? today.getFullYear()
+  );
+  const [viewMonth, setViewMonth] = useState(
+    value?.getMonth() ?? today.getMonth()
+  );
   const ref = useRef<HTMLDivElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open, 280);
 
   useOutsideClick(ref, () => setOpen(false));
 
-  const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
+  const isCurrentMonth =
+    viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
   const prevMonth = useCallback(() => {
-    setViewMonth((m) => { if (m === 0) { setViewYear((y) => y - 1); return 11; } return m - 1; });
+    setViewMonth((m) => {
+      if (m === 0) {
+        setViewYear((y) => y - 1);
+        return 11;
+      }
+      return m - 1;
+    });
   }, []);
 
   const nextMonth = useCallback(() => {
-    setViewMonth((m) => { if (m === 11) { setViewYear((y) => y + 1); return 0; } return m + 1; });
+    setViewMonth((m) => {
+      if (m === 11) {
+        setViewYear((y) => y + 1);
+        return 0;
+      }
+      return m + 1;
+    });
   }, []);
 
   const days = buildCalendarDays(viewYear, viewMonth);
 
   const triggerLabel = value
-    ? value.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    ? value.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
     : null;
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+      <label className="text-[14px] leading-[17px] font-medium text-black">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
       >
-        <span className={`text-[14px] leading-[17px] text-left ${triggerLabel ? "text-black" : "text-black/50"}`}>
+        <span
+          className={`text-[14px] leading-[17px] text-left ${triggerLabel ? "text-black" : "text-black/50"}`}
+        >
           {triggerLabel ?? "Select a date"}
         </span>
         <ChevronIcon open={open} />
@@ -139,7 +200,11 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
       {open && (
         <div
           className="absolute left-0 right-0 top-full mt-1 bg-white rounded-lg z-10 select-none overflow-y-auto"
-          style={{ ...dropdownPanelStyle, padding: "16px", maxHeight: maxDropdownHeight }}
+          style={{
+            ...dropdownPanelStyle,
+            padding: "16px",
+            maxHeight: maxDropdownHeight,
+          }}
         >
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-4 px-1">
@@ -155,7 +220,13 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
                 style={{ opacity: isCurrentMonth ? 0.25 : 1 }}
               >
                 <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
-                  <path d="M6 1L1 6L6 11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M6 1L1 6L6 11"
+                    stroke="black"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
               <button
@@ -164,7 +235,13 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
                 className="w-7 h-7 flex items-center justify-center rounded hover:bg-black/5 cursor-pointer transition-colors"
               >
                 <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
-                  <path d="M1 1L6 6L1 11" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M1 1L6 6L1 11"
+                    stroke="black"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -173,7 +250,10 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
           {/* Day headers */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_LABELS.map((d) => (
-              <div key={d} className="text-center text-[12px] font-medium text-black/40 py-1">
+              <div
+                key={d}
+                className="text-center text-[12px] font-medium text-black/40 py-1"
+              >
                 {d}
               </div>
             ))}
@@ -184,19 +264,33 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
             {days.map(({ date, currentMonth }, i) => {
               const selected = isSameDay(date, value);
               const isToday = isSameDay(date, today);
-              const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const todayMidnight = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate()
+              );
               const isPast = date < todayMidnight;
-              const isUnavailable = unavailableDates?.has(dateKey(date)) ?? false;
+              const isUnavailable =
+                unavailableDates?.has(dateKey(date)) ?? false;
               const disabled = isPast || isUnavailable;
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => { if (!disabled) { onChange(date); setOpen(false); } }}
+                  onClick={() => {
+                    if (!disabled) {
+                      onChange(date);
+                      setOpen(false);
+                    }
+                  }}
                   disabled={disabled}
                   className={`flex items-center justify-center aspect-square rounded-full text-[13px] transition-colors ${!disabled && !selected ? "hover:bg-black/10" : ""}`}
                   style={{
-                    color: selected ? "white" : disabled || !currentMonth ? "rgba(0,0,0,0.2)" : "black",
+                    color: selected
+                      ? "white"
+                      : disabled || !currentMonth
+                        ? "rgba(0,0,0,0.2)"
+                        : "black",
                     ...(selected && { backgroundColor: "#6B4F3A" }),
                     fontWeight: isToday && !selected ? 600 : undefined,
                     cursor: disabled ? "default" : "pointer",
@@ -226,7 +320,13 @@ interface TimePickerDropdownProps {
   emptyMessage?: string;
 }
 
-export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage = "No times available" }: TimePickerDropdownProps) {
+export function TimePickerDropdown({
+  label,
+  value,
+  onChange,
+  slots,
+  emptyMessage = "No times available",
+}: TimePickerDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -234,14 +334,18 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+      <label className="text-[14px] leading-[17px] font-medium text-black">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
       >
-        <span className={`text-[14px] leading-[17px] text-left ${value ? "text-black" : "text-black/50"}`}>
+        <span
+          className={`text-[14px] leading-[17px] text-left ${value ? "text-black" : "text-black/50"}`}
+        >
           {value || "Choose a time"}
         </span>
         <ChevronIcon open={open} />
@@ -255,17 +359,28 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
           {/* Reset option */}
           <button
             type="button"
-            onClick={() => { onChange(""); setOpen(false); }}
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
             className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5"
           >
             <span className="w-4 flex items-center justify-center flex-shrink-0">
               {!value && (
                 <svg width="11" height="8" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4L3.5 6.5L9 1" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M1 4L3.5 6.5L9 1"
+                    stroke="black"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               )}
             </span>
-            <span className={`text-[14px] leading-[17px] ${!value ? "text-black" : "text-black/50"}`}>
+            <span
+              className={`text-[14px] leading-[17px] ${!value ? "text-black" : "text-black/50"}`}
+            >
               Choose a time
             </span>
           </button>
@@ -281,7 +396,12 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
               key={time}
               type="button"
               disabled={!available}
-              onClick={() => { if (available) { onChange(time); setOpen(false); } }}
+              onClick={() => {
+                if (available) {
+                  onChange(time);
+                  setOpen(false);
+                }
+              }}
               className={`flex flex-row items-center justify-between px-4 py-3 w-full text-left ${available ? "cursor-pointer hover:bg-black/5" : "cursor-default"}`}
             >
               <span
@@ -291,7 +411,9 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
                 {time}
               </span>
               {!available && (
-                <span className="text-[13px] leading-[17px] text-black/30">Unavailable</span>
+                <span className="text-[13px] leading-[17px] text-black/30">
+                  Unavailable
+                </span>
               )}
             </button>
           ))}
@@ -309,7 +431,13 @@ interface MultiSelectDropdownProps {
   onChange: (selected: string[]) => void;
 }
 
-export function MultiSelectDropdown({ label, placeholder, options, selected, onChange }: MultiSelectDropdownProps) {
+export function MultiSelectDropdown({
+  label,
+  placeholder,
+  options,
+  selected,
+  onChange,
+}: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open);
@@ -318,7 +446,9 @@ export function MultiSelectDropdown({ label, placeholder, options, selected, onC
 
   function toggle(option: string) {
     onChange(
-      selected.includes(option) ? selected.filter((s) => s !== option) : [...selected, option]
+      selected.includes(option)
+        ? selected.filter((s) => s !== option)
+        : [...selected, option]
     );
   }
 
@@ -326,21 +456,28 @@ export function MultiSelectDropdown({ label, placeholder, options, selected, onC
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+      <label className="text-[14px] leading-[17px] font-medium text-black">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
       >
-        <span className={`text-[14px] leading-[17px] text-left truncate pr-2 ${triggerLabel ? "text-black" : "text-black/50"}`}>
+        <span
+          className={`text-[14px] leading-[17px] text-left truncate pr-2 ${triggerLabel ? "text-black" : "text-black/50"}`}
+        >
           {triggerLabel ?? placeholder}
         </span>
         <ChevronIcon open={open} />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto" style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}>
+        <div
+          className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto"
+          style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}
+        >
           {options.map((option) => {
             const checked = selected.includes(option);
             return (
@@ -359,11 +496,19 @@ export function MultiSelectDropdown({ label, placeholder, options, selected, onC
                 >
                   {checked && (
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   )}
                 </div>
-                <span className="text-[14px] leading-[17px] text-black">{option}</span>
+                <span className="text-[14px] leading-[17px] text-black">
+                  {option}
+                </span>
               </button>
             );
           })}
@@ -380,7 +525,12 @@ interface SingleSelectDropdownProps {
   onChange: (value: string) => void;
 }
 
-export function SingleSelectDropdown({ label, options, value, onChange }: SingleSelectDropdownProps) {
+export function SingleSelectDropdown({
+  label,
+  options,
+  value,
+  onChange,
+}: SingleSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open);
@@ -389,7 +539,9 @@ export function SingleSelectDropdown({ label, options, value, onChange }: Single
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+      <label className="text-[14px] leading-[17px] font-medium text-black">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -401,20 +553,30 @@ export function SingleSelectDropdown({ label, options, value, onChange }: Single
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto" style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}>
+        <div
+          className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto"
+          style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}
+        >
           {options.map((option) => {
             const selected = option === value;
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => { onChange(option); setOpen(false); }}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
                 className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5"
               >
                 <span className="w-4 flex items-center justify-center flex-shrink-0">
-                  {selected && <img src="/assets/check.svg" alt="" width={11} height={8} />}
+                  {selected && (
+                    <img src="/assets/check.svg" alt="" width={11} height={8} />
+                  )}
                 </span>
-                <span className={`text-[14px] leading-[17px] ${selected ? "text-black" : "text-black/60"}`}>
+                <span
+                  className={`text-[14px] leading-[17px] ${selected ? "text-black" : "text-black/60"}`}
+                >
                   {option}
                 </span>
               </button>

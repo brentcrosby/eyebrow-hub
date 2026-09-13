@@ -11,11 +11,11 @@ everyone else before a customer-facing form can use this.
 
 ## What was asked for
 
-| Subtask | Goal |
-| --- | --- |
+| Subtask    | Goal                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------- |
 | **DT-461** | Let the database store the assigned stylist and whether a booking was made online or entered manually by staff. |
-| **DT-462** | A secure API that validates submitted info and saves a manual appointment. |
-| **DT-464** | Check the stylist's availability first, so manual entries can't double-book or land on blocked time. |
+| **DT-462** | A secure API that validates submitted info and saves a manual appointment.                                      |
+| **DT-464** | Check the stylist's availability first, so manual entries can't double-book or land on blocked time.            |
 
 All three are done. Nothing in the admin UI calls this endpoint yet — that's a separate task
 (see "What's left" below).
@@ -66,7 +66,7 @@ new `lib/validations/manualAppointment.ts`.
 Same file, added on top of DT-462.
 
 - Blocked time (`AvailabilityBlock`) always conflicts, regardless of stylist. An appointment
-  only conflicts if it's the *same* stylist and the time ranges overlap — a different stylist
+  only conflicts if it's the _same_ stylist and the time ranges overlap — a different stylist
   at the same time is fine. No stylist assigned → only blocked time is checked.
 - Cancelled appointments are ignored (reuses `isCancelled` from `lib/appointmentStatus.ts`).
 - The conflict check and the `create` run inside one **serializable** Prisma transaction, so
@@ -112,8 +112,8 @@ All test rows were deleted afterward — none of the above are sitting in the sh
 
 ![Postman showing a 401 Unauthorized response from POST /api/admin/appointments with no auth cookie set.](images/DT-460-Babar-PostManTest.png)
 
-*A request with no `adminAccessToken` cookie, correctly rejected before any validation or
-database work happens.*
+_A request with no `adminAccessToken` cookie, correctly rejected before any validation or
+database work happens._
 
 ---
 
@@ -143,12 +143,12 @@ database work happens.*
 
 ## The three commits
 
-| SHA | Change |
-| --- | --- |
-| `dd8645b` | DT-461: add stylist and source fields to Appointment |
-| `5efdc9e` | DT-462: add authenticated manual appointment creation endpoint |
+| SHA       | Change                                                            |
+| --------- | ----------------------------------------------------------------- |
+| `dd8645b` | DT-461: add stylist and source fields to Appointment              |
+| `5efdc9e` | DT-462: add authenticated manual appointment creation endpoint    |
 | `ececb02` | DT-464: prevent stylist double-booking and blocked-time conflicts |
 
 ---
 
-*DT-460 · Manual appointment API and data model · branch `DT-460/ManualBookingFlow`, not yet merged*
+_DT-460 · Manual appointment API and data model · branch `DT-460/ManualBookingFlow`, not yet merged_

@@ -8,8 +8,7 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const { businessHours, schedulingRule } =
-      await getAvailabilitySettings();
+    const { businessHours, schedulingRule } = await getAvailabilitySettings();
 
     const daysAhead = schedulingRule.maximumAdvanceDays + 1;
 
@@ -48,8 +47,7 @@ export async function GET() {
       dayEnd.setDate(dayEnd.getDate() + 1);
 
       const fullDayBlocked = blocks.some(
-        (block) =>
-          block.startTime <= dayStart && block.endTime >= dayEnd
+        (block) => block.startTime <= dayStart && block.endTime >= dayEnd
       );
 
       const hours = businessHours.find(

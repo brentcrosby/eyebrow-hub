@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Placeholder admin-route guard for API handlers for Mohammed. 
+// Placeholder admin-route guard for API handlers for Mohammed.
 //
 // This only checks that the adminAccessToken cookie is present, matching the
 // page-level check middleware.ts already does — it does not verify the token

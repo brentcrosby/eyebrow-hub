@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
 
-export default function AdminSettingsPage() { 
+export default function AdminSettingsPage() {
   // State variables for email and password management
   const [email, editEmail] = useState<string>("");
   const [originalEmail, setOriginalEmail] = useState<string>("");
-  
+
   const [password, editPassword] = useState<string>("");
   const [originalPassword, setOriginalPassword] = useState<string>("");
   // State variables for form visibility and error handling
@@ -48,7 +48,9 @@ export default function AdminSettingsPage() {
 
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-[#7a5a3c]">Login Security</h2>
+            <h2 className="text-sm font-semibold text-[#7a5a3c]">
+              Login Security
+            </h2>
 
             <div className="mt-5">
               <p className="text-xs text-[#a1866f]">Email Address</p>
@@ -78,9 +80,7 @@ export default function AdminSettingsPage() {
                   />
 
                   {emailError && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {emailError}
-                    </p>
+                    <p className="text-xs text-red-500 mt-1">{emailError}</p>
                   )}
 
                   <div className="mt-3 flex gap-2">
@@ -106,7 +106,6 @@ export default function AdminSettingsPage() {
               )}
             </div>
 
-           
             <div className="mt-5">
               <p className="text-xs text-[#a1866f]">Password</p>
               <div className="mt-1 flex items-center justify-between border-b border-[#eadfce] pb-2">
@@ -121,16 +120,36 @@ export default function AdminSettingsPage() {
 
                 <div className="flex gap-2">
                   <span onClick={() => setShowPassword(!showPassword)}>
-                   {showPassword ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
+                    {showPassword ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
                       </svg>
                     ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>)}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
                   </span>
                   <span
                     onClick={() => displayPasswordForm(true)}
@@ -201,7 +220,6 @@ export default function AdminSettingsPage() {
               <div>Calendar: {preferences.calendar ? "On" : "Off"}</div>
             </div>
           ) : (
-      
             <div className="mt-4 grid grid-cols-2 gap-4">
               {Object.entries(draftPreferences).map(([key, value]) => (
                 <label
@@ -243,7 +261,6 @@ export default function AdminSettingsPage() {
             </div>
           )}
         </div>
-
       </section>
     </main>
   );

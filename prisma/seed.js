@@ -5,61 +5,68 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const services = [
-    { name: "Brow Consult",          price: 0,    durationMinutes: 15, active: true },
-    { name: "Eyebrow",               price: 15,   durationMinutes: 15, active: true },
-    { name: "Eyebrow/Lip",           price: 15,   durationMinutes: 15, active: true },
-    { name: "Chin/Lip",              price: 12,   durationMinutes: 15, active: true },
-    { name: "Cheeks",                price: 7,    durationMinutes: 15, active: true },
-    { name: "Forehead",              price: 7,    durationMinutes: 15, active: true },
-    { name: "Full Face",             price: 30,   durationMinutes: 15, active: true },
-    { name: "Half Face",             price: 25,   durationMinutes: 15, active: true },
-    { name: "Lip",                   price: 6,    durationMinutes: 15, active: true },
-    { name: "Unibrow",               price: 5,    durationMinutes: 15, active: true },
-    { name: "Men's Eyebrow/Cheeks",  price: 17,   durationMinutes: 15, active: true },
-    { name: "Sideburns",             price: 10,   durationMinutes: 15, active: true },
-    { name: "Eyebrows/Forehead",     price: 15,   durationMinutes: 15, active: true },
-    { name: "Eyebrows/Lip/Chin",     price: 22,   durationMinutes: 15, active: true },
+    { name: "Brow Consult", price: 0, durationMinutes: 15, active: true },
+    { name: "Eyebrow", price: 15, durationMinutes: 15, active: true },
+    { name: "Eyebrow/Lip", price: 15, durationMinutes: 15, active: true },
+    { name: "Chin/Lip", price: 12, durationMinutes: 15, active: true },
+    { name: "Cheeks", price: 7, durationMinutes: 15, active: true },
+    { name: "Forehead", price: 7, durationMinutes: 15, active: true },
+    { name: "Full Face", price: 30, durationMinutes: 15, active: true },
+    { name: "Half Face", price: 25, durationMinutes: 15, active: true },
+    { name: "Lip", price: 6, durationMinutes: 15, active: true },
+    { name: "Unibrow", price: 5, durationMinutes: 15, active: true },
+    {
+      name: "Men's Eyebrow/Cheeks",
+      price: 17,
+      durationMinutes: 15,
+      active: true,
+    },
+    { name: "Sideburns", price: 10, durationMinutes: 15, active: true },
+    { name: "Eyebrows/Forehead", price: 15, durationMinutes: 15, active: true },
+    { name: "Eyebrows/Lip/Chin", price: 22, durationMinutes: 15, active: true },
   ];
 
-  const canonicalNames = services.map(s => s.name);
+  const canonicalNames = services.map((s) => s.name);
 
   await prisma.service.deleteMany({
-    where: { name: { notIn: canonicalNames } }
+    where: { name: { notIn: canonicalNames } },
   });
 
   const existing = await prisma.service.findMany({
     where: { name: { in: canonicalNames } },
-    select: { name: true }
+    select: { name: true },
   });
 
-  const existingNames = new Set(existing.map(s => s.name));
-  const toCreate = services.filter(s => !existingNames.has(s.name));
+  const existingNames = new Set(existing.map((s) => s.name));
+  const toCreate = services.filter((s) => !existingNames.has(s.name));
 
   if (toCreate.length > 0) {
     await prisma.service.createMany({ data: toCreate });
   }
 
   const stylists = [
-    { name: "Ava Nguyen",     active: true },
-    { name: "Maya Patel",     active: true },
-    { name: "Sofia Ramirez",  active: true },
-    { name: "Jasmine Lee",    active: true },
+    { name: "Ava Nguyen", active: true },
+    { name: "Maya Patel", active: true },
+    { name: "Sofia Ramirez", active: true },
+    { name: "Jasmine Lee", active: true },
   ];
 
   const existingStylists = await prisma.stylist.findMany({
-    where: { name: { in: stylists.map(s => s.name) } },
-    select: { name: true }
+    where: { name: { in: stylists.map((s) => s.name) } },
+    select: { name: true },
   });
 
-  const existingStylistNames = new Set(existingStylists.map(s => s.name));
-  const stylistsToCreate = stylists.filter(s => !existingStylistNames.has(s.name));
+  const existingStylistNames = new Set(existingStylists.map((s) => s.name));
+  const stylistsToCreate = stylists.filter(
+    (s) => !existingStylistNames.has(s.name)
+  );
 
   if (stylistsToCreate.length > 0) {
     await prisma.stylist.createMany({ data: stylistsToCreate });
@@ -108,7 +115,8 @@ async function seedScheduleDemoData() {
   const byName = (name) => services.find((service) => service.name === name);
 
   const stylists = await prisma.stylist.findMany();
-  const byStylistName = (name) => stylists.find((stylist) => stylist.name === name);
+  const byStylistName = (name) =>
+    stylists.find((stylist) => stylist.name === name);
 
   const at = (dayOffset, hour, minute) => {
     const date = new Date();
@@ -119,21 +127,102 @@ async function seedScheduleDemoData() {
 
   const appointments = [
     // A short booking: proves 15 minutes still renders legibly.
-    { day: 0, from: [11, 0], to: [11, 15], service: "Eyebrow", status: "confirmed", customer: "Ava Chen", stylist: "Ava Nguyen", source: "online" },
+    {
+      day: 0,
+      from: [11, 0],
+      to: [11, 15],
+      service: "Eyebrow",
+      status: "confirmed",
+      customer: "Ava Chen",
+      stylist: "Ava Nguyen",
+      source: "online",
+    },
     // An overlapping pair: proves overlaps stay readable side by side.
-    { day: 0, from: [12, 0], to: [13, 0], service: "Full Face", status: "confirmed", customer: "Priya Raman", stylist: "Maya Patel", source: "online" },
-    { day: 0, from: [12, 30], to: [13, 30], service: "Half Face", status: "pending", customer: "Dana Brooks", stylist: "Sofia Ramirez", source: "online" },
-    { day: 0, from: [14, 0], to: [14, 30], service: "Eyebrows/Lip/Chin", status: "confirmed", customer: "Sam Ortiz", stylist: "Jasmine Lee", source: "online" },
+    {
+      day: 0,
+      from: [12, 0],
+      to: [13, 0],
+      service: "Full Face",
+      status: "confirmed",
+      customer: "Priya Raman",
+      stylist: "Maya Patel",
+      source: "online",
+    },
+    {
+      day: 0,
+      from: [12, 30],
+      to: [13, 30],
+      service: "Half Face",
+      status: "pending",
+      customer: "Dana Brooks",
+      stylist: "Sofia Ramirez",
+      source: "online",
+    },
+    {
+      day: 0,
+      from: [14, 0],
+      to: [14, 30],
+      service: "Eyebrows/Lip/Chin",
+      status: "confirmed",
+      customer: "Sam Ortiz",
+      stylist: "Jasmine Lee",
+      source: "online",
+    },
     // Cancelled: must never appear on the schedule.
-    { day: 0, from: [15, 0], to: [15, 15], service: "Lip", status: "cancelled", customer: "Cancelled Booking", stylist: null, source: "online" },
+    {
+      day: 0,
+      from: [15, 0],
+      to: [15, 15],
+      service: "Lip",
+      status: "cancelled",
+      customer: "Cancelled Booking",
+      stylist: null,
+      source: "online",
+    },
     // Starts before opening on every weekday: proves the grid clamps it.
-    { day: 0, from: [9, 0], to: [11, 30], service: "Brow Consult", status: "confirmed", customer: "Early Arrival", stylist: null, source: "online" },
+    {
+      day: 0,
+      from: [9, 0],
+      to: [11, 30],
+      service: "Brow Consult",
+      status: "confirmed",
+      customer: "Early Arrival",
+      stylist: null,
+      source: "online",
+    },
     // Neighbouring days, so prev/next navigation has something to show.
     // Also a phone/walk-in pair, proving `source` distinguishes staff-entered
     // bookings from the customer flow without a stylist relation being required.
-    { day: 1, from: [11, 30], to: [12, 0], service: "Eyebrow", status: "pending", customer: "Jordan Lee", stylist: "Ava Nguyen", source: "manual" },
-    { day: 1, from: [13, 0], to: [13, 15], service: "Unibrow", status: "confirmed", customer: "Casey Nolan", stylist: null, source: "manual" },
-    { day: -1, from: [16, 0], to: [16, 30], service: "Sideburns", status: "confirmed", customer: "Riley Park", stylist: "Maya Patel", source: "online" },
+    {
+      day: 1,
+      from: [11, 30],
+      to: [12, 0],
+      service: "Eyebrow",
+      status: "pending",
+      customer: "Jordan Lee",
+      stylist: "Ava Nguyen",
+      source: "manual",
+    },
+    {
+      day: 1,
+      from: [13, 0],
+      to: [13, 15],
+      service: "Unibrow",
+      status: "confirmed",
+      customer: "Casey Nolan",
+      stylist: null,
+      source: "manual",
+    },
+    {
+      day: -1,
+      from: [16, 0],
+      to: [16, 30],
+      service: "Sideburns",
+      status: "confirmed",
+      customer: "Riley Park",
+      stylist: "Maya Patel",
+      source: "online",
+    },
   ];
 
   for (const item of appointments) {
@@ -161,9 +250,17 @@ async function seedScheduleDemoData() {
   await prisma.availabilityBlock.createMany({
     data: [
       // With a reason, and without one, so both render paths are covered.
-      { startTime: at(0, 16, 0), endTime: at(0, 17, 0), reason: "[demo] Staff meeting" },
+      {
+        startTime: at(0, 16, 0),
+        endTime: at(0, 17, 0),
+        reason: "[demo] Staff meeting",
+      },
       { startTime: at(0, 17, 30), endTime: at(0, 18, 0), reason: null },
-      { startTime: at(1, 15, 0), endTime: at(1, 15, 30), reason: "[demo] Supply delivery" },
+      {
+        startTime: at(1, 15, 0),
+        endTime: at(1, 15, 30),
+        reason: "[demo] Supply delivery",
+      },
     ],
   });
 }

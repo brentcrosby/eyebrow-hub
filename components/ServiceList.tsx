@@ -16,7 +16,7 @@ const services = [
   "Men’s Eyebrow/Cheeks",
   "Sideburns",
   "Eyebrows/Forehead",
-  "Eyebrows/Lip/Chin"
+  "Eyebrows/Lip/Chin",
 ];
 
 export default function ServiceList() {
@@ -54,9 +54,7 @@ export default function ServiceList() {
         ))}
       </div>
 
-      {error && (
-        <p className="text-red-500 text-sm mt-3">{error}</p>
-      )}
+      {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
 
       <button
         onClick={handleContinue}

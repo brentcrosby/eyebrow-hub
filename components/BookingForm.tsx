@@ -85,9 +85,7 @@ function FormField({
       />
 
       {error && (
-        <span className="text-[12px] leading-[15px] text-red-500">
-          {error}
-        </span>
+        <span className="text-[12px] leading-[15px] text-red-500">{error}</span>
       )}
     </div>
   );
@@ -120,7 +118,8 @@ export default function BookingForm({
   const selectedStylist =
     selection?.stylistId == null
       ? null
-      : stylists.find((stylist) => stylist.id === selection.stylistId) ?? null;
+      : (stylists.find((stylist) => stylist.id === selection.stylistId) ??
+        null);
 
   const totalPrice = selectedServices.reduce(
     (sum, service) => sum + service.price,
@@ -176,7 +175,7 @@ export default function BookingForm({
         setSubmitError(
           typeof firstError === "string"
             ? firstError
-            : body?.error ?? "Could not submit booking. Please try again."
+            : (body?.error ?? "Could not submit booking. Please try again.")
         );
 
         return;

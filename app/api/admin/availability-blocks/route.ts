@@ -29,10 +29,7 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(start);
     const endDate = new Date(end);
 
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
-    ) {
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       return NextResponse.json(
         {
           error: "Invalid start or end date",
@@ -91,10 +88,7 @@ export async function POST(request: NextRequest) {
     const startTime = new Date(String(body.startTime ?? ""));
     const endTime = new Date(String(body.endTime ?? ""));
 
-    if (
-      Number.isNaN(startTime.getTime()) ||
-      Number.isNaN(endTime.getTime())
-    ) {
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
       return NextResponse.json(
         {
           error: "Valid start and end times are required",

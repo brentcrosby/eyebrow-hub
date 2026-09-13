@@ -39,14 +39,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const totalDuration = services.reduce(
+      (sum, s) => sum + s.durationMinutes,
+      0
+    );
 
     const params = new URLSearchParams({ date });
     if (totalDuration > 0) params.set("duration", String(totalDuration));
     const slotsResponse = await fetch(
       `${request.nextUrl.origin}/api/availability/times?${params.toString()}`
     );
-    const slots: { time: string; available: boolean }[] = await slotsResponse.json();
+    const slots: { time: string; available: boolean }[] =
+      await slotsResponse.json();
     const slot = slots.find((s) => s.time === time);
 
     if (!slot) {

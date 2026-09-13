@@ -13,13 +13,10 @@ function formatMinutes(minutes: number) {
 }
 
 export default async function BusinessHours() {
-  const { businessHours: savedHours } =
-    await getAvailabilitySettings();
+  const { businessHours: savedHours } = await getAvailabilitySettings();
 
   const businessHours = displayOrder.map((dayOfWeek) => {
-    const day = savedHours.find(
-      (item) => item.dayOfWeek === dayOfWeek
-    )!;
+    const day = savedHours.find((item) => item.dayOfWeek === dayOfWeek)!;
 
     return {
       day: DAY_NAMES[dayOfWeek],
@@ -33,9 +30,7 @@ export default async function BusinessHours() {
 
   return (
     <section id="business-hours" className="w-full">
-      <h2 className="text-subtitle leading-none font-normal">
-        Business Hours
-      </h2>
+      <h2 className="text-subtitle leading-none font-normal">Business Hours</h2>
 
       <div className="mt-5">
         <div className="space-y-3">

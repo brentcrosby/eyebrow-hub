@@ -32,7 +32,12 @@ export const manualAppointmentSchema = z.object({
   // confirmed rather than pending (which is for the customer-facing flow
   // awaiting approval).
   status: z
-    .enum([PENDING_STATUS, CONFIRMED_STATUS, COMPLETED_STATUS, CANCELLED_STATUS])
+    .enum([
+      PENDING_STATUS,
+      CONFIRMED_STATUS,
+      COMPLETED_STATUS,
+      CANCELLED_STATUS,
+    ])
     .default(CONFIRMED_STATUS),
 });
 

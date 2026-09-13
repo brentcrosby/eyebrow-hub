@@ -7,9 +7,7 @@ const globalForPrisma = globalThis as unknown as {
   db: PrismaClient | undefined;
 };
 
-export const db =
-  globalForPrisma.db ??
-  new PrismaClient({ adapter });
+export const db = globalForPrisma.db ?? new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.db = db;

@@ -73,10 +73,7 @@ export async function DELETE(request: Request) {
     });
 
     if (!service) {
-      return NextResponse.json(
-        { error: "Service not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
     await db.service.delete({
