@@ -1,186 +1,342 @@
 "use client";
 
-import { useState } from "react";
-import {
-  DAY_NAMES,
-  getBusinessHoursList,
-  toTimeInputValue,
-} from "@/lib/businessHours";
+import { useCallback, useEffect, useState } from "react";
+import { DAY_NAMES } from "@/lib/businessHours";
 
-const sectionCards = [
-  {
-    title: "Weekly Business Hours",
-    description: "Manage the weekly business hours for each day of the week.",
-  },
-  {
-    title: "Block Times",
-    description: "View and manage blocked dates and times for the calendar.",
-  },
-  {
-    title: "Scheduling Rules",
-    description: "Control notice periods, buffers, and booking rule settings.",
-  },
-];
-
-// Seeded from the shared source so the editor opens on the hours that are
-// actually in effect. Edits are still local-only until this page is wired to an
-// API; see the availability persistence ticket.
-const initialBusinessHours = getBusinessHoursList().map((day) => ({
-  day: DAY_NAMES[day.dayOfWeek],
-  startTime: toTimeInputValue(day.open),
-  endTime: toTimeInputValue(day.close),
-  enabled: !day.closed,
-}));
-
-const initialBlockForm = {
-  date: "",
-  startTime: "",
-  endTime: "",
+type BusinessHour = {
+  dayOfWeek: number;
+  enabled: boolean;
+  openMinutes: number;
+  closeMinutes: number;
 };
 
-const schedulingRuleOptions = {
-  minimumNotice: ["30 Minutes", "1 Hour", "2 Hours", "4 Hours"],
-  maximumNotice: ["7 Days", "14 Days", "30 Days", "60 Days"],
-  bufferTime: ["0 Minutes", "15 Minutes", "30 Minutes", "1 Hour"],
+type SchedulingRule = {
+  minimumNoticeMinutes: number;
+  maximumAdvanceDays: number;
+  bufferMinutes: number;
+};
+
+type Block = {
+  id: number;
+  startTime: string;
+  endTime: string;
+  reason: string | null;
+};
+
+const minutesToTime = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+    minutes % 60
+  ).padStart(2, "0")}`;
+
+const timeToMinutes = (time: string) => {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 };
 
 export default function AdminAvailabilityPage() {
-  const [businessHours, setBusinessHours] = useState(initialBusinessHours);
-  const [blockForm, setBlockForm] = useState(initialBlockForm);
-  const [blockTimes, setBlockTimes] = useState([
-    { id: 1, date: "2026-04-12", startTime: "12:00", endTime: "13:00" },
-  ]);
-  const [schedulingRules, setSchedulingRules] = useState({
-    minimumNotice: "2 Hours",
-    maximumNotice: "30 Days",
-    bufferTime: "15 Minutes",
+  const [businessHours, setBusinessHours] = useState<
+    BusinessHour[]
+  >([]);
+
+  const [schedulingRule, setSchedulingRule] =
+    useState<SchedulingRule>({
+      minimumNoticeMinutes: 120,
+      maximumAdvanceDays: 30,
+      bufferMinutes: 15,
+    });
+
+  const [blocks, setBlocks] = useState<Block[]>([]);
+
+  const [blockForm, setBlockForm] = useState({
+    date: "",
+    startTime: "",
+    endTime: "",
+    reason: "",
   });
 
-  function updateTime(
-    day: string,
-    field: "startTime" | "endTime",
-    value: string
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setMessage("");
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+
+    try {
+      const [settingsResponse, blocksResponse] =
+        await Promise.all([
+          fetch("/api/admin/availability-settings"),
+          fetch(
+            `/api/admin/availability-blocks?start=${encodeURIComponent(
+              start.toISOString()
+            )}&end=${encodeURIComponent(end.toISOString())}`
+          ),
+        ]);
+
+      const settings = await settingsResponse.json();
+      const savedBlocks = await blocksResponse.json();
+
+      if (!settingsResponse.ok) {
+        throw new Error(
+          settings.error ??
+            "Could not load availability settings"
+        );
+      }
+
+      if (!blocksResponse.ok) {
+        throw new Error(
+          savedBlocks.error ??
+            "Could not load unavailable times"
+        );
+      }
+
+      setBusinessHours(settings.businessHours);
+      setSchedulingRule(settings.schedulingRule);
+      setBlocks(savedBlocks);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not load availability"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function updateHour(
+    dayOfWeek: number,
+    changes: Partial<BusinessHour>
   ) {
-    setBusinessHours((currentHours) =>
-      currentHours.map((item) =>
-        item.day === day ? { ...item, [field]: value } : item
+    setBusinessHours((current) =>
+      current.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              ...changes,
+            }
+          : day
       )
     );
   }
 
-  function toggleDay(day: string) {
-    setBusinessHours((currentHours) =>
-      currentHours.map((item) =>
-        item.day === day ? { ...item, enabled: !item.enabled } : item
-      )
+  async function saveSettings() {
+    setMessage("");
+
+    const response = await fetch(
+      "/api/admin/availability-settings",
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          businessHours,
+          schedulingRule,
+        }),
+      }
     );
-  }
 
-  function updateBlockForm(
-    field: "date" | "startTime" | "endTime",
-    value: string
-  ) {
-    setBlockForm((currentForm) => ({
-      ...currentForm,
-      [field]: value,
-    }));
-  }
+    const result = await response.json();
 
-  function addBlockTime() {
-    if (!blockForm.date || !blockForm.startTime || !blockForm.endTime) {
+    if (!response.ok) {
+      setMessage(
+        result.error ?? "Could not save settings"
+      );
       return;
     }
 
-    const newBlockTime = {
-      id: Date.now(),
-      date: blockForm.date,
-      startTime: blockForm.startTime,
-      endTime: blockForm.endTime,
-    };
-
-    setBlockTimes((currentBlockTimes) => [...currentBlockTimes, newBlockTime]);
-    setBlockForm(initialBlockForm);
+    setBusinessHours(result.businessHours);
+    setSchedulingRule(result.schedulingRule);
+    setMessage("Availability settings saved.");
   }
 
-  function deleteBlockTime(id: number) {
-    setBlockTimes((currentBlockTimes) =>
-      currentBlockTimes.filter((item) => item.id !== id)
+  async function addBlock() {
+    setMessage("");
+
+    if (
+      !blockForm.date ||
+      !blockForm.startTime ||
+      !blockForm.endTime
+    ) {
+      setMessage(
+        "Date, start time, and end time are required."
+      );
+      return;
+    }
+
+    const response = await fetch(
+      "/api/admin/availability-blocks",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          startTime: new Date(
+            `${blockForm.date}T${blockForm.startTime}:00`
+          ).toISOString(),
+          endTime: new Date(
+            `${blockForm.date}T${blockForm.endTime}:00`
+          ).toISOString(),
+          reason: blockForm.reason,
+        }),
+      }
     );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setMessage(
+        result.error ?? "Could not add unavailable time"
+      );
+      return;
+    }
+
+    setBlocks((current) =>
+      [...current, result].sort((first, second) =>
+        first.startTime.localeCompare(second.startTime)
+      )
+    );
+
+    setBlockForm({
+      date: "",
+      startTime: "",
+      endTime: "",
+      reason: "",
+    });
+
+    setMessage("Unavailable time added.");
   }
 
-  function updateSchedulingRule(
-    field: "minimumNotice" | "maximumNotice" | "bufferTime",
-    value: string
-  ) {
-    setSchedulingRules((currentRules) => ({
-      ...currentRules,
-      [field]: value,
-    }));
+  async function deleteBlock(id: number) {
+    setMessage("");
+
+    const response = await fetch(
+      `/api/admin/availability-blocks?id=${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!response.ok) {
+      const result = await response.json();
+
+      setMessage(
+        result.error ?? "Could not delete unavailable time"
+      );
+      return;
+    }
+
+    setBlocks((current) =>
+      current.filter((block) => block.id !== id)
+    );
+
+    setMessage("Unavailable time deleted.");
   }
 
   return (
     <main className="min-h-full p-4 sm:p-6">
-      <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
-        <div>
-          <div className="flex flex-col gap-4 border-b border-[#d8c4ae] pb-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-[#b79d84]">
-                Admin Availability
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold text-[#7a5a3c]">
-                Availability
-              </h1>
-            </div>
+      <section className="mx-auto w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
+        <div className="border-b border-[#d8c4ae] pb-5">
+          <p className="text-sm uppercase tracking-[0.24em] text-[#b79d84]">
+            Admin Availability
+          </p>
 
-            <p className="text-sm text-[#7a5a3c]">Welcome, Owner</p>
-          </div>
+          <h1 className="mt-2 text-3xl font-semibold text-[#7a5a3c]">
+            Availability
+          </h1>
+        </div>
 
+        {message && (
+          <p
+            role="status"
+            className="mt-5 rounded-xl bg-[#f6e9db] p-3 text-sm text-[#7a5a3c]"
+          >
+            {message}
+          </p>
+        )}
+
+        {loading ? (
+          <p className="mt-8 text-[#7a5a3c]">
+            Loading saved availability...
+          </p>
+        ) : (
           <div className="mt-8 space-y-6">
             <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
-              <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
-                {sectionCards[0].title}
-              </div>
+              <h2 className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
+                Weekly Business Hours
+              </h2>
 
               <div className="mt-4 overflow-hidden rounded-2xl border border-[#eadfce] bg-white">
-                {businessHours.map((item) => (
+                {businessHours.map((day) => (
                   <div
-                    key={item.day}
+                    key={day.dayOfWeek}
                     className="grid gap-4 border-b border-[#efe4d7] px-4 py-4 last:border-b-0 md:grid-cols-[140px_1fr_1fr_auto] md:items-center"
                   >
                     <p className="text-sm font-medium text-[#5e4735]">
-                      {item.day}
+                      {DAY_NAMES[day.dayOfWeek]}
                     </p>
 
                     <input
                       type="time"
-                      value={item.startTime}
+                      disabled={!day.enabled}
+                      value={minutesToTime(day.openMinutes)}
                       onChange={(event) =>
-                        updateTime(item.day, "startTime", event.target.value)
+                        updateHour(day.dayOfWeek, {
+                          openMinutes: timeToMinutes(
+                            event.target.value
+                          ),
+                        })
                       }
-                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                      className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm"
                     />
 
                     <input
                       type="time"
-                      value={item.endTime}
+                      disabled={!day.enabled}
+                      value={minutesToTime(day.closeMinutes)}
                       onChange={(event) =>
-                        updateTime(item.day, "endTime", event.target.value)
+                        updateHour(day.dayOfWeek, {
+                          closeMinutes: timeToMinutes(
+                            event.target.value
+                          ),
+                        })
                       }
-                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                      className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm"
                     />
 
                     <button
                       type="button"
-                      onClick={() => toggleDay(item.day)}
-                      className={`flex h-8 w-14 items-center rounded-full p-1 transition ${
-                        item.enabled ? "bg-[#5f8444]" : "bg-[#d7c9bb]"
+                      onClick={() =>
+                        updateHour(day.dayOfWeek, {
+                          enabled: !day.enabled,
+                        })
+                      }
+                      className={`flex h-8 w-14 items-center rounded-full p-1 ${
+                        day.enabled
+                          ? "bg-[#5f8444]"
+                          : "bg-[#d7c9bb]"
                       }`}
-                      aria-pressed={item.enabled}
-                      aria-label={`Toggle ${item.day}`}
+                      aria-pressed={day.enabled}
+                      aria-label={`Toggle ${
+                        DAY_NAMES[day.dayOfWeek]
+                      }`}
                     >
                       <span
                         className={`h-6 w-6 rounded-full bg-white transition ${
-                          item.enabled ? "translate-x-6" : "translate-x-0"
+                          day.enabled
+                            ? "translate-x-6"
+                            : ""
                         }`}
                       />
                     </button>
@@ -191,144 +347,195 @@ export default function AdminAvailabilityPage() {
 
             <div className="grid gap-6 lg:grid-cols-2">
               <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
-                <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
-                  {sectionCards[1].title}
-                </div>
+                <h2 className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
+                  Unavailable Times
+                </h2>
 
-                <div className="mt-4 rounded-2xl border border-[#eadfce] bg-white p-4">
-                  <div className="grid gap-3">
-                    <input
-                      type="date"
-                      value={blockForm.date}
-                      onChange={(event) =>
-                        updateBlockForm("date", event.target.value)
-                      }
-                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
-                    />
+                <div className="mt-4 grid gap-3">
+                  <input
+                    type="date"
+                    value={blockForm.date}
+                    onChange={(event) =>
+                      setBlockForm({
+                        ...blockForm,
+                        date: event.target.value,
+                      })
+                    }
+                    className="rounded-full border border-[#dccab5] px-4 py-2"
+                  />
 
+                  <div className="grid grid-cols-2 gap-3">
                     <input
                       type="time"
                       value={blockForm.startTime}
                       onChange={(event) =>
-                        updateBlockForm("startTime", event.target.value)
+                        setBlockForm({
+                          ...blockForm,
+                          startTime: event.target.value,
+                        })
                       }
-                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                      className="rounded-full border border-[#dccab5] px-4 py-2"
                     />
 
                     <input
                       type="time"
                       value={blockForm.endTime}
                       onChange={(event) =>
-                        updateBlockForm("endTime", event.target.value)
+                        setBlockForm({
+                          ...blockForm,
+                          endTime: event.target.value,
+                        })
                       }
-                      className="w-full rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm text-[#7a5a3c] outline-none"
+                      className="rounded-full border border-[#dccab5] px-4 py-2"
                     />
-
-                    <button
-                      type="button"
-                      onClick={addBlockTime}
-                      className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white"
-                    >
-                      Add Block Time
-                    </button>
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    {blockTimes.map((item) => (
+                  <input
+                    placeholder="Reason (optional)"
+                    value={blockForm.reason}
+                    onChange={(event) =>
+                      setBlockForm({
+                        ...blockForm,
+                        reason: event.target.value,
+                      })
+                    }
+                    className="rounded-full border border-[#dccab5] px-4 py-2"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={addBlock}
+                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-white"
+                  >
+                    Add Unavailable Time
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {blocks.map((block) => {
+                    const start = new Date(block.startTime);
+                    const end = new Date(block.endTime);
+
+                    return (
                       <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-2xl border border-[#efe4d7] px-4 py-3"
+                        key={block.id}
+                        className="flex items-center justify-between rounded-2xl border border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c]"
                       >
-                        <div className="text-sm text-[#7a5a3c]">
-                          <p>{item.date}</p>
-                          <p className="text-[#9a816b]">
-                            {item.startTime} - {item.endTime}
+                        <div>
+                          <p>
+                            {start.toLocaleDateString()} ·{" "}
+                            {start.toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                            –
+                            {end.toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
                           </p>
+
+                          {block.reason && (
+                            <p className="text-[#9a816b]">
+                              {block.reason}
+                            </p>
+                          )}
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => deleteBlockTime(item.id)}
-                          className="rounded-full border border-[#dccab5] px-3 py-1 text-sm text-[#7a5a3c]"
+                          onClick={() =>
+                            deleteBlock(block.id)
+                          }
+                          className="rounded-full border border-[#dccab5] px-3 py-1"
                         >
                           Delete
                         </button>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               </section>
 
               <section className="rounded-3xl border border-[#eadfce] bg-[#fffdf9] p-6">
-                <div className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
-                  {sectionCards[2].title}
-                </div>
+                <h2 className="inline-flex rounded-full bg-[#f6e9db] px-4 py-2 text-sm font-semibold text-[#7a5a3c]">
+                  Scheduling Rules
+                </h2>
 
-                <div className="mt-4 rounded-2xl border border-[#eadfce] bg-white p-4">
-                  <div className="grid gap-4">
-                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
-                      <span>Minimum Notice</span>
-                      <select
-                        value={schedulingRules.minimumNotice}
-                        onChange={(event) =>
-                          updateSchedulingRule(
-                            "minimumNotice",
+                <div className="mt-4 grid gap-4">
+                  <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                    Minimum Notice (minutes)
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={
+                        schedulingRule.minimumNoticeMinutes
+                      }
+                      onChange={(event) =>
+                        setSchedulingRule({
+                          ...schedulingRule,
+                          minimumNoticeMinutes: Number(
                             event.target.value
-                          )
-                        }
-                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
-                      >
-                        {schedulingRuleOptions.minimumNotice.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                          ),
+                        })
+                      }
+                      className="rounded-full border border-[#dccab5] px-4 py-2"
+                    />
+                  </label>
 
-                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
-                      <span>Maximum Notice</span>
-                      <select
-                        value={schedulingRules.maximumNotice}
-                        onChange={(event) =>
-                          updateSchedulingRule(
-                            "maximumNotice",
+                  <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                    Maximum Advance Booking (days)
+
+                    <input
+                      type="number"
+                      min="1"
+                      value={
+                        schedulingRule.maximumAdvanceDays
+                      }
+                      onChange={(event) =>
+                        setSchedulingRule({
+                          ...schedulingRule,
+                          maximumAdvanceDays: Number(
                             event.target.value
-                          )
-                        }
-                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
-                      >
-                        {schedulingRuleOptions.maximumNotice.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                          ),
+                        })
+                      }
+                      className="rounded-full border border-[#dccab5] px-4 py-2"
+                    />
+                  </label>
 
-                    <label className="grid gap-2 text-sm text-[#7a5a3c]">
-                      <span>Buffer Time Between Appointments</span>
-                      <select
-                        value={schedulingRules.bufferTime}
-                        onChange={(event) =>
-                          updateSchedulingRule("bufferTime", event.target.value)
-                        }
-                        className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 outline-none"
-                      >
-                        {schedulingRuleOptions.bufferTime.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
+                  <label className="grid gap-2 text-sm text-[#7a5a3c]">
+                    Buffer Between Appointments (minutes)
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={schedulingRule.bufferMinutes}
+                      onChange={(event) =>
+                        setSchedulingRule({
+                          ...schedulingRule,
+                          bufferMinutes: Number(
+                            event.target.value
+                          ),
+                        })
+                      }
+                      className="rounded-full border border-[#dccab5] px-4 py-2"
+                    />
+                  </label>
                 </div>
               </section>
             </div>
-          </div>
 
-        </div>
+            <button
+              type="button"
+              onClick={saveSettings}
+              className="rounded-full bg-[#5f8444] px-6 py-3 font-medium text-white"
+            >
+              Save Availability Settings
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );
