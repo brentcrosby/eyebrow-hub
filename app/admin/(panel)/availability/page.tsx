@@ -289,6 +289,7 @@ export default function AdminAvailabilityPage() {
 
                     <input
                       type="time"
+                      step={3600}
                       disabled={!day.enabled}
                       value={minutesToTime(day.openMinutes)}
                       onChange={(event) =>
@@ -303,6 +304,7 @@ export default function AdminAvailabilityPage() {
 
                     <input
                       type="time"
+                      step={3600}
                       disabled={!day.enabled}
                       value={minutesToTime(day.closeMinutes)}
                       onChange={(event) =>
