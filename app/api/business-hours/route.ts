@@ -1,8 +1,32 @@
 import { NextResponse } from "next/server";
-import { getBusinessHoursList } from "@/lib/businessHours";
+import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 
-// Returns the full week so callers fetch once and pick the day they need,
-// rather than refetching every time the selected date changes.
 export async function GET() {
-  return NextResponse.json(getBusinessHoursList(), { status: 200 });
+  try {
+    const { businessHours } =
+      await getAvailabilitySettings();
+
+    return NextResponse.json(
+      businessHours.map((hours) => ({
+        dayOfWeek: hours.dayOfWeek,
+        open: hours.openMinutes / 60,
+        close: hours.closeMinutes / 60,
+        closed: !hours.enabled,
+      })),
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error("Failed to fetch business hours:", error);
+
+    return NextResponse.json(
+      {
+        error: "Failed to fetch business hours",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

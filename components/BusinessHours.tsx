@@ -1,29 +1,41 @@
-import {
-  DAY_NAMES,
-  formatHourLabel,
-  getBusinessHoursList,
-} from "@/lib/businessHours";
+import { DAY_NAMES } from "@/lib/businessHours";
+import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 
-// Monday first for display; the shared list is Sunday first to match getDay().
 const displayOrder = [1, 2, 3, 4, 5, 6, 0];
 
-const businessHours = displayOrder.map((dayOfWeek) => {
-  const day = getBusinessHoursList()[dayOfWeek];
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const minute = String(minutes % 60).padStart(2, "0");
+  const period = hours >= 12 ? "pm" : "am";
+  const displayHour = hours % 12 || 12;
 
-  return {
-    day: DAY_NAMES[dayOfWeek],
-    hours: day.closed
-      ? "Closed"
-      : `${formatHourLabel(day.open).toLowerCase()} - ${formatHourLabel(
-          day.close
-        ).toLowerCase()}`,
-  };
-});
+  return `${displayHour}:${minute} ${period}`;
+}
 
-export default function BusinessHours() {
+export default async function BusinessHours() {
+  const { businessHours: savedHours } =
+    await getAvailabilitySettings();
+
+  const businessHours = displayOrder.map((dayOfWeek) => {
+    const day = savedHours.find(
+      (item) => item.dayOfWeek === dayOfWeek
+    )!;
+
+    return {
+      day: DAY_NAMES[dayOfWeek],
+      hours: day.enabled
+        ? `${formatMinutes(day.openMinutes)} - ${formatMinutes(
+            day.closeMinutes
+          )}`
+        : "Closed",
+    };
+  });
+
   return (
     <section id="business-hours" className="w-full">
-      <h2 className="text-subtitle leading-none font-normal">Business Hours</h2>
+      <h2 className="text-subtitle leading-none font-normal">
+        Business Hours
+      </h2>
 
       <div className="mt-5">
         <div className="space-y-3">
