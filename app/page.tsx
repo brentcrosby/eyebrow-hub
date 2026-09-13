@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/Footer";
 import BusinessHours from "@/components/BusinessHours";
@@ -42,7 +44,6 @@ export default function Home() {
         aria-label="Business details layout"
       >
         <div className="grid grid-cols-[minmax(0,368px)_minmax(0,368px)] justify-between items-start gap-x-16 max-[879px]:grid-cols-[minmax(0,1fr)] max-[879px]:gap-y-14">
-          
           <div className="w-full max-w-[368px] flex flex-col gap-14 max-[879px]:max-w-full">
             <BusinessHours />
             <ServicesSection />
@@ -55,9 +56,10 @@ export default function Home() {
               <h2 className="text-subtitle leading-none font-normal">About</h2>
 
               <p className="mt-3 text-[13px] leading-6 text-[#8e8a86]">
-                We specialize in facial and eyebrow threading with a focus on precision
-                and care. Every service is designed to enhance your natural features
-                while providing a clean and comfortable experience.
+                We specialize in facial and eyebrow threading with a focus on
+                precision and care. Every service is designed to enhance your
+                natural features while providing a clean and comfortable
+                experience.
               </p>
             </section>
           </div>

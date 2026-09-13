@@ -54,7 +54,7 @@ export function createMockNextRequest(
  *
  * // In your test:
  * // const appointments = await getAppointments(); // Uses mocked db
- * // expect(db.appointment.findMany).toHaveBeenCalledWith(/* ... */);
+ * // expect(db.appointment.findMany).toHaveBeenCalledWith(...);
  * ```
  */
 export function mockDatabaseQueries() {
@@ -155,4 +155,3 @@ export function getDateString(date: Date): string {
 
   return `${year}-${month}-${day}`;
 }
-

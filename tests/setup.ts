@@ -1,4 +1,4 @@
-import { expect, afterEach, vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom";
 
 // Mock environment variables for tests
