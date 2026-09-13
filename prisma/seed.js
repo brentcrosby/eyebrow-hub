@@ -107,6 +107,9 @@ async function seedScheduleDemoData() {
   const services = await prisma.service.findMany();
   const byName = (name) => services.find((service) => service.name === name);
 
+  const stylists = await prisma.stylist.findMany();
+  const byStylistName = (name) => stylists.find((stylist) => stylist.name === name);
+
   const at = (dayOffset, hour, minute) => {
     const date = new Date();
     date.setDate(date.getDate() + dayOffset);
@@ -116,31 +119,37 @@ async function seedScheduleDemoData() {
 
   const appointments = [
     // A short booking: proves 15 minutes still renders legibly.
-    { day: 0, from: [11, 0], to: [11, 15], service: "Eyebrow", status: "confirmed", customer: "Ava Chen" },
+    { day: 0, from: [11, 0], to: [11, 15], service: "Eyebrow", status: "confirmed", customer: "Ava Chen", stylist: "Ava Nguyen", source: "online" },
     // An overlapping pair: proves overlaps stay readable side by side.
-    { day: 0, from: [12, 0], to: [13, 0], service: "Full Face", status: "confirmed", customer: "Priya Raman" },
-    { day: 0, from: [12, 30], to: [13, 30], service: "Half Face", status: "pending", customer: "Dana Brooks" },
-    { day: 0, from: [14, 0], to: [14, 30], service: "Eyebrows/Lip/Chin", status: "confirmed", customer: "Sam Ortiz" },
+    { day: 0, from: [12, 0], to: [13, 0], service: "Full Face", status: "confirmed", customer: "Priya Raman", stylist: "Maya Patel", source: "online" },
+    { day: 0, from: [12, 30], to: [13, 30], service: "Half Face", status: "pending", customer: "Dana Brooks", stylist: "Sofia Ramirez", source: "online" },
+    { day: 0, from: [14, 0], to: [14, 30], service: "Eyebrows/Lip/Chin", status: "confirmed", customer: "Sam Ortiz", stylist: "Jasmine Lee", source: "online" },
     // Cancelled: must never appear on the schedule.
-    { day: 0, from: [15, 0], to: [15, 15], service: "Lip", status: "cancelled", customer: "Cancelled Booking" },
+    { day: 0, from: [15, 0], to: [15, 15], service: "Lip", status: "cancelled", customer: "Cancelled Booking", stylist: null, source: "online" },
     // Starts before opening on every weekday: proves the grid clamps it.
-    { day: 0, from: [9, 0], to: [11, 30], service: "Brow Consult", status: "confirmed", customer: "Early Arrival" },
+    { day: 0, from: [9, 0], to: [11, 30], service: "Brow Consult", status: "confirmed", customer: "Early Arrival", stylist: null, source: "online" },
     // Neighbouring days, so prev/next navigation has something to show.
-    { day: 1, from: [11, 30], to: [12, 0], service: "Eyebrow", status: "pending", customer: "Jordan Lee" },
-    { day: 1, from: [13, 0], to: [13, 15], service: "Unibrow", status: "confirmed", customer: "Casey Nolan" },
-    { day: -1, from: [16, 0], to: [16, 30], service: "Sideburns", status: "confirmed", customer: "Riley Park" },
+    // Also a phone/walk-in pair, proving `source` distinguishes staff-entered
+    // bookings from the customer flow without a stylist relation being required.
+    { day: 1, from: [11, 30], to: [12, 0], service: "Eyebrow", status: "pending", customer: "Jordan Lee", stylist: "Ava Nguyen", source: "manual" },
+    { day: 1, from: [13, 0], to: [13, 15], service: "Unibrow", status: "confirmed", customer: "Casey Nolan", stylist: null, source: "manual" },
+    { day: -1, from: [16, 0], to: [16, 30], service: "Sideburns", status: "confirmed", customer: "Riley Park", stylist: "Maya Patel", source: "online" },
   ];
 
   for (const item of appointments) {
     const service = byName(item.service);
     if (!service) continue;
 
+    const stylist = item.stylist ? byStylistName(item.stylist) : null;
+
     await prisma.appointment.create({
       data: {
         serviceId: service.id,
+        stylistId: stylist ? stylist.id : null,
         startTime: at(item.day, item.from[0], item.from[1]),
         endTime: at(item.day, item.to[0], item.to[1]),
         status: item.status,
+        source: item.source,
         customerName: item.customer,
         customerPhone: "(555) 010-0100",
         customerEmail: null,

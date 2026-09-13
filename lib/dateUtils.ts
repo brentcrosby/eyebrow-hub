@@ -39,6 +39,36 @@ export function parseDateParam(value: string | null | undefined): Date | null {
   return roundTripped ? parsed : null;
 }
 
+const TIME_PARAM_PATTERN = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
+
+/**
+ * Parses a YYYY-MM-DD date plus a "h:mm AM/PM" time into a local Date, or
+ * null if either part is missing, malformed, out of range, or a rolled-over
+ * calendar date (delegates the date half to parseDateParam's round-trip check).
+ */
+export function parseDateTimeParams(
+  date: string | null | undefined,
+  time: string | null | undefined
+): Date | null {
+  const result = parseDateParam(date);
+  if (!result || !time) return null;
+
+  const match = TIME_PARAM_PATTERN.exec(time.trim());
+  if (!match) return null;
+
+  const [, rawHour, rawMinute, period] = match;
+  let hour = Number(rawHour);
+  const minute = Number(rawMinute);
+
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+
+  if (period.toUpperCase() === "PM" && hour !== 12) hour += 12;
+  if (period.toUpperCase() === "AM" && hour === 12) hour = 0;
+
+  result.setHours(hour, minute, 0, 0);
+  return result;
+}
+
 export function startOfDay(date: Date): Date {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);

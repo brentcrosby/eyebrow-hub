@@ -21,6 +21,8 @@ model Appointment {
   id              Int      @id @default(autoincrement())
   serviceId       Int
   service         Service  @relation(fields: [serviceId], references: [id])
+  stylistId       Int?
+  stylist         Stylist? @relation(fields: [stylistId], references: [id])
   startTime       DateTime
   endTime         DateTime
   customerName    String
@@ -28,16 +30,20 @@ model Appointment {
   customerEmail   String?
   notes           String?
   status          String   @default("pending")
+  // Free text, like `status` above: "online" (customer booking flow) or
+  // "manual" (staff-entered phone/walk-in). See lib/appointmentSource.ts.
+  source          String   @default("online")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
 model Stylist {
-  id        Int      @id @default(autoincrement())
-  name      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int           @id @default(autoincrement())
+  name         String
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
 }
 
 model AvailabilityBlock {
@@ -56,4 +62,28 @@ model AdminUser {
   role         String   @default("admin")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// Placeholder (Swechha, "Persisted availability and
+// scheduling rules"). These tables already exist on the shared dev database
+// from her in-progress work, so they're declared here matching that live
+// structure to keep `prisma migrate dev` unblocked for everyone else. Swechha
+// owns refining these — field names/shape may still change under her story.
+model BusinessHour {
+  id           Int      @id @default(autoincrement())
+  dayOfWeek    Int      @unique
+  enabled      Boolean  @default(true)
+  openMinutes  Int
+  closeMinutes Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SchedulingRule {
+  id                   Int      @id @default(1)
+  minimumNoticeMinutes Int      @default(120)
+  maximumAdvanceDays   Int      @default(30)
+  bufferMinutes        Int      @default(15)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
