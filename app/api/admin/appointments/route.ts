@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isCancelled } from "@/lib/appointmentStatus";
+import { parseDateTimeParams } from "@/lib/dateUtils";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
@@ -11,6 +12,9 @@ import { MANUAL_SOURCE } from "@/lib/appointmentSource";
 // and the Service relation to be connected correctly.
 
 export async function GET(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -68,22 +72,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function parseDateTime(date: string, time: string) {
-  const [hhmm, ampm] = time.split(" ");
-  const [rawHour, minute] = hhmm.split(":").map(Number);
-  let hour = rawHour;
-
-  if (ampm === "PM" && hour !== 12) hour += 12;
-  if (ampm === "AM" && hour === 12) hour = 0;
-
-  return new Date(
-    `${date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(
-      2,
-      "0"
-    )}:00`
-  );
-}
-
 class SchedulingConflictError extends Error {}
 
 // Blocked time always conflicts, regardless of stylist. An appointment only
@@ -136,7 +124,6 @@ export async function POST(request: NextRequest) {
 
     const {
       serviceId,
-      stylistId,
       date,
       time,
       customerName,
@@ -145,6 +132,10 @@ export async function POST(request: NextRequest) {
       notes,
       status,
     } = parsed.data;
+
+    // Normalise an omitted field the same as an explicit null — both mean
+    // "no stylist assigned".
+    const stylistId = parsed.data.stylistId ?? null;
 
     const service = await db.service.findFirst({
       where: { id: serviceId, active: true },
@@ -176,9 +167,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const startTime = parseDateTime(date, time);
+    const startTime = parseDateTimeParams(date, time);
 
-    if (Number.isNaN(startTime.getTime())) {
+    if (!startTime) {
       return NextResponse.json(
         { success: false, errors: { time: "Invalid date or time" } },
         { status: 400 }
