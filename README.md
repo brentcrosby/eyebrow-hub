@@ -226,22 +226,72 @@ Database commands (with `.env.local` loaded) are documented under [Database Setu
 
 ## Testing
 
-> _Placeholder — to be implemented in CSC 191._
+Testing is configured with **Vitest** for unit and integration tests. Tests run in isolation without contacting the production database.
 
-Planned testing strategy:
+### Test Strategy
 
-- **Unit tests** — business logic (booking rules, availability checks, conflict detection) using **Jest** or **Vitest**
-- **Integration tests** — API routes against a test Supabase schema
-- **End-to-end tests** — full booking and admin flows using **Playwright**
+- **Unit tests** — business logic (booking rules, availability checks, conflict detection) using **Vitest**
+- **Integration tests** — API route handlers with mocked Prisma and Supabase boundaries
+- **End-to-end tests** — full booking and admin flows using **Playwright** (planned for Sprint 9)
 - **CI** — tests run automatically on every PR via **GitHub Actions**
 
-Run commands (once configured):
+### Running Tests
 
 ```bash
-npm run test          # unit + integration
-npm run test:e2e      # end-to-end
-npm run test:coverage # coverage report
+# Run all tests once (from clean checkout, no production DB needed)
+npm run test
+
+# Watch mode — re-run tests on file changes
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+
+# Run linting
+npm run lint
+
+# Auto-fix linting issues
+npm run lint:fix
 ```
+
+### Test Infrastructure
+
+- **Framework**: Vitest with jsdom for React component testing
+- **Fixtures**: Shared mock data in `tests/fixtures/` for services, stylists, appointments, business hours, and scheduling rules
+- **Utilities**: Test helpers in `tests/utils/` for mocking Next.js requests and Prisma queries
+- **Database**: Tests use a mock `DATABASE_URL` and mock Prisma client — never contacts production database
+- **Coverage**: Reports generated in `coverage/` directory; upload to Codecov on CI
+
+### Test Structure
+
+```
+tests/
+├── setup.ts                    # Global test configuration
+├── fixtures/
+│   └── appointments.ts         # Mock data and factories
+├── utils/
+│   └── test-helpers.ts         # Request/database mocking utilities
+└── lib/
+    ├── adminAuth.test.ts       # Authentication (20+ tests)
+    ├── booking.test.ts         # Booking validation (40+ tests)
+    ├── availability.test.ts    # Availability & conflicts (25+ tests)
+    └── businessHours.test.ts   # Business hours formatting (20+ tests)
+```
+
+### Mocking Prisma and Supabase
+
+Tests use `mockDatabaseQueries()` to mock the entire Prisma client:
+
+```typescript
+import { mockDatabaseQueries } from '../utils/test-helpers';
+import { vi } from 'vitest';
+
+// In your test
+const db = mockDatabaseQueries();
+db.appointment.findMany.mockResolvedValue([/* mock data */]);
+```
+
+Environment variables are overridden in `tests/setup.ts` to use a test database URL, ensuring no production data is accessed.
 
 ---
 

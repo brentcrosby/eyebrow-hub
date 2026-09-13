@@ -1,6 +1,17 @@
 import { NextRequest } from "next/server";
 import { vi } from "vitest";
 
+/**
+ * Creates a mock Next.js Request object for testing API routes.
+ *
+ * Usage:
+ * ```typescript
+ * const request = createMockNextRequest("GET", {
+ *   searchParams: { date: "2025-03-15", duration: "30" },
+ *   cookies: { adminAccessToken: "test-token" }
+ * });
+ * ```
+ */
 export function createMockNextRequest(
   method: string = "GET",
   options: {
@@ -32,6 +43,20 @@ export function createMockNextRequest(
   return request;
 }
 
+/**
+ * Creates a mock Prisma client with all database tables mocked.
+ * Returns vitest mocks that can be configured with .mockResolvedValue(), .mockRejectedValue(), etc.
+ *
+ * Usage:
+ * ```typescript
+ * const db = mockDatabaseQueries();
+ * db.appointment.findMany.mockResolvedValue([{ id: 1, startTime: new Date() }]);
+ *
+ * // In your test:
+ * // const appointments = await getAppointments(); // Uses mocked db
+ * // expect(db.appointment.findMany).toHaveBeenCalledWith(/* ... */);
+ * ```
+ */
 export function mockDatabaseQueries() {
   return {
     businessHour: {
@@ -76,6 +101,39 @@ export function mockDatabaseQueries() {
   };
 }
 
+/**
+ * Mock database for use with vi.mock('@/lib/db', { spy: true })
+ *
+ * Usage in your test file:
+ * ```typescript
+ * import { vi } from 'vitest';
+ *
+ * vi.mock('@/lib/db', () => ({
+ *   db: mockDatabaseQueries()
+ * }));
+ *
+ * // Now any code that imports db from @/lib/db will use the mock
+ * ```
+ */
+export function createMockSupabase() {
+  return {
+    auth: {
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+      getSession: vi.fn(),
+      getUser: vi.fn(),
+    },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+    })),
+  };
+}
+
 export function timeToMinutes(hour: number, minute: number = 0): number {
   return hour * 60 + minute;
 }
@@ -97,3 +155,4 @@ export function getDateString(date: Date): string {
 
   return `${year}-${month}-${day}`;
 }
+
