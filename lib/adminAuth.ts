@@ -5,7 +5,20 @@ export type AdminAuthResult =
   | { authenticated: true; user: User }
   | { authenticated: false; response: NextResponse };
 
-// Placeholder admin-route guard for API handlers for Mohammed. 
+function extractAccessToken(request: NextRequest): string | AdminAuthResult {
+  const token = request.cookies.get("adminAccessToken")?.value;
+
+  if (!token || token.split(".").length !== 3) {
+    return {
+      authenticated: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  return token;
+}
+
+// Placeholder admin-route guard for API handlers for Mohammed.
 //
 // This only checks that the adminAccessToken cookie is present, matching the
 // page-level check middleware.ts already does — it does not verify the token
