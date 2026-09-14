@@ -12,8 +12,8 @@ import { MANUAL_SOURCE } from "@/lib/appointmentSource";
 // and the Service relation to be connected correctly.
 
 export async function GET(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
-  if (unauthorized) return unauthorized;
+  const auth = await requireAdmin(request);
+  if (!auth.authenticated) return auth.response;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -108,8 +108,8 @@ async function hasSchedulingConflict(
 
 // Staff-entered phone/walk-in appointments.
 export async function POST(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
-  if (unauthorized) return unauthorized;
+  const auth = await requireAdmin(request);
+  if (!auth.authenticated) return auth.response;
 
   try {
     const body = await request.json().catch(() => null);
