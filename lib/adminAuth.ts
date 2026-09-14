@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { createSupabaseClient } from "@/lib/supabase";
 
 export type AdminAuthResult =
   | { authenticated: true; user: User }
@@ -16,6 +17,20 @@ function extractAccessToken(request: NextRequest): string | AdminAuthResult {
   }
 
   return token;
+}
+
+async function verifySession(token: string): Promise<AdminAuthResult> {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return {
+      authenticated: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  return { authenticated: true, user: data.user };
 }
 
 // Placeholder admin-route guard for API handlers for Mohammed.
