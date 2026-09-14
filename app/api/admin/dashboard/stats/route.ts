@@ -11,8 +11,8 @@ type DashboardDateRanges = {
 };
 
 export async function GET(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
-  if (unauthorized) return unauthorized;
+  const auth = await requireAdmin(request);
+  if (!auth.authenticated) return auth.response;
 
   try {
     const [dateRanges] = await db.$queryRaw<DashboardDateRanges[]>`

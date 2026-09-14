@@ -3,10 +3,10 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const auth = await requireAdmin(request);
 
-  if (unauthorized) {
-    return unauthorized;
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   try {
@@ -75,10 +75,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const auth = await requireAdmin(request);
 
-  if (unauthorized) {
-    return unauthorized;
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   try {
@@ -170,10 +170,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const unauthorized = requireAdmin(request);
+  const auth = await requireAdmin(request);
 
-  if (unauthorized) {
-    return unauthorized;
+  if (!auth.authenticated) {
+    return auth.response;
   }
 
   const id = Number(request.nextUrl.searchParams.get("id"));
