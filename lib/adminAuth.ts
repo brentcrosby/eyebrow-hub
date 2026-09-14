@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
+
+export type AdminAuthResult =
+  | { authenticated: true; user: User }
+  | { authenticated: false; response: NextResponse };
 
 // Placeholder admin-route guard for API handlers for Mohammed. 
 //
