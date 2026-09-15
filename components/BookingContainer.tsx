@@ -102,6 +102,19 @@ export default function BookingContainer() {
   const [continueError, setContinueError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  function resetBookingFlow() {
+    setSelectedServices([]);
+    setSelectedStylist(NEXT_AVAILABLE);
+    setSelectedDate(null);
+    setSelectedTime("");
+    setTimeSlots([]);
+    setBookingSelection(null);
+    setConfirmation(null);
+    setContinueError(null);
+    setSubmitting(false);
+    setStep("dropdowns");
+  }
+
   const totalDuration = services
     .filter((service) => selectedServices.includes(service.name))
     .reduce((sum, service) => sum + service.durationMinutes, 0);
@@ -349,6 +362,15 @@ export default function BookingContainer() {
           style={{ backgroundColor: "#6B4F3A" }}
         >
           Add to Calendar
+        </button>
+
+        <button
+          type="button"
+          onClick={resetBookingFlow}
+          className="flex justify-center items-center w-full h-12 rounded-[48px] text-[14px] leading-[17px] font-medium text-black cursor-pointer"
+          style={{ border: "1px solid rgba(0,0,0,0.1)" }}
+        >
+          Start Another Booking
         </button>
       </div>
     );
