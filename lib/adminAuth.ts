@@ -1,29 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import { createSupabaseClient } from "@/lib/supabase";
 
-function unauthorizedResponse() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+export type AdminAuthResult =
+  | { authenticated: true; user: User }
+  | { authenticated: false; response: NextResponse };
 
-export async function requireAdmin(
-  request: NextRequest
-): Promise<NextResponse | null> {
+function extractAccessToken(request: NextRequest): string | AdminAuthResult {
   const token = request.cookies.get("adminAccessToken")?.value;
 
-  if (!token) {
-    return unauthorizedResponse();
+  if (!token || token.split(".").length !== 3) {
+    return {
+      authenticated: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
-  try {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase.auth.getUser(token);
+  return token;
+}
 
-    if (error || !data.user) {
-      return unauthorizedResponse();
-    }
+async function verifySession(token: string): Promise<AdminAuthResult> {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase.auth.getUser(token);
 
-    return null;
-  } catch {
-    return unauthorizedResponse();
+  if (error || !data.user) {
+    return {
+      authenticated: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
+
+  return { authenticated: true, user: data.user };
+}
+
+export async function requireAdmin(request: NextRequest): Promise<AdminAuthResult> {
+  const token = extractAccessToken(request);
+
+  if (typeof token !== "string") {
+    return token;
+  }
+
+  return verifySession(token);
 }
