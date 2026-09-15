@@ -24,6 +24,8 @@ interface BookingFormProps {
   onBack: () => void;
 }
 
+const MAX_NOTES_LENGTH = 500;
+
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 10);
   if (digits.length <= 3) return digits;
@@ -45,6 +47,12 @@ function validatePhone(phone: string): string | null {
   return phone.replace(/\D/g, "").length === 10
     ? null
     : "Enter a 10-digit phone number";
+}
+
+function validateNotes(notes: string): string | null {
+  return notes.trim().length <= MAX_NOTES_LENGTH
+    ? null
+    : `Notes must be ${MAX_NOTES_LENGTH} characters or fewer`;
 }
 
 function FormField({
@@ -85,9 +93,7 @@ function FormField({
       />
 
       {error && (
-        <span className="text-[12px] leading-[15px] text-red-500">
-          {error}
-        </span>
+        <span className="text-[12px] leading-[15px] text-red-500">{error}</span>
       )}
     </div>
   );
@@ -103,11 +109,13 @@ export default function BookingForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
 
   const [touched, setTouched] = useState({
     name: false,
     email: false,
     phone: false,
+    notes: false,
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +128,8 @@ export default function BookingForm({
   const selectedStylist =
     selection?.stylistId == null
       ? null
-      : stylists.find((stylist) => stylist.id === selection.stylistId) ?? null;
+      : (stylists.find((stylist) => stylist.id === selection.stylistId) ??
+        null);
 
   const totalPrice = selectedServices.reduce(
     (sum, service) => sum + service.price,
@@ -130,19 +139,22 @@ export default function BookingForm({
   const nameError = touched.name ? validateName(name) : null;
   const emailError = touched.email ? validateEmail(email) : null;
   const phoneError = touched.phone ? validatePhone(phone) : null;
+  const notesError = touched.notes ? validateNotes(notes) : null;
 
   const canBook =
     selection !== null &&
     !submitting &&
     validateName(name) === null &&
     validateEmail(email) === null &&
-    validatePhone(phone) === null;
+    validatePhone(phone) === null &&
+    validateNotes(notes) === null;
 
   async function handleSubmit() {
     setTouched({
       name: true,
       email: true,
       phone: true,
+      notes: true,
     });
 
     setSubmitError(null);
@@ -162,6 +174,7 @@ export default function BookingForm({
           name: name.trim(),
           email: email.trim(),
           phone,
+          notes,
         }),
       });
 
@@ -176,7 +189,7 @@ export default function BookingForm({
         setSubmitError(
           typeof firstError === "string"
             ? firstError
-            : body?.error ?? "Could not submit booking. Please try again."
+            : (body?.error ?? "Could not submit booking. Please try again.")
         );
 
         return;
@@ -258,11 +271,55 @@ export default function BookingForm({
         error={phoneError}
       />
 
+      <div className="flex flex-col gap-2 w-full">
+        <label
+          htmlFor="booking-notes"
+          className="text-[14px] leading-[17px] font-medium text-black"
+        >
+          Notes <span className="font-normal text-black/50">(optional)</span>
+        </label>
+
+        <textarea
+          id="booking-notes"
+          placeholder="Anything we should know before your appointment?"
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          onBlur={() => setTouched((prev) => ({ ...prev, notes: true }))}
+          aria-invalid={notesError ? "true" : undefined}
+          aria-describedby={notesError ? "booking-notes-error" : undefined}
+          rows={4}
+          className="px-4 py-4 w-full rounded-lg bg-white text-[14px] leading-[17px] text-black placeholder:text-black/50 outline-none focus:ring-1 focus:ring-black/20 resize-y"
+          style={{
+            border: `1px solid ${
+              notesError ? "rgba(220,38,38,0.4)" : "rgba(0,0,0,0.1)"
+            }`,
+          }}
+        />
+
+        <div className="flex justify-between gap-3 text-[12px] leading-[15px]">
+          {notesError ? (
+            <span id="booking-notes-error" className="text-red-500">
+              {notesError}
+            </span>
+          ) : (
+            <span className="text-black/50">Optional</span>
+          )}
+          <span className="ml-auto text-black/50">
+            {notes.length}/{MAX_NOTES_LENGTH}
+          </span>
+        </div>
+      </div>
+
       {submitError && (
         <p className="text-[12px] leading-[15px] text-red-500 w-full">
           {submitError}
         </p>
       )}
+
+      <p className="text-[14px] leading-[22px] text-black/50">
+        Cancellation Policy: Please cancel or reschedule at least 4 hours before
+        your appointment time.
+      </p>
 
       <button
         type="button"
