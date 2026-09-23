@@ -5,12 +5,18 @@ import {
   SHORT_DAY_NAMES,
   formatHourLabel,
 } from "@/lib/businessHours";
+import type { BusinessHoursDay } from "@/lib/businessHours";
 import { addDays, formatTimeRange, isSameDay } from "@/lib/dateUtils";
+import { getOpenSlots } from "@/lib/scheduleSlots";
 import {
   getStatusAccentClasses,
   getStatusLabel,
 } from "@/lib/appointmentStatus";
-import type { AvailabilityBlock, ScheduleAppointment } from "./types";
+import type {
+  AvailabilityBlock,
+  ScheduleAppointment,
+  ScheduleInteractionProps,
+} from "./types";
 
 const timeLabels = Array.from({ length: 24 }, (_, hour) =>
   formatHourLabel(hour)
@@ -20,12 +26,16 @@ type WeekScheduleGridProps = {
   weekStart: Date;
   appointments: ScheduleAppointment[];
   availabilityBlocks: AvailabilityBlock[];
-};
+  businessHours?: BusinessHoursDay[];
+} & ScheduleInteractionProps;
 
 export default function WeekScheduleGrid({
   weekStart,
   appointments,
   availabilityBlocks,
+  businessHours,
+  onSlotClick,
+  onAppointmentClick,
 }: WeekScheduleGridProps) {
   // Match on the actual calendar date, not just the weekday. Comparing getDay()
   // alone placed an item from any other week into the same column.
@@ -84,6 +94,7 @@ export default function WeekScheduleGrid({
                     </div>
 
                     {DAY_NAMES.map((day, dayIndex) => {
+                      const dayDate = addDays(weekStart, dayIndex);
                       const slotAppointments = getAppointmentsForSlot(
                         dayIndex,
                         rowIndex
@@ -91,6 +102,24 @@ export default function WeekScheduleGrid({
 
                       const slotAvailabilityBlocks =
                         getAvailabilityBlocksForSlot(dayIndex, rowIndex);
+                      const hours = businessHours?.find(
+                        (entry) => entry.dayOfWeek === dayDate.getDay()
+                      );
+                      const selectableSlot =
+                        onSlotClick &&
+                        hours &&
+                        !hours.closed &&
+                        rowIndex >= hours.open &&
+                        rowIndex + 1 <= hours.close
+                          ? getOpenSlots({
+                              dayStart: dayDate,
+                              openHour: rowIndex,
+                              closeHour: rowIndex + 1,
+                              intervalMinutes: 60,
+                              appointments,
+                              blocks: availabilityBlocks,
+                            })[0]
+                          : undefined;
 
                       return (
                         <div
@@ -99,6 +128,27 @@ export default function WeekScheduleGrid({
                             !isLastRow ? "border-b border-gray-200" : ""
                           } ${day === "Sunday" ? "border-l-0" : ""}`}
                         >
+                          {selectableSlot && (
+                            <button
+                              type="button"
+                              data-slot-start={selectableSlot.start.toISOString()}
+                              aria-label={`Book an appointment, ${selectableSlot.start.toLocaleDateString(
+                                "en-US",
+                                {
+                                  weekday: "long",
+                                  month: "long",
+                                  day: "numeric",
+                                }
+                              )}, ${formatHourLabel(rowIndex)}`}
+                              onClick={() => onSlotClick?.(selectableSlot)}
+                              className="group flex h-full min-h-10 w-full items-center justify-center rounded-md border border-transparent bg-transparent text-[10px] font-medium text-[#7a5a3c] transition-colors hover:border-dashed hover:border-[#d8c4ae] hover:bg-[#f6e9db] focus-visible:border-dashed focus-visible:border-[#d8c4ae] focus-visible:bg-[#f6e9db] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none active:bg-[#ead8c6] [@media(hover:none)]:after:content-['+'] sm:text-xs"
+                            >
+                              <span className="opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:hidden">
+                                + {formatHourLabel(rowIndex)}
+                              </span>
+                            </button>
+                          )}
+
                           {slotAvailabilityBlocks.map((block) => (
                             <div
                               key={block.id}
@@ -123,6 +173,12 @@ export default function WeekScheduleGrid({
                             <button
                               key={appointment.id}
                               type="button"
+                              onClick={
+                                onAppointmentClick
+                                  ? () => onAppointmentClick(appointment)
+                                  : undefined
+                              }
+                              data-appointment-id={appointment.id}
                               aria-label={`${appointment.service.name}, ${formatTimeRange(
                                 new Date(appointment.startTime),
                                 new Date(appointment.endTime)

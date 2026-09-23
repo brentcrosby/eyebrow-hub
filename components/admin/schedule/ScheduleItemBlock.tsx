@@ -45,11 +45,13 @@ export function AppointmentBlock({
   start,
   end,
   geometry,
+  onClick,
 }: {
   appointment: ScheduleAppointment;
   start: Date;
   end: Date;
   geometry: BlockGeometry;
+  onClick?: () => void;
 }) {
   const timeRange = formatTimeRange(start, end);
   const statusLabel = getStatusLabel(appointment.status);
@@ -66,6 +68,8 @@ export function AppointmentBlock({
     >
       <button
         type="button"
+        onClick={onClick}
+        data-appointment-id={appointment.id}
         // The visual label truncates, so the full description goes here.
         aria-label={`${appointment.service.name}, ${timeRange}, ${statusLabel}, ${appointment.customerName}`}
         className={`${CARD_BASE} border border-l-4 border-gray-200 bg-gray-100 text-left transition-colors hover:bg-gray-200 focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:outline-none ${getStatusAccentClasses(

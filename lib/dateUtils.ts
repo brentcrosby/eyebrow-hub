@@ -14,6 +14,15 @@ export function toDateParam(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Local time serialized for API/form parameters with a plain ASCII space. */
+export function toTimeParam(date: Date): string {
+  const hour = date.getHours();
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${displayHour}:${minute} ${period}`;
+}
+
 /**
  * Parses a YYYY-MM-DD param into local midnight, or null if it is missing or
  * malformed. Rejects rolled-over dates such as "2026-02-31", which the Date
