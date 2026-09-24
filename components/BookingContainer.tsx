@@ -26,6 +26,7 @@ type Stylist = {
 
 export type BookingConfirmation = {
   id: number;
+  bookingReference: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -47,7 +48,9 @@ function downloadCalendarFile(booking: BookingConfirmation) {
   const formatCalendarDate = (date: Date) =>
     date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
-  const serviceNames = booking.services.map((service) => service.name).join(", ");
+  const serviceNames = booking.services
+    .map((service) => service.name)
+    .join(", ");
 
   const calendarContent = [
     "BEGIN:VCALENDAR",
@@ -145,7 +148,8 @@ export default function BookingContainer() {
               data
                 .filter(
                   (dateInfo) =>
-                    dateInfo.unavailable === true || dateInfo.available === false
+                    dateInfo.unavailable === true ||
+                    dateInfo.available === false
                 )
                 .map((dateInfo) => dateInfo.date)
             )
@@ -216,7 +220,10 @@ export default function BookingContainer() {
     }
   }, [unavailableDates, selectedDate]);
 
-  const stylistOptions = [NEXT_AVAILABLE, ...stylists.map((stylist) => stylist.name)];
+  const stylistOptions = [
+    NEXT_AVAILABLE,
+    ...stylists.map((stylist) => stylist.name),
+  ];
 
   const canContinue =
     selectedServices.length > 0 &&
@@ -234,7 +241,8 @@ export default function BookingContainer() {
     const stylistId =
       selectedStylist === NEXT_AVAILABLE
         ? null
-        : stylists.find((stylist) => stylist.name === selectedStylist)?.id ?? null;
+        : (stylists.find((stylist) => stylist.name === selectedStylist)?.id ??
+          null);
 
     const payload: BookingSelection = {
       serviceIds,
@@ -305,6 +313,13 @@ export default function BookingContainer() {
             <h3 className="text-[15px] font-medium text-black">
               Booking Summary
             </h3>
+
+            <p className="text-[14px] text-black/70">
+              <span className="font-medium text-black">
+                Confirmation number:
+              </span>{" "}
+              {confirmation.bookingReference}
+            </p>
 
             <p className="text-[14px] text-black/70">
               <span className="font-medium text-black">Name:</span>{" "}
@@ -422,7 +437,9 @@ export default function BookingContainer() {
             value={selectedTime}
             onChange={setSelectedTime}
             slots={timeSlots}
-            emptyMessage={selectedDate ? "No times available" : "Select a date first"}
+            emptyMessage={
+              selectedDate ? "No times available" : "Select a date first"
+            }
           />
 
           {continueError && (
