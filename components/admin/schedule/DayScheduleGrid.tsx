@@ -3,11 +3,17 @@
 import { useSyncExternalStore } from "react";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { DAY_NAMES, formatHourLabel } from "@/lib/businessHours";
-import { isSameDay, minutesBetween } from "@/lib/dateUtils";
+import { formatTime, isSameDay, minutesBetween } from "@/lib/dateUtils";
 import { layoutScheduleItems } from "@/lib/scheduleLayout";
+import { getOpenSlots } from "@/lib/scheduleSlots";
 import type { BlockGeometry } from "./ScheduleItemBlock";
 import { AppointmentBlock, BlockedTimeBlock } from "./ScheduleItemBlock";
-import type { AvailabilityBlock, ScheduleAppointment } from "./types";
+import type {
+  AvailabilityBlock,
+  ScheduleAppointment,
+  ScheduleInteractionProps,
+  ScheduleSlot,
+} from "./types";
 
 // Row height drives all vertical positioning. Kept as a CSS variable so the
 // grid and the item blocks scale together at each breakpoint without JS.
@@ -47,7 +53,7 @@ type DayScheduleGridProps = {
   hours: BusinessHoursDay;
   appointments: ScheduleAppointment[];
   availabilityBlocks: AvailabilityBlock[];
-};
+} & ScheduleInteractionProps;
 
 type Placed<T> = {
   item: T;
@@ -89,6 +95,8 @@ export default function DayScheduleGrid({
   hours,
   appointments,
   availabilityBlocks,
+  onSlotClick,
+  onAppointmentClick,
 }: DayScheduleGridProps) {
   // A subscription rather than an effect: this is external state changing on a
   // timer, and it keeps the marker out of the server render entirely.
@@ -167,17 +175,49 @@ export default function DayScheduleGrid({
     })
   );
 
+  const openSlots = onSlotClick
+    ? getOpenSlots({
+        dayStart: date,
+        openHour: hours.open,
+        closeHour: hours.close,
+        intervalMinutes: 30,
+        appointments,
+        blocks: availabilityBlocks,
+      })
+    : [];
+
+  const placedSlots: Placed<ScheduleSlot>[] = openSlots.map((slot) => ({
+    item: slot,
+    start: slot.start,
+    end: slot.end,
+    geometry: {
+      top: `calc(var(--hour-h) * ${minutesBetween(gridStart, slot.start)} / 60)`,
+      height: "calc(var(--hour-h) / 2)",
+      left: "0%",
+      width: "100%",
+      clippedStart: false,
+      clippedEnd: false,
+    },
+  }));
+
   // Both kinds live in one container sorted by time. Absolute positioning means
   // DOM order does not affect layout, so ordering chronologically gives screen
   // readers the correct reading order without a duplicated summary list, while
   // z-index alone keeps blocked time behind appointments.
   const renderables = [
     ...placedBlocks.map((entry) => ({ kind: "block" as const, entry })),
+    ...placedSlots.map((entry) => ({ kind: "slot" as const, entry })),
     ...placedAppointments.map((entry) => ({
       kind: "appointment" as const,
       entry,
     })),
-  ].sort((a, b) => a.entry.start.getTime() - b.entry.start.getTime());
+  ].sort((a, b) => {
+    const timeDifference = a.entry.start.getTime() - b.entry.start.getTime();
+    if (timeDifference !== 0) return timeDifference;
+
+    const order = { block: 0, slot: 1, appointment: 2 };
+    return order[a.kind] - order[b.kind];
+  });
 
   return (
     <div className={`mt-6 ${HOUR_HEIGHT_CLASSES}`}>
@@ -228,6 +268,36 @@ export default function DayScheduleGrid({
                   end={entry.end}
                   geometry={entry.geometry}
                 />
+              ) : kind === "slot" ? (
+                <div
+                  key={`slot-${entry.start.toISOString()}`}
+                  className="group absolute z-[5] px-[3px] py-[2px]"
+                  style={{
+                    top: entry.geometry.top,
+                    height: entry.geometry.height,
+                    left: entry.geometry.left,
+                    width: entry.geometry.width,
+                  }}
+                >
+                  <button
+                    type="button"
+                    data-slot-start={entry.start.toISOString()}
+                    aria-label={`Book an appointment, ${entry.start.toLocaleDateString(
+                      "en-US",
+                      {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}, ${formatTime(entry.start)}`}
+                    onClick={() => onSlotClick?.(entry.item as ScheduleSlot)}
+                    className="flex h-full w-full items-center justify-center rounded-md border border-transparent bg-transparent text-[10px] font-medium text-[#7a5a3c] transition-colors hover:border-dashed hover:border-[#d8c4ae] hover:bg-[#f6e9db] focus-visible:border-dashed focus-visible:border-[#d8c4ae] focus-visible:bg-[#f6e9db] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none active:bg-[#ead8c6] [@media(hover:none)]:after:content-['+']"
+                  >
+                    <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:hidden">
+                      + {formatTime(entry.start)}
+                    </span>
+                  </button>
+                </div>
               ) : (
                 <AppointmentBlock
                   key={`appointment-${entry.item.id}`}
@@ -235,6 +305,12 @@ export default function DayScheduleGrid({
                   start={entry.start}
                   end={entry.end}
                   geometry={entry.geometry}
+                  onClick={
+                    onAppointmentClick
+                      ? () =>
+                          onAppointmentClick(entry.item as ScheduleAppointment)
+                      : undefined
+                  }
                 />
               )
             )}

@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         service: true,
+        stylist: true,
       },
       orderBy: {
         startTime: "asc",
