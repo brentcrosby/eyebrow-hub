@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import {
@@ -9,8 +16,13 @@ import {
   startOfDay,
   startOfWeek,
   toDateParam,
+  toTimeParam,
 } from "@/lib/dateUtils";
+import AppointmentDetailDialog from "@/components/admin/schedule/AppointmentDetailDialog";
 import DayScheduleGrid from "@/components/admin/schedule/DayScheduleGrid";
+import NewAppointmentDialog, {
+  type NewAppointmentRequest,
+} from "@/components/admin/schedule/NewAppointmentDialog";
 import ScheduleDayNav from "@/components/admin/schedule/ScheduleDayNav";
 import WeekScheduleGrid from "@/components/admin/schedule/WeekScheduleGrid";
 import {
@@ -22,11 +34,22 @@ import type {
   AvailabilityBlock,
   ScheduleAppointment,
   ScheduleView,
+  ScheduleSlot,
 } from "@/components/admin/schedule/types";
 
 function isAbort(error: unknown) {
   return (error as Error)?.name === "AbortError";
 }
+
+type ReloadRequest = {
+  id: number;
+  silent: boolean;
+};
+
+type FocusReturnTarget =
+  | { kind: "appointment"; id: number }
+  | { kind: "slot"; start: string }
+  | { kind: "toolbar" };
 
 function SchedulePageContent() {
   const router = useRouter();
@@ -53,13 +76,82 @@ function SchedulePageContent() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [reloadRequest, setReloadRequest] = useState<ReloadRequest>({
+    id: 0,
+    silent: false,
+  });
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<
+    number | null
+  >(null);
+  const [bookingRequest, setBookingRequest] =
+    useState<NewAppointmentRequest | null>(null);
+  const selectedAppointmentIdRef = useRef<number | null>(null);
+  const focusReturnTarget = useRef<FocusReturnTarget | null>(null);
+  const addAppointmentButtonRef = useRef<HTMLButtonElement>(null);
+  const scheduleRegionRef = useRef<HTMLDivElement>(null);
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), []);
+  const reload = useCallback((options: { silent: boolean }) => {
+    setReloadRequest((request) => ({
+      id: request.id + 1,
+      silent: options.silent,
+    }));
+  }, []);
+
+  const retry = useCallback(() => reload({ silent: false }), [reload]);
+
+  const restoreFocus = useCallback(() => {
+    const target = focusReturnTarget.current;
+    focusReturnTarget.current = null;
+
+    requestAnimationFrame(() => {
+      let element: HTMLElement | null = null;
+
+      if (target?.kind === "appointment") {
+        element = document.querySelector(
+          `[data-appointment-id="${target.id}"]`
+        );
+      } else if (target?.kind === "slot") {
+        element = document.querySelector(
+          `[data-slot-start="${CSS.escape(target.start)}"]`
+        );
+      } else if (target?.kind === "toolbar") {
+        element = addAppointmentButtonRef.current;
+      }
+
+      (
+        element ??
+        addAppointmentButtonRef.current ??
+        scheduleRegionRef.current
+      )?.focus();
+    });
+  }, []);
+
+  const handleAppointmentsLoaded = useCallback(
+    (nextAppointments: ScheduleAppointment[]) => {
+      setAppointments(nextAppointments);
+
+      if (
+        selectedAppointmentIdRef.current !== null &&
+        !nextAppointments.some(
+          (appointment) => appointment.id === selectedAppointmentIdRef.current
+        )
+      ) {
+        selectedAppointmentIdRef.current = null;
+        setSelectedAppointmentId(null);
+        restoreFocus();
+      }
+    },
+    [restoreFocus]
+  );
 
   const hoursForDay =
     businessHours?.find((day) => day.dayOfWeek === selectedDate.getDay()) ??
     null;
+  const selectedAppointment =
+    appointments.find(
+      (appointment) => appointment.id === selectedAppointmentId
+    ) ?? null;
 
   function updateParams(next: { date?: Date; view?: ScheduleView }) {
     const params = new URLSearchParams();
@@ -78,8 +170,11 @@ function SchedulePageContent() {
     const range = `start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`;
 
     async function load() {
-      setIsLoading(true);
-      setError(null);
+      if (!reloadRequest.silent) {
+        setIsLoading(true);
+        setError(null);
+      }
+      setRefreshError(null);
 
       try {
         const [hoursResponse, appointmentsResponse, blocksResponse] =
@@ -108,7 +203,7 @@ function SchedulePageContent() {
         ]);
 
         setBusinessHours(hours);
-        setAppointments(appointmentData);
+        handleAppointmentsLoaded(appointmentData);
         setAvailabilityBlocks(blockData);
         setIsLoading(false);
       } catch (caught) {
@@ -118,17 +213,52 @@ function SchedulePageContent() {
 
         // No fallback data: showing invented appointments would be worse than
         // showing nothing, because staff cannot tell the difference.
-        setAppointments([]);
-        setAvailabilityBlocks([]);
-        setError("The schedule could not be loaded.");
-        setIsLoading(false);
+        if (reloadRequest.silent) {
+          setRefreshError("The schedule could not be refreshed.");
+        } else {
+          setAppointments([]);
+          setAvailabilityBlocks([]);
+          setError("The schedule could not be loaded.");
+          setIsLoading(false);
+        }
       }
     }
 
     load();
 
     return () => controller.abort();
-  }, [selectedDate, view, reloadKey]);
+  }, [handleAppointmentsLoaded, reloadRequest, selectedDate, view]);
+
+  function closeAppointmentDialog() {
+    selectedAppointmentIdRef.current = null;
+    setSelectedAppointmentId(null);
+    restoreFocus();
+  }
+
+  function closeBookingDialog() {
+    setBookingRequest(null);
+    restoreFocus();
+  }
+
+  function handleSlotClick(slot: ScheduleSlot) {
+    const start = slot.start.toISOString();
+    focusReturnTarget.current = { kind: "slot", start };
+    setBookingRequest({
+      date: toDateParam(slot.start),
+      time: toTimeParam(slot.start),
+    });
+  }
+
+  function handleAppointmentClick(appointment: ScheduleAppointment) {
+    focusReturnTarget.current = { kind: "appointment", id: appointment.id };
+    selectedAppointmentIdRef.current = appointment.id;
+    setSelectedAppointmentId(appointment.id);
+  }
+
+  function handleAddAppointment() {
+    focusReturnTarget.current = { kind: "toolbar" };
+    setBookingRequest({ date: toDateParam(selectedDate), time: null });
+  }
 
   const isEmpty =
     !isLoading &&
@@ -157,6 +287,9 @@ function SchedulePageContent() {
             weekStart={startOfWeek(selectedDate)}
             appointments={appointments}
             availabilityBlocks={availabilityBlocks}
+            businessHours={businessHours}
+            onSlotClick={handleSlotClick}
+            onAppointmentClick={handleAppointmentClick}
           />
         ) : (
           hoursForDay && (
@@ -165,6 +298,8 @@ function SchedulePageContent() {
               hours={hoursForDay}
               appointments={appointments}
               availabilityBlocks={availabilityBlocks}
+              onSlotClick={handleSlotClick}
+              onAppointmentClick={handleAppointmentClick}
             />
           )
         )}
@@ -183,10 +318,38 @@ function SchedulePageContent() {
           hours={hoursForDay}
           onDateChange={(date) => updateParams({ date })}
           onViewChange={(nextView) => updateParams({ view: nextView })}
+          onAddAppointment={handleAddAppointment}
+          addAppointmentButtonRef={addAppointmentButtonRef}
         />
 
-        {renderSchedule()}
+        {refreshError && (
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            {refreshError}
+          </div>
+        )}
+
+        <div ref={scheduleRegionRef} tabIndex={-1} aria-label="Schedule">
+          {renderSchedule()}
+        </div>
       </section>
+
+      <AppointmentDetailDialog
+        appointment={selectedAppointment}
+        onClose={closeAppointmentDialog}
+        onStatusChange={() => reload({ silent: true })}
+      />
+      <NewAppointmentDialog
+        request={bookingRequest}
+        onClose={closeBookingDialog}
+        onCreated={async () => {
+          setBookingRequest(null);
+          reload({ silent: true });
+          restoreFocus();
+        }}
+      />
     </main>
   );
 }

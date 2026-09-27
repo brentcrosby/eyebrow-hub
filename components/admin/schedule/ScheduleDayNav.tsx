@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { formatHourLabel } from "@/lib/businessHours";
 import {
@@ -21,6 +22,8 @@ type ScheduleDayNavProps = {
   hours: BusinessHoursDay | null;
   onDateChange: (date: Date) => void;
   onViewChange: (view: ScheduleView) => void;
+  onAddAppointment?: () => void;
+  addAppointmentButtonRef?: Ref<HTMLButtonElement>;
 };
 
 function formatWeekRange(date: Date) {
@@ -43,6 +46,8 @@ export default function ScheduleDayNav({
   hours,
   onDateChange,
   onViewChange,
+  onAddAppointment,
+  addAppointmentButtonRef,
 }: ScheduleDayNavProps) {
   const step = view === "week" ? 7 : 1;
   const unit = view === "week" ? "week" : "day";
@@ -159,6 +164,17 @@ export default function ScheduleDayNav({
             </button>
           ))}
         </div>
+
+        {onAddAppointment && (
+          <button
+            ref={addAppointmentButtonRef}
+            type="button"
+            onClick={onAddAppointment}
+            className="rounded-full border border-[#7a5a3c] bg-[#7a5a3c] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#684b31] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            + Add appointment
+          </button>
+        )}
       </div>
     </div>
   );
