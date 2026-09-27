@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bookingRequestSchema } from "@/lib/validations/booking";
+import { createUniqueBookingReference } from "@/lib/bookingReference";
 
 function parseDateTime(date: string, time: string) {
   const [hhmm, ampm] = time.split(" ");
@@ -125,29 +126,38 @@ export async function POST(request: NextRequest) {
 
     let currentStart = parseDateTime(date, time);
 
-    const appointmentData = services.map((service) => {
-      const startTime = new Date(currentStart);
-      const endTime = new Date(
-        startTime.getTime() + service.durationMinutes * 60_000
-      );
-      currentStart = endTime;
+    const booking = await db.$transaction(async (tx) => {
+      const bookingReference = await createUniqueBookingReference(tx);
 
-      return {
-        serviceId: service.id,
-        startTime,
-        endTime,
-        customerName: name.trim(),
-        customerEmail: email.trim(),
-        customerPhone: phone,
-        notes: notes ?? null,
-        status: "pending",
-      };
+      const appointmentData = services.map((service) => {
+        const startTime = new Date(currentStart);
+        const endTime = new Date(
+          startTime.getTime() + service.durationMinutes * 60_000
+        );
+        currentStart = endTime;
+
+        return {
+          serviceId: service.id,
+          startTime,
+          endTime,
+          customerName: name.trim(),
+          customerEmail: email.trim(),
+          customerPhone: phone,
+          notes: notes ?? null,
+          status: "pending",
+          bookingReference,
+        };
+      });
+
+      const appointments = [];
+      for (const data of appointmentData) {
+        appointments.push(await tx.appointment.create({ data }));
+      }
+
+      return { appointments, bookingReference };
     });
 
-    const appointments = await db.$transaction(
-      appointmentData.map((data) => db.appointment.create({ data }))
-    );
-
+    const appointments = booking.appointments;
     const firstAppointment = appointments[0];
     const lastAppointment = appointments[appointments.length - 1];
 
@@ -161,6 +171,7 @@ export async function POST(request: NextRequest) {
         success: true,
         booking: {
           id: firstAppointment.id,
+          bookingReference: booking.bookingReference,
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone,
