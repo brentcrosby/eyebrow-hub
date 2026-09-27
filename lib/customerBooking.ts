@@ -9,6 +9,7 @@ export const bookingDetailSelect = {
   startTime: true,
   endTime: true,
   service: { select: { name: true } },
+  stylist: { select: { name: true } },
 } satisfies Prisma.AppointmentSelect;
 
 export type BookingDetailRow = Prisma.AppointmentGetPayload<{
@@ -38,6 +39,7 @@ export function bookingSummary(rows: BookingDetailRow[]) {
     ).toISOString(),
     services: rows.map((row) => ({
       name: row.service.name,
+      stylistName: row.stylist?.name ?? null,
       startTime: row.startTime.toISOString(),
       endTime: row.endTime.toISOString(),
       status: row.status,
