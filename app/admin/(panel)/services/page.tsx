@@ -18,6 +18,10 @@ export default function AdminServicesPage() {
   type FieldErrors = Partial<
     Record<"name" | "durationMinutes" | "price" | "active", string>
   >;
+  type DeleteResult = {
+    action: "deleted" | "deactivated";
+    service: Service;
+  };
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -33,6 +37,7 @@ export default function AdminServicesPage() {
   const [notice, setNotice] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -189,29 +194,54 @@ export default function AdminServicesPage() {
     }
   }
 
-  const handleDeleteClick = async (id: number) => {
-    await handleDeleteService(id);
-  };
-
   async function handleDeleteService(id: number) {
-    try {
-      const response = await fetch(
-        `/api/admin/employee-services?serviceId=${id}`,
-        {
-          method: "DELETE",
-        }
-      );
+    if (deletingId !== null) return;
 
-      if (response.ok) {
-        const updatedServices = services.filter((service) => service.id !== id);
-        setServices(updatedServices);
-      } else {
-        setError("Failed to delete service");
-        console.error("Failed to delete service:", response.status);
+    setDeletingId(id);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch(`/api/admin/services?id=${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(
+          response.status === 401
+            ? "Your admin session has expired. Sign in again, then retry."
+            : (result?.error ?? "Service could not be removed. Please retry.")
+        );
+        return;
       }
-    } catch (err) {
-      setError("Failed to delete service");
-      console.error("Failed to delete service:", err);
+
+      const deleteResult = result as DeleteResult;
+
+      if (deleteResult.action === "deactivated") {
+        setServices((current) =>
+          current.map((service) =>
+            service.id === deleteResult.service.id
+              ? deleteResult.service
+              : service
+          )
+        );
+        setNotice(
+          `${deleteResult.service.name} is used by appointments, so it was deactivated instead of deleted.`
+        );
+      } else {
+        setServices((current) =>
+          current.filter((service) => service.id !== deleteResult.service.id)
+        );
+        setNotice(`${deleteResult.service.name} deleted.`);
+      }
+    } catch (caught) {
+      setError(
+        "Service could not be removed. Check your connection and retry."
+      );
+      console.error("Failed to delete service:", caught);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -439,10 +469,11 @@ export default function AdminServicesPage() {
                 </div>
                 <div className="flex justify-center">
                   <button
-                    onClick={() => handleDeleteClick(item.id)}
-                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
+                    onClick={() => handleDeleteService(item.id)}
+                    disabled={deletingId !== null}
+                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Delete
+                    {deletingId === item.id ? "Removing..." : "Delete"}
                   </button>
                 </div>
               </div>

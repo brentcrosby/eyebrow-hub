@@ -136,3 +136,85 @@ export async function PATCH(request: NextRequest): Promise<Response> {
     );
   }
 }
+
+export async function DELETE(request: NextRequest): Promise<Response> {
+  const auth = await requireAdmin(request);
+  if (!auth.authenticated) return auth.response;
+
+  const id = Number(request.nextUrl.searchParams.get("id"));
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json(
+      { error: "A valid service id is required" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const result = await db.$transaction(
+      async (tx) => {
+        const service = await tx.service.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            durationMinutes: true,
+            active: true,
+            _count: { select: { appointments: true } },
+          },
+        });
+
+        if (!service) return null;
+
+        if (service._count.appointments > 0) {
+          const deactivated = await tx.service.update({
+            where: { id },
+            data: { active: false },
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              durationMinutes: true,
+              active: true,
+            },
+          });
+
+          return {
+            action: "deactivated" as const,
+            service: serializeService(deactivated),
+          };
+        }
+
+        const deleted = await tx.service.delete({
+          where: { id },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            durationMinutes: true,
+            active: true,
+          },
+        });
+
+        return {
+          action: "deleted" as const,
+          service: serializeService(deleted),
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+
+    if (!result) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    console.error("Failed to delete or deactivate service:", error);
+    return NextResponse.json(
+      { error: "Failed to delete or deactivate service" },
+      { status: 500 }
+    );
+  }
+}
