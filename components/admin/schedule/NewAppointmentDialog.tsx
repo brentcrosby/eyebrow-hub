@@ -33,6 +33,11 @@ type StylistOption = {
   name: string;
 };
 
+type AvailableTime = {
+  time: string;
+  available: boolean;
+};
+
 // Same order as the enum in lib/validations/manualAppointment.ts.
 const STATUS_OPTIONS = [
   PENDING_STATUS,
@@ -60,6 +65,12 @@ function AppointmentForm({
   const [stylists, setStylists] = useState<StylistOption[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
+
+  // null means "not asked yet", which is different from an empty list meaning
+  // "asked, and the salon has nothing that day".
+  const [times, setTimes] = useState<AvailableTime[] | null>(null);
+  const [isLoadingTimes, setIsLoadingTimes] = useState(false);
+  const [timesError, setTimesError] = useState<string | null>(null);
 
   const [serviceId, setServiceId] = useState("");
   // "" is a real choice, not a missing one: the endpoint accepts a null
@@ -112,10 +123,71 @@ function AppointmentForm({
     return () => controller.abort();
   }, []);
 
-  // The only time known to be real right now is the one the schedule handed
-  // over. DT-488 fills this from the day's live availability; the control, its
-  // "3:00 PM" value format and its state all stay exactly as they are.
-  const timeOptions = request.time ? [request.time] : [];
+  const selectedService =
+    services.find((service) => String(service.id) === serviceId) ?? null;
+  const duration = selectedService?.durationMinutes;
+
+  // Availability is asked for per date and per service duration, because a
+  // 15-minute service and a 90-minute one do not fit the same gaps. The
+  // endpoint takes no stylistId, so this list is salon-wide: a time is offered
+  // only when nobody at all is booked into it.
+  useEffect(() => {
+    if (!date || duration === undefined) {
+      setTimes(null);
+      setTimesError(null);
+      setIsLoadingTimes(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsLoadingTimes(true);
+    setTimesError(null);
+
+    async function loadTimes() {
+      try {
+        const response = await fetch(
+          `/api/availability/times?date=${date}&duration=${duration}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("Available times could not be loaded.");
+        }
+
+        const data: AvailableTime[] = await response.json();
+
+        setTimes(data);
+        // Keep a still-valid choice (the slot the schedule handed over usually
+        // survives) and drop one the new day or duration has invalidated, so a
+        // stale time can never be submitted.
+        setTime((current) =>
+          data.some((slot) => slot.time === current && slot.available)
+            ? current
+            : ""
+        );
+        setIsLoadingTimes(false);
+      } catch (caught) {
+        if ((caught as Error)?.name === "AbortError") return;
+
+        setTimes(null);
+        setTime("");
+        setTimesError("Available times could not be loaded.");
+        setIsLoadingTimes(false);
+      }
+    }
+
+    loadTimes();
+
+    return () => controller.abort();
+  }, [date, duration]);
+
+  // Before a service is picked there is no duration to ask about, so the only
+  // time on offer is the one the schedule handed over.
+  const timeOptions: AvailableTime[] =
+    times ?? (request.time ? [{ time: request.time, available: true }] : []);
+
+  // AC: never submit against times that are loading, failed, or unchosen.
+  const canSubmit = !isLoadingTimes && timesError === null && time !== "";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -241,21 +313,31 @@ function AppointmentForm({
           <select
             id={`${fieldId}-time`}
             required
-            disabled={timeOptions.length === 0}
+            disabled={isLoadingTimes || timeOptions.length === 0}
             value={time}
             onChange={(event) => setTime(event.target.value)}
             className={FIELD}
           >
-            <option value="">Select a time</option>
-            {timeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+            <option value="">
+              {isLoadingTimes ? "Loading times" : "Select a time"}
+            </option>
+            {/* Taken slots stay listed but disabled, so staff can see that the
+                time exists and is spoken for rather than wondering where it went. */}
+            {timeOptions.map((slot) => (
+              <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                {slot.available ? slot.time : `${slot.time} (unavailable)`}
               </option>
             ))}
           </select>
-          {timeOptions.length === 0 && (
-            <p className={HINT}>Pick a slot on the schedule to choose a time.</p>
-          )}
+          {timesError ? (
+            <p role="alert" className="mt-1 text-xs text-red-700">
+              {timesError}
+            </p>
+          ) : !serviceId ? (
+            <p className={HINT}>Choose a service to see the day&apos;s times.</p>
+          ) : times?.length === 0 ? (
+            <p className={HINT}>No times are open on this day.</p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -300,7 +382,8 @@ function AppointmentForm({
         </button>
         <button
           type="submit"
-          className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#936f50] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:ring-offset-2 focus-visible:outline-none"
+          disabled={!canSubmit}
+          className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#936f50] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-[#c3ac95]"
         >
           Save appointment
         </button>
