@@ -90,3 +90,16 @@ model SchedulingRule {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
+
+model Closure {
+  id          Int      @id @default(autoincrement())
+  closureDate DateTime @db.Date
+  startTime   DateTime
+  endTime     DateTime
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([closureDate])
+  @@index([startTime, endTime])
+}
