@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
 
         return {
           serviceId: service.id,
+          stylistId,
           startTime,
           endTime,
           customerName: name.trim(),
