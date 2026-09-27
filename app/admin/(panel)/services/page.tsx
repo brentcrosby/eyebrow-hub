@@ -15,6 +15,13 @@ export default function AdminServicesPage() {
     price: string;
     active: boolean;
   };
+  type FieldErrors = Partial<
+    Record<"name" | "durationMinutes" | "price" | "active", string>
+  >;
+  type DeleteResult = {
+    action: "deleted" | "deactivated";
+    service: Service;
+  };
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -27,10 +34,14 @@ export default function AdminServicesPage() {
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [error, setError] = useState<string>("");
+  const [notice, setNotice] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await fetch('/api/stylists');
+      const response = await fetch("/api/stylists");
       if (response.ok) {
         const data: Employee[] = await response.json();
         setEmployees(data);
@@ -38,12 +49,12 @@ export default function AdminServicesPage() {
           setSelectedEmployee(data[0].id);
         }
       } else {
-        setError('Failed to fetch employees');
-        console.error('Failed to fetch employees:', response.status);
+        setError("Failed to fetch employees");
+        console.error("Failed to fetch employees:", response.status);
       }
     } catch (err) {
-      setError('Failed to fetch employees');
-      console.error('Failed to fetch employees:', err);
+      setError("Failed to fetch employees");
+      console.error("Failed to fetch employees:", err);
     }
   }, []);
 
@@ -60,53 +71,64 @@ export default function AdminServicesPage() {
   async function fetchEmployeeServices(employeeId: number) {
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/employee-services?employeeId=${employeeId}`);
+      const response = await fetch(
+        `/api/admin/employee-services?employeeId=${employeeId}`
+      );
       if (response.ok) {
         const data = await response.json();
         setServices(data.services);
       } else {
-        setError('Failed to fetch employee services');
-        console.error('Failed to fetch employee services:', response.status);
+        setError("Failed to fetch employee services");
+        console.error("Failed to fetch employee services:", response.status);
       }
     } catch (err) {
-      setError('Failed to fetch employee services');
-      console.error('Failed to fetch employee services:', err);
+      setError("Failed to fetch employee services");
+      console.error("Failed to fetch employee services:", err);
     } finally {
       setLoading(false);
     }
   }
 
   function validateService(): boolean {
+    const errors: FieldErrors = {};
+
     if (!newService.trim()) {
-      setError("Service name is required.");
-      return false;
+      errors.name = "Service name is required.";
     }
-    const duration = parseFloat(newDuration);
-    if (!newDuration.trim() || isNaN(duration) || duration <= 0) {
-      setError("Duration must be a positive number.");
-      return false;
+
+    const duration = Number(newDuration);
+    if (!newDuration.trim() || !Number.isInteger(duration) || duration <= 0) {
+      errors.durationMinutes = "Duration must be a positive whole number.";
     }
-    const price = parseFloat(newPrice);
-    if (!newPrice.trim() || isNaN(price) || price <= 0) {
-      setError("Price must be a positive number.");
-      return false;
+
+    const price = Number(newPrice);
+    if (!newPrice.trim() || !Number.isFinite(price) || price <= 0) {
+      errors.price = "Price must be a positive number.";
     }
+
+    setFieldErrors(errors);
     setError("");
-    return true;
+    setNotice("");
+    return Object.keys(errors).length === 0;
   }
 
-  function handleAddService() {
-    if (!validateService()) return;
+  function normalizeFieldErrors(value: unknown): FieldErrors {
+    if (!value || typeof value !== "object") return {};
 
-    const newServiceEntry: Service = {
-      id: Math.max(...services.map(s => s.id), 0) + 1,
-      name: newService.trim(),
-      durationMinutes: parseInt(newDuration),
-      price: newPrice,
-      active: newActive
-    };
-    setServices([...services, newServiceEntry]);
-    resetForm();
+    return Object.entries(value).reduce<FieldErrors>(
+      (result, [field, messages]) => {
+        if (
+          ["name", "durationMinutes", "price", "active"].includes(field) &&
+          Array.isArray(messages) &&
+          typeof messages[0] === "string"
+        ) {
+          result[field as keyof FieldErrors] = messages[0];
+        }
+
+        return result;
+      },
+      {}
+    );
   }
 
   function handleEditService(service: Service) {
@@ -116,41 +138,110 @@ export default function AdminServicesPage() {
     setNewPrice(service.price);
     setNewActive(service.active);
     setShowAddForm(true);
+    setFieldErrors({});
+    setError("");
+    setNotice("");
   }
 
-  function handleUpdateService() {
-    if (!validateService() || !editingService) return;
+  async function handleSaveService() {
+    if (saving || !validateService()) return;
 
-    const updatedServices = services.map(s =>
-      s.id === editingService.id
-        ? { ...s, name: newService.trim(), durationMinutes: parseInt(newDuration), price: newPrice, active: newActive }
-        : s
-    );
-    setServices(updatedServices);
-    resetForm();
-    setEditingService(null);
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/admin/services", {
+        method: editingService ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(editingService ? { id: editingService.id } : {}),
+          name: newService.trim(),
+          durationMinutes: Number(newDuration),
+          price: newPrice.trim(),
+          active: newActive,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setFieldErrors(normalizeFieldErrors(result?.errors));
+        setError(
+          response.status === 401
+            ? "Your admin session has expired. Sign in again, then retry."
+            : (result?.error ?? "Service could not be saved. Please retry.")
+        );
+        return;
+      }
+
+      const savedService = result as Service;
+      setServices((current) =>
+        editingService
+          ? current.map((service) =>
+              service.id === savedService.id ? savedService : service
+            )
+          : [...current, savedService]
+      );
+
+      const successMessage = editingService
+        ? `${savedService.name} updated.`
+        : `${savedService.name} added.`;
+      resetForm();
+      setNotice(successMessage);
+    } catch (caught) {
+      setError("Service could not be saved. Check your connection and retry.");
+      console.error("Failed to save service:", caught);
+    } finally {
+      setSaving(false);
+    }
   }
-
-  const handleDeleteClick = async (id: number) => {
-    await handleDeleteService(id);
-  };
 
   async function handleDeleteService(id: number) {
-    try {
-      const response = await fetch(`/api/admin/employee-services?serviceId=${id}`, {
-        method: 'DELETE',
-      });
+    if (deletingId !== null) return;
 
-      if (response.ok) {
-        const updatedServices = services.filter(service => service.id !== id);
-        setServices(updatedServices);
-      } else {
-        setError('Failed to delete service');
-        console.error('Failed to delete service:', response.status);
+    setDeletingId(id);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch(`/api/admin/services?id=${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(
+          response.status === 401
+            ? "Your admin session has expired. Sign in again, then retry."
+            : (result?.error ?? "Service could not be removed. Please retry.")
+        );
+        return;
       }
-    } catch (err) {
-      setError('Failed to delete service');
-      console.error('Failed to delete service:', err);
+
+      const deleteResult = result as DeleteResult;
+
+      if (deleteResult.action === "deactivated") {
+        setServices((current) =>
+          current.map((service) =>
+            service.id === deleteResult.service.id
+              ? deleteResult.service
+              : service
+          )
+        );
+        setNotice(
+          `${deleteResult.service.name} is used by appointments, so it was deactivated instead of deleted.`
+        );
+      } else {
+        setServices((current) =>
+          current.filter((service) => service.id !== deleteResult.service.id)
+        );
+        setNotice(`${deleteResult.service.name} deleted.`);
+      }
+    } catch (caught) {
+      setError(
+        "Service could not be removed. Check your connection and retry."
+      );
+      console.error("Failed to delete service:", caught);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -162,6 +253,7 @@ export default function AdminServicesPage() {
     setShowAddForm(false);
     setEditingService(null);
     setError("");
+    setFieldErrors({});
   }
 
   return (
@@ -177,7 +269,9 @@ export default function AdminServicesPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
               value={selectedEmployee || ""}
-              onChange={(event) => setSelectedEmployee(Number(event.target.value))}
+              onChange={(event) =>
+                setSelectedEmployee(Number(event.target.value))
+              }
               className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm capitalize text-[#7a5a3c] outline-none hover:border-[#bfa17a] transition-colors"
             >
               {employees.map((employee) => (
@@ -189,7 +283,11 @@ export default function AdminServicesPage() {
 
             <button
               type="button"
-              onClick={() => setShowAddForm(true)}
+              onClick={() => {
+                resetForm();
+                setShowAddForm(true);
+                setNotice("");
+              }}
               className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
             >
               + Add New
@@ -198,40 +296,98 @@ export default function AdminServicesPage() {
 
           {selectedEmployee !== null && (
             <p className="mt-4 text-sm font-medium text-[#7a5a3c]">
-              Showing services for <span className="capitalize">{employees.find((employee) => employee.id === selectedEmployee)?.name ?? "Employee"}</span>
+              Showing services for{" "}
+              <span className="capitalize">
+                {employees.find((employee) => employee.id === selectedEmployee)
+                  ?.name ?? "Employee"}
+              </span>
             </p>
           )}
 
           {showAddForm && (
-            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 sm:flex-row sm:items-center shadow-sm">
-              <input
-                type="text"
-                value={newService}
-                onChange={(event) => setNewService(event.target.value)}
-                placeholder="Enter service name"
-                className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
-              />
-              <input
-                type="number"
-                value={newDuration}
-                onChange={(event) => setNewDuration(event.target.value)}
-                placeholder="Enter duration (minutes)"
-                className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
-              />
-              <input
-                type="number"
-                step="0.01"
-                value={newPrice}
-                onChange={(event) => setNewPrice(event.target.value)}
-                placeholder="Enter price"
-                className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c]"
-              />
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 shadow-sm sm:flex-row sm:items-start">
+              <div className="w-full">
+                <input
+                  type="text"
+                  value={newService}
+                  onChange={(event) => setNewService(event.target.value)}
+                  placeholder="Enter service name"
+                  disabled={saving}
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  aria-describedby={
+                    fieldErrors.name ? "service-name-error" : undefined
+                  }
+                  className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                {fieldErrors.name && (
+                  <p
+                    id="service-name-error"
+                    role="alert"
+                    className="mt-1 text-xs text-red-600"
+                  >
+                    {fieldErrors.name}
+                  </p>
+                )}
+              </div>
+              <div className="w-full">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={newDuration}
+                  onChange={(event) => setNewDuration(event.target.value)}
+                  placeholder="Enter duration (minutes)"
+                  disabled={saving}
+                  aria-invalid={Boolean(fieldErrors.durationMinutes)}
+                  aria-describedby={
+                    fieldErrors.durationMinutes
+                      ? "service-duration-error"
+                      : undefined
+                  }
+                  className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                {fieldErrors.durationMinutes && (
+                  <p
+                    id="service-duration-error"
+                    role="alert"
+                    className="mt-1 text-xs text-red-600"
+                  >
+                    {fieldErrors.durationMinutes}
+                  </p>
+                )}
+              </div>
+              <div className="w-full">
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={newPrice}
+                  onChange={(event) => setNewPrice(event.target.value)}
+                  placeholder="Enter price"
+                  disabled={saving}
+                  aria-invalid={Boolean(fieldErrors.price)}
+                  aria-describedby={
+                    fieldErrors.price ? "service-price-error" : undefined
+                  }
+                  className="w-full rounded-full border border-[#dccab5] bg-white px-4 py-2 text-sm text-[#7a5a3c] outline-none focus:ring-1 focus:ring-[#7a5a3c] disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                {fieldErrors.price && (
+                  <p
+                    id="service-price-error"
+                    role="alert"
+                    className="mt-1 text-xs text-red-600"
+                  >
+                    {fieldErrors.price}
+                  </p>
+                )}
+              </div>
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="active-toggle"
                   checked={newActive}
                   onChange={(event) => setNewActive(event.target.checked)}
+                  disabled={saving}
                   className="h-4 w-4 rounded border-[#dccab5] bg-white text-[#7a5a3c] focus:ring-[#7a5a3c]"
                 />
                 <span className="text-sm text-[#7a5a3c]">Active</span>
@@ -239,25 +395,36 @@ export default function AdminServicesPage() {
 
               <button
                 type="button"
-                onClick={editingService ? handleUpdateService : handleAddService}
-                className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
+                onClick={handleSaveService}
+                disabled={saving}
+                className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {editingService ? 'Update' : 'Save'}
+                {saving ? "Saving..." : editingService ? "Update" : "Save"}
               </button>
 
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => {
                   resetForm();
                   setEditingService(null);
                 }}
-                className="rounded-full border border-[#dccab5] px-4 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f7f1eb] transition-colors"
+                className="rounded-full border border-[#dccab5] px-4 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f7f1eb] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancel
               </button>
             </div>
           )}
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          {notice && (
+            <p role="status" className="mt-2 text-sm text-green-700">
+              {notice}
+            </p>
+          )}
         </div>
 
         <div className="sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
@@ -273,9 +440,13 @@ export default function AdminServicesPage() {
 
         <div className="mt-3 overflow-hidden rounded-2xl border border-[#eadfce] bg-white shadow-sm">
           {loading ? (
-            <div className="px-4 py-3 text-sm text-[#7a5a3c]">Loading services...</div>
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">
+              Loading services...
+            </div>
           ) : services.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-[#7a5a3c]">No services found.</div>
+            <div className="px-4 py-3 text-sm text-[#7a5a3c]">
+              No services found.
+            </div>
           ) : (
             services.map((item) => (
               <div
@@ -285,7 +456,9 @@ export default function AdminServicesPage() {
                 <p>{item.name}</p>
                 <p>{item.durationMinutes}</p>
                 <p>${parseFloat(item.price).toFixed(2)}</p>
-                <p className="text-center">{item.active ? "Active" : "Inactive"}</p>
+                <p className="text-center">
+                  {item.active ? "Active" : "Inactive"}
+                </p>
                 <div className="flex justify-center">
                   <button
                     onClick={() => handleEditService(item)}
@@ -296,17 +469,18 @@ export default function AdminServicesPage() {
                 </div>
                 <div className="flex justify-center">
                   <button
-                    onClick={() => handleDeleteClick(item.id)}
-                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors"
+                    onClick={() => handleDeleteService(item.id)}
+                    disabled={deletingId !== null}
+                    className="rounded-full bg-[#7a5a3c] px-4 py-2 text-sm font-medium text-white hover:bg-[#936f50] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Delete
+                    {deletingId === item.id ? "Removing..." : "Delete"}
                   </button>
                 </div>
               </div>
             ))
           )}
         </div>
-      </section> 
+      </section>
     </main>
   );
 }
