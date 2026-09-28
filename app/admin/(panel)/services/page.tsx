@@ -261,8 +261,6 @@ export default function AdminServicesPage() {
       <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_50px_rgba(96,74,50,0.1)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
         <div className="flex flex-col gap-4 border-b border-[#d8c4ae] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <h1 className="text-3xl font-semibold text-[#7a5a3c]">Services</h1>
-
-          <p className="text-sm text-[#7a5a3c]">Welcome, Owner</p>
         </div>
 
         <div className="mt-6">

@@ -117,7 +117,13 @@ const navItems = [
   },
 ];
 
-function AdminSideNav({ onNavigate }: { onNavigate?: () => void }) {
+function AdminSideNav({
+  userEmail,
+  onNavigate,
+}: {
+  userEmail: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   function handleLogout() {
@@ -138,6 +144,11 @@ function AdminSideNav({ onNavigate }: { onNavigate?: () => void }) {
           className="object-contain"
         />
         <p className="text-sm tracking-widest text-[#A78C7A]">Admin Panel</p>
+        {userEmail && (
+          <p className="max-w-full truncate text-xs text-[#7a5a3c]">
+            Signed in as {userEmail}
+          </p>
+        )}
       </div>
 
       <nav className="flex flex-col gap-1">
@@ -196,6 +207,16 @@ export default function AdminPanelLayout({
   children: React.ReactNode;
 }) {
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+
+  // The signed-in user comes from the verified session on the server, not from
+  // anything stored in the browser.
+  useEffect(() => {
+    fetch("/api/admin/account")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setUserEmail(data?.email ?? ""))
+      .catch(() => setUserEmail(""));
+  }, []);
 
   // The drawer is closed by the nav's own onNavigate callback rather than by an
   // effect watching the pathname: closing it is a consequence of the click, not
@@ -217,7 +238,7 @@ export default function AdminPanelLayout({
           overflow-hidden parent that made it unreachable. Below lg the nav
           becomes a drawer instead. */}
       <div className="hidden lg:flex">
-        <AdminSideNav />
+        <AdminSideNav userEmail={userEmail} />
       </div>
 
       {isNavOpen && (
@@ -229,7 +250,10 @@ export default function AdminPanelLayout({
             className="fixed inset-0 z-40 bg-black/40 lg:hidden"
           />
           <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
-            <AdminSideNav onNavigate={() => setIsNavOpen(false)} />
+            <AdminSideNav
+              userEmail={userEmail}
+              onNavigate={() => setIsNavOpen(false)}
+            />
           </div>
         </>
       )}
@@ -267,6 +291,12 @@ export default function AdminPanelLayout({
             height={32}
             className="object-contain"
           />
+
+          {userEmail && (
+            <p className="ml-auto min-w-0 truncate text-xs text-[#7a5a3c]">
+              {userEmail}
+            </p>
+          )}
         </header>
 
         <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
