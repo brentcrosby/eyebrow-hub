@@ -24,6 +24,10 @@ export default function AdminLoginPage() {
     setIsMounted(true);
   }, []);
 
+  const isSessionExpired =
+    isMounted &&
+    new URLSearchParams(window.location.search).get("expired") === "1";
+
   const isFormValid = email.trim() !== "" && password.trim() !== "";
   const isButtonDisabled = !isFormValid || isSubmitting;
 
@@ -121,6 +125,12 @@ export default function AdminLoginPage() {
       </h1>
 
         <p className="mb-6 text-center text-sm text-gray-600">Login</p>
+
+        {isSessionExpired && (
+          <p role="status" className="mb-5 rounded-md bg-amber-50 px-3 py-2 text-center text-sm text-amber-800">
+            Your session has expired. Please sign in again.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

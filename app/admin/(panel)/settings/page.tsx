@@ -1,19 +1,49 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function AdminSettingsPage() { 
+type Notice = { ok: boolean; text: string } | null;
+
+// Sends one account change to the API and returns a message for the form.
+async function saveAccount(changes: object): Promise<{ ok: boolean; text: string; email?: string }> {
+  try {
+    const response = await fetch("/api/admin/account", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changes),
+    });
+    const data = await response.json().catch(() => null);
+    return {
+      ok: response.ok,
+      text: data?.message ?? "Something went wrong. Please try again.",
+      email: data?.email,
+    };
+  } catch {
+    return { ok: false, text: "Something went wrong. Please try again." };
+  }
+}
+
+export default function AdminSettingsPage() {
   // State variables for email and password management
   const [email, editEmail] = useState<string>("");
   const [originalEmail, setOriginalEmail] = useState<string>("");
-  
-  const [password, editPassword] = useState<string>("");
-  const [originalPassword, setOriginalPassword] = useState<string>("");
-  // State variables for form visibility and error handling
+
+  const [currentPassword, setCurrentPassword] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  // State variables for form visibility and messages
   const [emailForm, displayEmailForm] = useState<boolean>(false);
   const [passwordForm, displayPasswordForm] = useState<boolean>(false);
 
-  const [emailError, setEmailError] = useState<string>("");
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [emailNotice, setEmailNotice] = useState<Notice>(null);
+  const [passwordNotice, setPasswordNotice] = useState<Notice>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  // Load the signed-in account's real email.
+  useEffect(() => {
+    fetch("/api/admin/account")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setOriginalEmail(data?.email ?? ""))
+      .catch(() => setEmailNotice({ ok: false, text: "Could not load your email." }));
+  }, []);
 
   // Notification preferences object to reduce state variables
   const [preferences, setPreferences] = useState({
@@ -31,11 +61,42 @@ export default function AdminSettingsPage() {
   function emailValidation(): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setEmailError("Please enter a valid email address.");
+      setEmailNotice({ ok: false, text: "Please enter a valid email address." });
       return false;
     }
-    setEmailError("");
     return true;
+  }
+
+  async function saveEmail() {
+    if (!emailValidation()) return;
+
+    setIsSaving(true);
+    const result = await saveAccount({ email });
+    setIsSaving(false);
+
+    setEmailNotice(result);
+    if (result.ok) {
+      if (result.email) setOriginalEmail(result.email);
+      displayEmailForm(false);
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 8) {
+      setPasswordNotice({ ok: false, text: "New password must be at least 8 characters." });
+      return;
+    }
+
+    setIsSaving(true);
+    const result = await saveAccount({ currentPassword, newPassword });
+    setIsSaving(false);
+
+    setPasswordNotice(result);
+    if (result.ok) {
+      setCurrentPassword("");
+      setNewPassword("");
+      displayPasswordForm(false);
+    }
   }
 
   return (
@@ -43,7 +104,6 @@ export default function AdminSettingsPage() {
       <section className="mx-auto w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_50px_rgba(96,74,50,0.1)] sm:px-8 sm:py-8 md:px-10 md:py-10">
         <div className="flex flex-col gap-4 border-b border-[#d8c4ae] pb-5 sm:flex-row sm:items-end sm:justify-between">
           <h1 className="text-3xl font-semibold text-[#7a5a3c]">Settings</h1>
-          <p className="text-sm text-[#7a5a3c]">Welcome, Owner</p>
         </div>
 
         <div className="mt-6 grid gap-6 md:grid-cols-3">
@@ -53,47 +113,47 @@ export default function AdminSettingsPage() {
             <div className="mt-5">
               <p className="text-xs text-[#a1866f]">Email Address</p>
               <div className="mt-1 flex items-center justify-between border-b border-[#eadfce] pb-2">
-                <input
-                  value={originalEmail}
-                  onChange={(e) => setOriginalEmail(e.target.value)}
-                  readOnly={!emailForm}
-                  placeholder="example@email.com"
-                  className="w-full bg-transparent text-sm text-[#7a5a3c] outline-none"
-                />
-                <span
+                <p className="w-full text-sm text-[#7a5a3c]">
+                  {originalEmail || "…"}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Change email"
                   className="cursor-pointer text-[#a1866f]"
-                  onClick={() => displayEmailForm(true)}
+                  onClick={() => {
+                    editEmail(originalEmail);
+                    setEmailNotice(null);
+                    displayEmailForm(true);
+                  }}
                 >
                   ✎
-                </span>
+                </button>
               </div>
+
+              {emailNotice && (
+                <p className={`mt-1 text-xs ${emailNotice.ok ? "text-green-700" : "text-red-500"}`}>
+                  {emailNotice.text}
+                </p>
+              )}
 
               {emailForm && (
                 <div className="mt-3 w-72 rounded-2xl border bg-white p-4 shadow-md">
                   <input
+                    type="email"
+                    aria-label="New email"
                     value={email}
                     onChange={(e) => editEmail(e.target.value)}
                     className="w-full border rounded-full px-4 py-2 text-sm"
                     placeholder="Enter email"
                   />
 
-                  {emailError && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {emailError}
-                    </p>
-                  )}
-
                   <div className="mt-3 flex gap-2">
                     <button
-                      onClick={() => {
-                        if (emailValidation()) {
-                          setOriginalEmail(email);
-                          displayEmailForm(false);
-                        }
-                      }}
-                      className="bg-[#7a5a3c] text-white px-4 py-1.5 rounded-full"
+                      onClick={saveEmail}
+                      disabled={isSaving}
+                      className="bg-[#7a5a3c] text-white px-4 py-1.5 rounded-full disabled:opacity-50"
                     >
-                      Save
+                      {isSaving ? "Saving..." : "Save"}
                     </button>
                     <button
                       onClick={() => displayEmailForm(false)}
@@ -110,57 +170,60 @@ export default function AdminSettingsPage() {
             <div className="mt-5">
               <p className="text-xs text-[#a1866f]">Password</p>
               <div className="mt-1 flex items-center justify-between border-b border-[#eadfce] pb-2">
-                <input
-                  value={originalPassword}
-                  onChange={(e) => setOriginalPassword(e.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  readOnly={!passwordForm}
-                  placeholder="....."
-                  className="w-full bg-transparent text-sm text-[#7a5a3c] outline-none"
-                />
-
-                <div className="flex gap-2">
-                  <span onClick={() => setShowPassword(!showPassword)}>
-                   {showPassword ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>)}
-                  </span>
-                  <span
-                    onClick={() => displayPasswordForm(true)}
-                    className="cursor-pointer"
-                  >
-                    ✎
-                  </span>
-                </div>
+                <p className="w-full text-sm text-[#7a5a3c]">••••••••</p>
+                <button
+                  type="button"
+                  aria-label="Change password"
+                  className="cursor-pointer text-[#a1866f]"
+                  onClick={() => {
+                    setPasswordNotice(null);
+                    displayPasswordForm(true);
+                  }}
+                >
+                  ✎
+                </button>
               </div>
 
+              {passwordNotice && (
+                <p className={`mt-1 text-xs ${passwordNotice.ok ? "text-green-700" : "text-red-500"}`}>
+                  {passwordNotice.text}
+                </p>
+              )}
+
               {passwordForm && (
-                <div className="mt-3 w-72 rounded-2xl border bg-white p-4 shadow-md">
+                <div className="mt-3 w-72 space-y-2 rounded-2xl border bg-white p-4 shadow-md">
                   <input
-                    value={password}
-                    onChange={(e) => editPassword(e.target.value)}
+                    type="password"
+                    aria-label="Current password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full border rounded-full px-4 py-2 text-sm"
-                    placeholder="Enter password"
+                    placeholder="Current password"
+                  />
+                  <input
+                    type="password"
+                    aria-label="New password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full border rounded-full px-4 py-2 text-sm"
+                    placeholder="New password (8+ characters)"
                   />
                   <div className="mt-3 flex gap-2">
                     <button
-                      onClick={() => {
-                        setOriginalPassword(password);
-                        displayPasswordForm(false);
-                      }}
-                      className="bg-[#7a5a3c] text-white px-4 py-1.5 rounded-full"
+                      onClick={savePassword}
+                      disabled={isSaving}
+                      className="bg-[#7a5a3c] text-white px-4 py-1.5 rounded-full disabled:opacity-50"
                     >
-                      Save
+                      {isSaving ? "Saving..." : "Save"}
                     </button>
                     <button
-                      onClick={() => displayPasswordForm(false)}
+                      onClick={() => {
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        displayPasswordForm(false);
+                      }}
                       className="border px-4 py-1.5 rounded-full"
                     >
                       Cancel
