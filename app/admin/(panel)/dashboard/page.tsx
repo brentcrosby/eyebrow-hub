@@ -102,7 +102,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function BookingRequestCard({ request }: { request: DashboardAppointment }) {
+function BookingRequestCard({
+  request,
+  onApprove,
+  onReject,
+  isUpdating,
+}: {
+  request: DashboardAppointment;
+  onApprove: (id: number) => Promise<void>;
+  onReject: (id: number) => Promise<void>;
+  isUpdating: boolean;
+}) {
   return (
     <article className="border-b border-[#e8dac9] px-5 py-5 last:border-b-0">
       <div className="min-w-0">
@@ -126,6 +136,25 @@ function BookingRequestCard({ request }: { request: DashboardAppointment }) {
         {request.customerEmail && (
           <span className="truncate">{request.customerEmail}</span>
         )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => void onApprove(request.id)}
+          disabled={isUpdating}
+          className="inline-flex min-h-10 items-center rounded-xl bg-[#2f7d5a] px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#286d4d] focus-visible:ring-2 focus-visible:ring-[#2f7d5a] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isUpdating ? "Working…" : "Approve"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void onReject(request.id)}
+          disabled={isUpdating}
+          className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] bg-white px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Reject
+        </button>
       </div>
     </article>
   );
@@ -165,6 +194,9 @@ export default function AdminDashboardPage() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [statsError, setStatsError] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState(false);
+  const [decisionInFlight, setDecisionInFlight] = useState<Record<number, boolean>>(
+    {}
+  );
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -216,6 +248,44 @@ export default function AdminDashboardPage() {
     void loadStats();
     void loadAppointments();
   };
+
+  const handleDecision = useCallback(
+    async (appointmentId: number, nextStatus: "confirmed" | "rejected") => {
+      setDecisionInFlight((current) => ({ ...current, [appointmentId]: true }));
+
+      try {
+        const response = await fetch(
+          `/api/admin/appointments/${appointmentId}/status`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: nextStatus }),
+          }
+        );
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Unable to update appointment status");
+        }
+
+        await loadStats();
+        await loadAppointments();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unable to update appointment status";
+        window.alert(message);
+      } finally {
+        setDecisionInFlight((current) => {
+          const next = { ...current };
+          delete next[appointmentId];
+          return next;
+        });
+      }
+    },
+    [loadAppointments, loadStats]
+  );
 
   const pendingRequests = appointments?.pendingRequests ?? [];
   const todaysAppointments = appointments?.todaysAppointments ?? [];
@@ -303,7 +373,17 @@ export default function AdminDashboardPage() {
             ) : (
               <div>
                 {pendingRequests.map((request) => (
-                  <BookingRequestCard key={request.id} request={request} />
+                  <BookingRequestCard
+                    key={request.id}
+                    request={request}
+                    onApprove={(appointmentId) =>
+                      handleDecision(appointmentId, "confirmed")
+                    }
+                    onReject={(appointmentId) =>
+                      handleDecision(appointmentId, "rejected")
+                    }
+                    isUpdating={Boolean(decisionInFlight[request.id])}
+                  />
                 ))}
               </div>
             )}

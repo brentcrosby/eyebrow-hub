@@ -25,6 +25,9 @@ export type AppointmentDetail = {
 
 type AppointmentDetailPanelProps = {
   appointment: AppointmentDetail;
+  onApprove?: () => void | Promise<void>;
+  onReject?: () => void | Promise<void>;
+  onClose?: () => void;
 };
 
 function formatDateTime(value: string) {
@@ -55,9 +58,14 @@ function phoneHref(phone: string) {
 
 export default function AppointmentDetailPanel({
   appointment,
+  onApprove,
+  onReject,
+  onClose,
 }: AppointmentDetailPanelProps) {
   const email = appointment.customerEmail?.trim() || null;
   const statusLabel = getStatusLabel(appointment.status);
+  const allowsDecisionActions =
+    appointment.status?.trim().toLowerCase() === "pending";
 
   return (
     <aside
@@ -134,6 +142,27 @@ export default function AppointmentDetailPanel({
       </dl>
 
       <div className="flex flex-wrap gap-3 border-t border-[#e8dac9] px-5 py-4 sm:px-6">
+        {allowsDecisionActions && (
+          <>
+            <button
+              type="button"
+              onClick={() => void onApprove?.()}
+              className="inline-flex min-h-10 items-center rounded-xl bg-[#2f7d5a] px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#286d4d] focus-visible:ring-2 focus-visible:ring-[#2f7d5a] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!onApprove}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => void onReject?.()}
+              className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] bg-white px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!onReject}
+            >
+              Reject
+            </button>
+          </>
+        )}
+
         <a
           href={phoneHref(appointment.customerPhone)}
           className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none"
@@ -152,6 +181,16 @@ export default function AppointmentDetailPanel({
           <span className="inline-flex min-h-10 items-center rounded-xl border border-[#eadfce] px-3 py-2 text-sm text-[#a08a75]">
             No email provided
           </span>
+        )}
+
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none"
+          >
+            Close
+          </button>
         )}
       </div>
     </aside>

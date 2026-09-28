@@ -25,7 +25,22 @@ export default function AppointmentDetailDialog({
       title="Appointment details"
       onClose={onClose}
     >
-      {appointment && <AppointmentDetailPanel appointment={appointment} />}
+      {appointment && (
+        <AppointmentDetailPanel
+          appointment={appointment}
+          onClose={onClose}
+          onApprove={async () => {
+            if (appointment.status.trim().toLowerCase() !== "pending") return;
+            await _onStatusChange?.();
+            onClose();
+          }}
+          onReject={async () => {
+            if (appointment.status.trim().toLowerCase() !== "pending") return;
+            await _onStatusChange?.();
+            onClose();
+          }}
+        />
+      )}
     </ScheduleDialog>
   );
 }
