@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import brownLogo from "@/app/assests/logos/brown logo.png";
+import { clearAdminSession, watchAdminApi } from "@/lib/adminSession";
+
+if (typeof window !== "undefined") {
+  watchAdminApi();
+}
 
 const navItems = [
   {
@@ -114,13 +119,12 @@ const navItems = [
 
 function AdminSideNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
 
   function handleLogout() {
-    localStorage.removeItem("adminAccessToken");
-    document.cookie = "adminAccessToken=; path=/; max-age=0; SameSite=Lax";
+    clearAdminSession();
     onNavigate?.();
-    router.replace("/admin/login");
+    // A full page load drops any admin data still held in memory.
+    window.location.replace("/admin/login");
   }
 
   return (
