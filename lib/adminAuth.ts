@@ -30,10 +30,24 @@ async function verifySession(token: string): Promise<AdminAuthResult> {
     };
   }
 
+  const approvedIds = (process.env.ADMIN_USER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  if (!approvedIds.includes(data.user.id)) {
+    return {
+      authenticated: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
   return { authenticated: true, user: data.user };
 }
 
-export async function requireAdmin(request: NextRequest): Promise<AdminAuthResult> {
+export async function requireAdmin(
+  request: NextRequest
+): Promise<AdminAuthResult> {
   const token = extractAccessToken(request);
 
   if (typeof token !== "string") {
