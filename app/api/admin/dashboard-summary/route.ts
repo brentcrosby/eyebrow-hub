@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { PENDING_STATUS, isCancelled } from "@/lib/appointmentStatus";
+import { requireAdmin } from "@/lib/adminAuth";
 
 // One round trip for everything the dashboard shows, rather than four.
 //
@@ -13,6 +14,7 @@ import { PENDING_STATUS, isCancelled } from "@/lib/appointmentStatus";
 // reason — formatting here would stamp them in the server's timezone.
 
 const MAX_PENDING_REQUESTS = 10;
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
 
 function parseInstant(value: string | null) {
   if (!value) return null;
@@ -21,6 +23,12 @@ function parseInstant(value: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (!auth.authenticated) {
+    auth.response.headers.set("Cache-Control", "private, no-store");
+    return auth.response;
+  }
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (!dayStart || !dayEnd || !weekStart || !weekEnd) {
       return NextResponse.json(
         { error: "dayStart, dayEnd, weekStart and weekEnd are required" },
-        { status: 400 }
+        { status: 400, headers: PRIVATE_HEADERS }
       );
     }
 
@@ -40,11 +48,19 @@ export async function GET(request: NextRequest) {
       await Promise.all([
         db.appointment.findMany({
           where: { startTime: { lt: dayEnd }, endTime: { gt: dayStart } },
-          include: { service: true },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            status: true,
+            customerName: true,
+            service: { select: { name: true } },
+          },
           orderBy: { startTime: "asc" },
         }),
         db.availabilityBlock.findMany({
           where: { startTime: { lt: dayEnd }, endTime: { gt: dayStart } },
+          select: { id: true, startTime: true, endTime: true, reason: true },
           orderBy: { startTime: "asc" },
         }),
         db.appointment.findMany({
@@ -53,7 +69,14 @@ export async function GET(request: NextRequest) {
         }),
         db.appointment.findMany({
           where: { status: PENDING_STATUS, startTime: { gte: dayStart } },
-          include: { service: true },
+          select: {
+            id: true,
+            customerName: true,
+            customerPhone: true,
+            customerEmail: true,
+            startTime: true,
+            service: { select: { name: true } },
+          },
           orderBy: { startTime: "asc" },
         }),
       ]);
@@ -105,14 +128,14 @@ export async function GET(request: NextRequest) {
             email: appointment.customerEmail,
           })),
       },
-      { status: 200 }
+      { status: 200, headers: PRIVATE_HEADERS }
     );
   } catch (error) {
     console.error("Failed to build dashboard summary:", error);
 
     return NextResponse.json(
       { error: "Failed to build dashboard summary" },
-      { status: 500 }
+      { status: 500, headers: PRIVATE_HEADERS }
     );
   }
 }
