@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bookingAccessSchema } from "@/lib/validations/bookingAccess";
 import { bookingSummary, findCustomerBooking } from "@/lib/customerBooking";
+import { bookingLimitResponse } from "@/lib/bookingRateLimit";
 
 export async function POST(request: NextRequest) {
+  const limited = await bookingLimitResponse(request, "lookup");
+  if (limited) return limited;
   const body = await request.json().catch(() => null);
   const parsed = bookingAccessSchema.safeParse(body);
   // Do not distinguish an invalid token or phone from a missing booking.

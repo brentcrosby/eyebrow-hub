@@ -8,10 +8,13 @@ import {
 import { CANCELLED_STATUS } from "@/lib/appointmentStatus";
 import { findCustomerBooking } from "@/lib/customerBooking";
 import { bookingAccessSchema } from "@/lib/validations/bookingAccess";
+import { bookingLimitResponse } from "@/lib/bookingRateLimit";
 
 class BookingChangedError extends Error {}
 
 export async function POST(request: NextRequest) {
+  const limited = await bookingLimitResponse(request, "cancel");
+  if (limited) return limited;
   const body = await request.json().catch(() => null);
   const parsed = bookingAccessSchema.safeParse(body);
   const response = (status: number, error: string) =>
