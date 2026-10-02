@@ -41,9 +41,8 @@ coordinate its separate response format (`message`) and budget then.
 
 ## Reproducible local verification (disposable data only)
 
-Prerequisites: Docker Desktop running, Node/npm dependencies installed with
-`npm ci`, and Chromium for Playwright (`npx playwright install chromium`). The
-commands below are for a POSIX shell in the repository root. **Never use the
+Prerequisites: Docker Desktop running and Node/npm dependencies installed with
+`npm ci`. The commands below are for a POSIX shell in the repository root. **Never use the
 shared Supabase database for these tests.** The migration runner refuses any
 URL other than `postgres` on `127.0.0.1:55432/dt524_test`. The test container
 binds its database port to loopback only.
@@ -75,26 +74,38 @@ the app terminal; the proxy needs no database variables):
 node scripts/dt524-local-proxy.mjs
 ```
 
-In the first terminal, verify the actual PostgreSQL upsert, the API through
-the proxy, and the customer-facing retry message in Chromium:
+In the first terminal, verify the limiter, the actual PostgreSQL upsert, and
+the API through the proxy:
 
 ```sh
+node --test tests/booking-rate-limit.test.mjs
 node --test tests/booking-rate-limit-db.test.mjs
 DT524_HTTP_TEST=1 node --test tests/booking-rate-limit-http.test.mjs
-./node_modules/.bin/playwright test tests/booking-rate-limit-browser.spec.mjs --browser=chromium --workers=1
 ```
 
 The DB test issues 40 simultaneous writes using the **real** `postgresCounter`
 and checks atomic counts and expiry. The HTTP test sends requests through the
 proxy to all three actual routes, checks normal responses, 429 with
 `Retry-After` and `no-store`, then updates **only its disposable test bucket**
-to expire it and checks recovery without waiting 15 minutes. The browser test
-exhausts lookup requests and checks the rendered `/manage-booking` error against
-the actual 429 header. These tests use malformed or nonexistent booking details
-and do not create/cancel any appointment. Run the HTTP and browser checks
-sequentially: they share the loopback caller bucket. The DB test uses separate
-random keys and cleans them up. The database and HTTP tests are opt-in and
-otherwise skip; do not treat a skipped test as verification.
+to expire it and checks recovery without waiting 15 minutes. These tests use
+malformed or nonexistent booking details and do not create/cancel any
+appointment. The DB test uses separate random keys and cleans them up. The
+database and HTTP tests are opt-in and otherwise skip; do not treat a skipped
+test as verification.
+
+To check the customer message manually after the HTTP test, fill the lookup
+bucket through the proxy:
+
+```sh
+for i in $(seq 1 30); do
+  curl -s -o /dev/null -H 'Content-Type: application/json' -d '{}' \
+    http://127.0.0.1:3100/api/bookings/lookup
+done
+```
+
+Open `http://127.0.0.1:3100/manage-booking`, enter a valid-shaped confirmation
+number such as `ABCDEF0123456789` and a 10-digit phone number, then select
+**Find booking**. The page should show the retry time from the 429 response.
 
 To manually check header spoofing, run:
 
