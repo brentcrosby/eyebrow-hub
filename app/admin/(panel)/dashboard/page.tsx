@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import AppointmentDetailDialog from "@/components/admin/schedule/AppointmentDetailDialog";
 import {
   addDays,
   formatTime,
@@ -29,7 +30,13 @@ type DashboardAppointment = {
   status: string;
   source: string;
   createdAt: string;
-  service: { id: number; name: string };
+  service: {
+    id: number;
+    name: string;
+    price: string;
+    durationMinutes: number;
+    active: boolean;
+  };
   stylist: { id: number; name: string } | null;
 };
 
@@ -102,9 +109,19 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function BookingRequestCard({ request }: { request: DashboardAppointment }) {
+function BookingRequestCard({
+  request,
+  onOpen,
+}: {
+  request: DashboardAppointment;
+  onOpen: (request: DashboardAppointment) => void;
+}) {
   return (
-    <article className="border-b border-[#e8dac9] px-5 py-5 last:border-b-0">
+    <button
+      type="button"
+      onClick={() => onOpen(request)}
+      className="block w-full border-b border-[#e8dac9] px-5 py-5 text-left last:border-b-0 hover:bg-[#f7eee5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a5a3c]"
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="truncate text-xl font-semibold text-[#7a5a3c]">
@@ -127,7 +144,7 @@ function BookingRequestCard({ request }: { request: DashboardAppointment }) {
           <span className="truncate">{request.customerEmail}</span>
         )}
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -165,6 +182,8 @@ export default function AdminDashboardPage() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [statsError, setStatsError] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState(false);
+  const [selectedRequest, setSelectedRequest] =
+    useState<DashboardAppointment | null>(null);
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -220,6 +239,29 @@ export default function AdminDashboardPage() {
   const pendingRequests = appointments?.pendingRequests ?? [];
   const todaysAppointments = appointments?.todaysAppointments ?? [];
   const isRefreshing = statsLoading || appointmentsLoading;
+
+  const selectedAppointment = selectedRequest
+    ? {
+        id: selectedRequest.id,
+        serviceId: selectedRequest.service.id,
+        startTime: selectedRequest.startTime,
+        endTime: selectedRequest.endTime,
+        customerName: selectedRequest.customerName,
+        customerPhone: selectedRequest.customerPhone,
+        customerEmail: selectedRequest.customerEmail,
+        notes: selectedRequest.notes,
+        status: selectedRequest.status,
+        source: selectedRequest.source,
+        stylist: selectedRequest.stylist,
+        service: {
+          id: selectedRequest.service.id,
+          name: selectedRequest.service.name,
+          price: selectedRequest.service.price,
+          durationMinutes: selectedRequest.service.durationMinutes,
+          active: selectedRequest.service.active,
+        },
+      }
+    : null;
 
   return (
     <main className="min-h-full p-3 sm:p-6">
@@ -303,7 +345,11 @@ export default function AdminDashboardPage() {
             ) : (
               <div>
                 {pendingRequests.map((request) => (
-                  <BookingRequestCard key={request.id} request={request} />
+                  <BookingRequestCard
+                    key={request.id}
+                    request={request}
+                    onOpen={setSelectedRequest}
+                  />
                 ))}
               </div>
             )}
@@ -354,6 +400,12 @@ export default function AdminDashboardPage() {
           </section>
         </div>
       </section>
+
+      <AppointmentDetailDialog
+        appointment={selectedAppointment}
+        onClose={() => setSelectedRequest(null)}
+        onStatusChange={refreshDashboard}
+      />
     </main>
   );
 }
