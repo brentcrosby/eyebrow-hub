@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { PENDING_STATUS, isCancelled } from "@/lib/appointmentStatus";
+import {
+  PENDING_STATUS,
+  isCancelled,
+  isInactive,
+} from "@/lib/appointmentStatus";
 import { requireAdmin } from "@/lib/adminAuth";
 
 // One round trip for everything the dashboard shows, rather than four.
@@ -82,7 +86,7 @@ export async function GET(request: NextRequest) {
       ]);
 
     const visibleDayAppointments = dayAppointments.filter(
-      (appointment) => !isCancelled(appointment.status)
+      (appointment) => !isInactive(appointment.status)
     );
 
     const todaysItems = [
@@ -111,7 +115,7 @@ export async function GET(request: NextRequest) {
         pendingCount: pendingUpcoming.length,
         todayCount: visibleDayAppointments.length,
         weekCount: weekAppointments.filter(
-          (appointment) => !isCancelled(appointment.status)
+          (appointment) => !isInactive(appointment.status)
         ).length,
         cancelledThisWeekCount: weekAppointments.filter((appointment) =>
           isCancelled(appointment.status)

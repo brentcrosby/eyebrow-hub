@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PENDING_STATUS, isCancelled } from "@/lib/appointmentStatus";
+import {
+  PENDING_STATUS,
+  isCancelled,
+  isInactive,
+} from "@/lib/appointmentStatus";
 import { requireAdmin } from "@/lib/adminAuth";
 import { db } from "@/lib/db";
 
@@ -50,10 +54,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     const todaysAppointments = todayStatuses.filter(
-      (appointment) => !isCancelled(appointment.status)
+      (appointment) => !isInactive(appointment.status)
     ).length;
     const thisWeeksAppointments = weekStatuses.filter(
-      (appointment) => !isCancelled(appointment.status)
+      (appointment) => !isInactive(appointment.status)
     ).length;
     const thisWeeksCancellations = weekStatuses.filter((appointment) =>
       isCancelled(appointment.status)

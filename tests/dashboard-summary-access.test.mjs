@@ -64,6 +64,8 @@ function fixture({ authenticated = false, fail = false } = {}) {
     "@/lib/appointmentStatus": {
       PENDING_STATUS: "PENDING",
       isCancelled: (status) => status === "CANCELLED",
+      isInactive: (status) =>
+        status === "CANCELLED" || status === "CANCELED" || status === "REJECTED",
     },
   };
   const output = ts.transpileModule(source, {

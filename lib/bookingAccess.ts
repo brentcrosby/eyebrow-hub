@@ -45,7 +45,11 @@ export function isBookingAlreadyCancelled(rows: BookingServiceRow[]): boolean {
     rows.length > 0 &&
     rows.every((row) => {
       const status = row.status.trim().toLowerCase();
-      return status === "cancelled" || status === "canceled";
+      return (
+        status === "cancelled" ||
+        status === "canceled" ||
+        status === "rejected"
+      );
     })
   );
 }

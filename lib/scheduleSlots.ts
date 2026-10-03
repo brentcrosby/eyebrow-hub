@@ -1,4 +1,4 @@
-import { isCancelled } from "@/lib/appointmentStatus";
+import { isInactive } from "@/lib/appointmentStatus";
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
@@ -62,7 +62,7 @@ export function getOpenSlots({
   close.setHours(closeHour, 0, 0, 0);
 
   const appointmentRanges = appointments
-    .filter((appointment) => !isCancelled(appointment.status))
+    .filter((appointment) => !isInactive(appointment.status))
     .map((appointment) =>
       parseRange(appointment.startTime, appointment.endTime)
     )

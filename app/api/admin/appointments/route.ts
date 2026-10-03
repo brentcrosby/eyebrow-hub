@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { isCancelled } from "@/lib/appointmentStatus";
+import { isInactive } from "@/lib/appointmentStatus";
 import { parseDateTimeParams } from "@/lib/dateUtils";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     // than in the query: isCancelled normalises case and accepts both
     // spellings, which a SQL equality check would not.
     const visible = appointments.filter(
-      (appointment) => !isCancelled(appointment.status)
+      (appointment) => !isInactive(appointment.status)
     );
 
     return NextResponse.json(visible, { status: 200 });
@@ -104,7 +104,7 @@ async function hasSchedulingConflict(
 
   if (blocks.length > 0) return true;
 
-  return appointments.some((appointment) => !isCancelled(appointment.status));
+  return appointments.some((appointment) => !isInactive(appointment.status));
 }
 
 // Staff-entered phone/walk-in appointments.

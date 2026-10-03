@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PENDING_STATUS, isCancelled } from "@/lib/appointmentStatus";
+import { PENDING_STATUS, isInactive } from "@/lib/appointmentStatus";
 import { requireAdmin } from "@/lib/adminAuth";
 import { db } from "@/lib/db";
 
@@ -18,6 +18,9 @@ const appointmentFields = {
     select: {
       id: true,
       name: true,
+      price: true,
+      durationMinutes: true,
+      active: true,
     },
   },
   stylist: {
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const todaysAppointments = todayCandidates.filter(
-      (appointment) => !isCancelled(appointment.status)
+      (appointment) => !isInactive(appointment.status)
     );
 
     return NextResponse.json(
