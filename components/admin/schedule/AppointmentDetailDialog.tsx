@@ -15,7 +15,10 @@ export default function AppointmentDetailDialog({
   onClose,
   onStatusChange,
 }: AppointmentDetailDialogProps) {
-  const handleStatusChange = async (status: "confirmed" | "rejected") => {
+  const handleStatusChange = async (
+    status: "confirmed" | "rejected",
+    reason?: string
+  ) => {
     if (!appointment) return;
 
     const response = await fetch(
@@ -23,7 +26,11 @@ export default function AppointmentDetailDialog({
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(
+          status === "rejected"
+            ? { status, reason }
+            : { status }
+        ),
       }
     );
     const payload: unknown = await response.json().catch(() => null);
@@ -54,7 +61,7 @@ export default function AppointmentDetailDialog({
         <AppointmentDetailPanel
           appointment={appointment}
           onApprove={() => handleStatusChange("confirmed")}
-          onReject={() => handleStatusChange("rejected")}
+          onReject={(reason) => handleStatusChange("rejected", reason)}
         />
       )}
     </ScheduleDialog>

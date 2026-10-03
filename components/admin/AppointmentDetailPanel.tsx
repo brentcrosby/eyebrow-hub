@@ -28,7 +28,7 @@ export type AppointmentDetail = {
 type AppointmentDetailPanelProps = {
   appointment: AppointmentDetail;
   onApprove?: () => void | Promise<void>;
-  onReject?: () => void | Promise<void>;
+  onReject?: (reason?: string) => void | Promise<void>;
   onClose?: () => void;
 };
 
@@ -76,6 +76,8 @@ export default function AppointmentDetailPanel({
   const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(
     null
   );
+  const [showRejectPrompt, setShowRejectPrompt] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const customerName = appointment.customerName.trim() || "Unnamed customer";
   const serviceName = appointment.service.name.trim() || "Service unavailable";
@@ -90,7 +92,8 @@ export default function AppointmentDetailPanel({
 
   const runAction = async (
     action: "approve" | "reject",
-    callback: (() => void | Promise<void>) | undefined
+    callback: ((reason?: string) => void | Promise<void>) | undefined,
+    reason?: string
   ) => {
     if (!callback || pendingAction) return;
 
@@ -98,7 +101,7 @@ export default function AppointmentDetailPanel({
     setActionError(null);
 
     try {
-      await callback();
+      await callback(reason);
     } catch (error) {
       setActionError(
         error instanceof Error
@@ -196,15 +199,61 @@ export default function AppointmentDetailPanel({
           </button>
         )}
 
-        {isPending && onReject && (
+        {isPending && onReject && !showRejectPrompt && (
           <button
             type="button"
-            onClick={() => void runAction("reject", onReject)}
+            onClick={() => setShowRejectPrompt(true)}
             disabled={pendingAction !== null}
             className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] bg-white px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pendingAction === "reject" ? "Working…" : "Reject"}
+            Reject
           </button>
+        )}
+
+        {isPending && onReject && showRejectPrompt && (
+          <div className="w-full space-y-3 rounded-xl border border-[#e8dac9] bg-white p-3">
+            <label className="block text-sm font-medium text-[#7a5a3c]">
+              Rejection reason
+              <textarea
+                value={rejectionReason}
+                onChange={(event) => setRejectionReason(event.target.value)}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-[#d8c4ae] bg-[#fffaf4] px-3 py-2 text-sm text-[#5e4735] placeholder:text-[#a08a75] focus:border-[#7a5a3c] focus:outline-none"
+                placeholder="Add the reason for rejecting this appointment"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const reason = rejectionReason.trim();
+                  if (!reason) {
+                    setActionError("A rejection reason is required.");
+                    return;
+                  }
+                  void runAction("reject", onReject, reason);
+                  setShowRejectPrompt(false);
+                  setRejectionReason("");
+                }}
+                disabled={pendingAction !== null}
+                className="inline-flex min-h-10 items-center rounded-xl bg-[#7a5a3c] px-3 py-2 text-sm font-medium text-white hover:bg-[#69513a] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pendingAction === "reject" ? "Working…" : "Confirm rejection"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRejectPrompt(false);
+                  setRejectionReason("");
+                  setActionError(null);
+                }}
+                disabled={pendingAction !== null}
+                className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] bg-white px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
 
         {onClose && (

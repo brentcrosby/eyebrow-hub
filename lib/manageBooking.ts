@@ -40,7 +40,12 @@ export function getCancellationAvailability(
   );
   if (
     statuses.length > 0 &&
-    statuses.every((status) => status === "cancelled" || status === "canceled")
+    statuses.every(
+      (status) =>
+        status === "cancelled" ||
+        status === "canceled" ||
+        status === "rejected"
+    )
   )
     return "already-cancelled";
   if (

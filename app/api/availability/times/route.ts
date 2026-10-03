@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
-import { CANCELLED_STATUS } from "@/lib/appointmentStatus";
+import { CANCELLED_STATUS, REJECTED_STATUS } from "@/lib/appointmentStatus";
 
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 15;
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
             gt: dayStart,
           },
           status: {
-            not: CANCELLED_STATUS,
+            notIn: [CANCELLED_STATUS, REJECTED_STATUS, "canceled"],
           },
         },
         select: {

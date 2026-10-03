@@ -8,6 +8,7 @@ export const PENDING_STATUS = "pending";
 export const CONFIRMED_STATUS = "confirmed";
 export const COMPLETED_STATUS = "completed";
 export const CANCELLED_STATUS = "cancelled";
+export const REJECTED_STATUS = "rejected";
 
 function normalize(status: string | null | undefined): string {
   return (status ?? "").trim().toLowerCase();
@@ -19,10 +20,19 @@ export function isCancelled(status: string | null | undefined): boolean {
   return value === CANCELLED_STATUS || value === "canceled";
 }
 
+export function isRejected(status: string | null | undefined): boolean {
+  return normalize(status) === REJECTED_STATUS;
+}
+
+export function isInactive(status: string | null | undefined): boolean {
+  return isCancelled(status) || isRejected(status);
+}
+
 export function getStatusLabel(status: string | null | undefined): string {
   const value = normalize(status);
 
   if (!value) return "Unknown";
+  if (isRejected(value)) return "Rejected";
   if (isCancelled(value)) return "Cancelled";
 
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -33,13 +43,18 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   [CONFIRMED_STATUS]: "bg-green-100 text-green-800 border-green-200",
   [COMPLETED_STATUS]: "bg-gray-100 text-gray-700 border-gray-200",
   [CANCELLED_STATUS]: "bg-red-100 text-red-800 border-red-200",
+  [REJECTED_STATUS]: "bg-red-100 text-red-800 border-red-200",
 };
 
 /** Tailwind classes for a status badge; unknown statuses use the admin palette. */
 export function getStatusBadgeClasses(
   status: string | null | undefined
 ): string {
-  const value = isCancelled(status) ? CANCELLED_STATUS : normalize(status);
+  const value = isRejected(status)
+    ? REJECTED_STATUS
+    : isCancelled(status)
+      ? CANCELLED_STATUS
+      : normalize(status);
 
   return (
     STATUS_BADGE_CLASSES[value] ??
@@ -52,6 +67,7 @@ const STATUS_ACCENT_CLASSES: Record<string, string> = {
   [CONFIRMED_STATUS]: "border-l-green-500",
   [COMPLETED_STATUS]: "border-l-gray-400",
   [CANCELLED_STATUS]: "border-l-red-400",
+  [REJECTED_STATUS]: "border-l-red-400",
 };
 
 /**
@@ -62,7 +78,11 @@ const STATUS_ACCENT_CLASSES: Record<string, string> = {
 export function getStatusAccentClasses(
   status: string | null | undefined
 ): string {
-  const value = isCancelled(status) ? CANCELLED_STATUS : normalize(status);
+  const value = isRejected(status)
+    ? REJECTED_STATUS
+    : isCancelled(status)
+      ? CANCELLED_STATUS
+      : normalize(status);
 
   return STATUS_ACCENT_CLASSES[value] ?? "border-l-gray-300";
 }

@@ -8,6 +8,12 @@ const allowedTransitions: Record<string, readonly string[]> = {
   confirmed: ["cancelled"],
 };
 
+function coerceReason(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const reason = value.trim();
+  return reason.length > 0 ? reason : undefined;
+}
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -26,6 +32,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     typeof body === "object" && body !== null && "status" in body
       ? body.status
       : undefined;
+  const reason =
+    typeof body === "object" && body !== null
+      ? coerceReason(
+          "reason" in body
+            ? body.reason
+            : "rejectionReason" in body
+              ? body.rejectionReason
+              : undefined
+        )
+      : undefined;
 
   if (
     typeof status !== "string" ||
@@ -37,10 +53,17 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     );
   }
 
+  if (status === "rejected" && !reason) {
+    return NextResponse.json(
+      { error: "A rejection reason is required before declining an appointment." },
+      { status: 400 }
+    );
+  }
+
   try {
     const appointment = await db.appointment.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, notes: true },
     });
 
     if (!appointment) {
@@ -60,9 +83,19 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const nextNotes =
+      status === "rejected" && reason
+        ? [appointment.notes, `Rejection reason: ${reason}`]
+            .filter(Boolean)
+            .join("\n\n")
+        : appointment.notes;
+
     const update = await db.appointment.updateMany({
       where: { id, status: appointment.status },
-      data: { status },
+      data: {
+        status,
+        ...(status === "rejected" && reason ? { notes: nextNotes } : {}),
+      },
     });
 
     if (update.count === 0) {
