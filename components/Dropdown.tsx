@@ -5,10 +5,16 @@ import { useRef, useState, useEffect, useCallback } from "react";
 function useDropdownMaxHeight(containerRef: React.RefObject<HTMLDivElement | null>, open: boolean, minHeight = 160): number | undefined {
   const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!open || !containerRef.current) { setMaxHeight(undefined); return; }
-    const rect = containerRef.current.getBoundingClientRect();
-    const available = window.innerHeight - rect.bottom - 8;
-    setMaxHeight(available >= minHeight ? available : undefined);
+    const frame = requestAnimationFrame(() => {
+      if (!open || !containerRef.current) {
+        setMaxHeight(undefined);
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      const available = window.innerHeight - rect.bottom - 8;
+      setMaxHeight(available >= minHeight ? available : undefined);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [open, containerRef, minHeight]);
   return maxHeight;
 }
