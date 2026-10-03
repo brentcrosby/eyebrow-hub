@@ -6,6 +6,7 @@ import {
   getCancellationAvailability,
   type ManagedBooking,
 } from "@/lib/manageBooking";
+import { bookingRetryMessage } from "@/lib/bookingRetry";
 
 const NOT_FOUND =
   "We couldn't find a booking with those details. Please check them and try again.";
@@ -96,12 +97,12 @@ export default function ManageBookingForm() {
       if (response.ok && data?.booking?.services?.length > 0) {
         setBooking(data.booking);
         setNow(Date.now());
+      } else if (response.status === 429) {
+        setError(bookingRetryMessage(response.headers.get("Retry-After")));
+      } else if (response.status === 404) {
+        setError(NOT_FOUND);
       } else {
-        setError(
-          response.status === 404
-            ? NOT_FOUND
-            : "We couldn't load your booking. Please try again."
-        );
+        setError("We couldn't load your booking. Please try again.");
       }
     } catch {
       if (version === requestVersion.current)
@@ -151,6 +152,8 @@ export default function ManageBookingForm() {
       } else if (response.status === 404) {
         setBooking(null);
         setError(NOT_FOUND);
+      } else if (response.status === 429) {
+        setError(bookingRetryMessage(response.headers.get("Retry-After")));
       } else if (response.status === 409) {
         setRefreshRequired(true);
         setError(
