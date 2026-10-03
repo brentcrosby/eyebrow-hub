@@ -9,7 +9,11 @@ import {
   TimeSlot,
 } from "./Dropdown";
 import BookingForm from "./BookingForm";
-import type { BookingSelection } from "@/lib/validations/booking";
+import {
+  BOOKING_LIMITS,
+  bookingSelectionSchema,
+  type BookingSelection,
+} from "@/lib/validations/booking";
 import { toDateParam } from "@/lib/dateUtils";
 
 type Service = {
@@ -93,7 +97,7 @@ export default function BookingContainer() {
     new Set()
   );
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
@@ -119,7 +123,7 @@ export default function BookingContainer() {
   }
 
   const totalDuration = services
-    .filter((service) => selectedServices.includes(service.name))
+    .filter((service) => selectedServices.includes(service.id))
     .reduce((sum, service) => sum + service.durationMinutes, 0);
 
   useEffect(() => {
@@ -194,10 +198,10 @@ export default function BookingContainer() {
   useEffect(() => {
     if (services.length === 0) return;
 
-    const validNames = new Set(services.map((service) => service.name));
+    const validIds = new Set(services.map((service) => service.id));
 
     setSelectedServices((prev) =>
-      prev.filter((serviceName) => validNames.has(serviceName))
+      prev.filter((serviceId) => validIds.has(serviceId))
     );
   }, [services]);
 
@@ -224,19 +228,45 @@ export default function BookingContainer() {
     NEXT_AVAILABLE,
     ...stylists.map((stylist) => stylist.name),
   ];
+  const serviceNameCounts = new Map<string, number>();
+  const serviceDescriptions = new Map<string, number>();
+  for (const service of services) {
+    serviceNameCounts.set(
+      service.name,
+      (serviceNameCounts.get(service.name) ?? 0) + 1
+    );
+  }
+  const serviceOptions = services.map((service) => {
+    if ((serviceNameCounts.get(service.name) ?? 0) === 1) {
+      return { id: service.id, label: service.name };
+    }
+    const description = `${service.name} — ${service.durationMinutes} min · $${service.price.toFixed(2)}`;
+    const occurrence = (serviceDescriptions.get(description) ?? 0) + 1;
+    serviceDescriptions.set(description, occurrence);
+    const matchingDescriptions = services.filter(
+      (other) =>
+        other.name === service.name &&
+        other.durationMinutes === service.durationMinutes &&
+        other.price === service.price
+    ).length;
+    return {
+      id: service.id,
+      label:
+        matchingDescriptions > 1
+          ? `${description} (option ${occurrence})`
+          : description,
+    };
+  });
 
   const canContinue =
     selectedServices.length > 0 &&
+    selectedServices.length <= BOOKING_LIMITS.services &&
     selectedDate !== null &&
     selectedTime !== "" &&
     !submitting;
 
   async function handleContinue() {
     if (!selectedDate) return;
-
-    const serviceIds = services
-      .filter((service) => selectedServices.includes(service.name))
-      .map((service) => service.id);
 
     const stylistId =
       selectedStylist === NEXT_AVAILABLE
@@ -245,11 +275,19 @@ export default function BookingContainer() {
           null);
 
     const payload: BookingSelection = {
-      serviceIds,
+      serviceIds: selectedServices,
       stylistId,
       date: toDateParam(selectedDate),
       time: selectedTime,
     };
+
+    const parsed = bookingSelectionSchema.safeParse(payload);
+    if (!parsed.success) {
+      setContinueError(
+        parsed.error.issues[0]?.message ?? "Please review your selection."
+      );
+      return;
+    }
 
     setSubmitting(true);
     setContinueError(null);
@@ -413,10 +451,19 @@ export default function BookingContainer() {
           <MultiSelectDropdown
             label="Service"
             placeholder="Select Service(s)"
-            options={services.map((service) => service.name)}
+            options={serviceOptions}
             selected={selectedServices}
-            onChange={setSelectedServices}
+            onChange={(ids) => {
+              setSelectedServices(ids);
+              setContinueError(null);
+            }}
+            maxSelected={BOOKING_LIMITS.services}
           />
+          <p className="text-[12px] text-black/60">
+            {selectedServices.length >= BOOKING_LIMITS.services
+              ? `Maximum ${BOOKING_LIMITS.services} services selected. Remove one to choose another.`
+              : `Select up to ${BOOKING_LIMITS.services} services.`}
+          </p>
 
           <SingleSelectDropdown
             label="Stylist"

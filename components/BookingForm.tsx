@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { BookingSelection } from "@/lib/validations/booking";
+import {
+  BOOKING_LIMITS,
+  bookingContactSchemas,
+  type BookingSelection,
+} from "@/lib/validations/booking";
 import type { BookingConfirmation } from "./BookingContainer";
 
 type Service = {
@@ -24,35 +28,22 @@ interface BookingFormProps {
   onBack: () => void;
 }
 
-const MAX_NOTES_LENGTH = 500;
-
 function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  // Keep invalid pasted input visible so the shared validator can explain it.
+  if (raw.length > BOOKING_LIMITS.phone || raw.replace(/\D/g, "").length > 10)
+    return raw;
+  const digits = raw.replace(/\D/g, "");
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
-function validateName(name: string): string | null {
-  return name.trim().length > 0 ? null : "Name is required";
-}
-
-function validateEmail(email: string): string | null {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-    ? null
-    : "Enter a valid email address";
-}
-
-function validatePhone(phone: string): string | null {
-  return phone.replace(/\D/g, "").length === 10
-    ? null
-    : "Enter a 10-digit phone number";
-}
-
-function validateNotes(notes: string): string | null {
-  return notes.trim().length <= MAX_NOTES_LENGTH
-    ? null
-    : `Notes must be ${MAX_NOTES_LENGTH} characters or fewer`;
+function fieldError(
+  field: keyof typeof bookingContactSchemas,
+  value: string
+): string | null {
+  const result = bookingContactSchemas[field].safeParse(value);
+  return result.success ? null : result.error.issues[0].message;
 }
 
 function FormField({
@@ -136,18 +127,32 @@ export default function BookingForm({
     0
   );
 
-  const nameError = touched.name ? validateName(name) : null;
-  const emailError = touched.email ? validateEmail(email) : null;
-  const phoneError = touched.phone ? validatePhone(phone) : null;
-  const notesError = touched.notes ? validateNotes(notes) : null;
+  const nameValidation = fieldError("name", name);
+  const emailValidation = fieldError("email", email);
+  const phoneValidation = fieldError("phone", phone);
+  const notesValidation = fieldError("notes", notes);
+  const nameError =
+    touched.name || name.length > BOOKING_LIMITS.name ? nameValidation : null;
+  const emailError =
+    touched.email || email.length > BOOKING_LIMITS.email
+      ? emailValidation
+      : null;
+  const phoneError =
+    touched.phone || phone.length > BOOKING_LIMITS.phone
+      ? phoneValidation
+      : null;
+  const notesError =
+    touched.notes || notes.length > BOOKING_LIMITS.notes
+      ? notesValidation
+      : null;
 
   const canBook =
     selection !== null &&
     !submitting &&
-    validateName(name) === null &&
-    validateEmail(email) === null &&
-    validatePhone(phone) === null &&
-    validateNotes(notes) === null;
+    nameValidation === null &&
+    emailValidation === null &&
+    phoneValidation === null &&
+    notesValidation === null;
 
   async function handleSubmit() {
     setTouched({
@@ -171,8 +176,8 @@ export default function BookingForm({
         },
         body: JSON.stringify({
           ...selection,
-          name: name.trim(),
-          email: email.trim(),
+          name,
+          email,
           phone,
           notes,
         }),
@@ -305,7 +310,7 @@ export default function BookingForm({
             <span className="text-black/50">Optional</span>
           )}
           <span className="ml-auto text-black/50">
-            {notes.length}/{MAX_NOTES_LENGTH}
+            {notes.length}/{BOOKING_LIMITS.notes}
           </span>
         </div>
       </div>
