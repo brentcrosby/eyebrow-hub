@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
+import { NextResponse } from "next/server.js";
 import { z } from "zod";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -174,5 +175,143 @@ test("raw contact lengths enforce boundary before trimming and preserve saved tr
   assert.equal(
     bookingRequestSchema.parse({ ...base, notes: "  Hello  " }).notes,
     "Hello"
+  );
+});
+
+function fixture() {
+  const appointments = [];
+  const calls = [];
+  const services = [1, 2, 3, 4].map((id) => ({
+    id,
+    name: id <= 2 ? "Same name" : `Service ${id}`,
+    price: 25,
+    durationMinutes: 30,
+  }));
+  const db = {
+    service: {
+      findMany: async ({ where }) => {
+        calls.push("service lookup");
+        return services.filter((service) => where.id.in.includes(service.id));
+      },
+    },
+    stylist: { findFirst: async () => ({ id: 1, name: "Stylist" }) },
+    $transaction: async (callback) => {
+      calls.push("transaction");
+      return callback({
+        appointment: {
+          create: async ({ data }) => {
+            const appointment = { ...data, id: appointments.length + 1 };
+            appointments.push(appointment);
+            return appointment;
+          },
+        },
+      });
+    },
+  };
+  const mocks = {
+    "next/server": { NextResponse },
+    "@/lib/db": { db },
+    "@/lib/validations/booking": schemas,
+    "@/lib/bookingReference": {
+      createUniqueBookingReference: async () => "FIXTURE-REFERENCE",
+    },
+    // If DT-524 merges, exercise validation on a non-limited request, not a 429.
+    "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },
+  };
+  const fetchSlot = async () => ({
+    ok: true,
+    json: async () => [{ time: base.time, available: true }],
+  });
+  const create = load("../app/api/bookings/route.ts", mocks, {
+    fetch: fetchSlot,
+  }).POST;
+  const validate = load("../app/api/bookings/validate/route.ts", mocks, {
+    fetch: fetchSlot,
+  }).POST;
+  const request = (input) => ({
+    json: async () => input,
+    nextUrl: new URL("https://example.invalid/api/bookings"),
+  });
+  return { create, validate, request, appointments, calls };
+}
+
+test("direct API requests reject bad selection and text before any appointment write", async () => {
+  const f = fixture();
+  for (const input of [
+    { ...base, serviceIds: [1, 2, 3, 4, 5] },
+    { ...base, serviceIds: [] },
+    { ...base, serviceIds: [1, "2"] },
+    { ...base, serviceIds: [1, 1] },
+    ...["name", "email", "phone", "notes"].map((field) => ({
+      ...base,
+      [field]: " ".repeat(limits[field] + 1),
+    })),
+    { ...base, phone: "123" },
+  ]) {
+    const result = await f.create(f.request(input));
+    assert.equal(result.status, 400);
+    const body = await result.json();
+    assert.equal(body.success, false);
+    const field =
+      input.serviceIds !== base.serviceIds
+        ? "serviceIds"
+        : ["name", "email", "phone", "notes"].find(
+            (key) => input[key] !== base[key]
+          );
+    assert.ok(body.errors[field]?.length, `field error for ${field}`);
+    assert.equal(f.appointments.length, 0);
+    assert.deepEqual(f.calls, []);
+  }
+  const response = await f.validate(
+    f.request({ ...base, serviceIds: [1, 2, 3, 4, 5] })
+  );
+  assert.equal(response.status, 400);
+  assert.match(
+    (await response.json()).errors.serviceIds[0],
+    /up to 4 services/
+  );
+  assert.deepEqual(f.calls, []);
+});
+
+test("valid selection and booking with two equal-named, distinct service IDs create two appointments", async () => {
+  const f = fixture();
+  assert.equal((await f.validate(f.request(base))).status, 200);
+  const response = await f.create(
+    f.request({ ...base, name: " Customer ", notes: "  " })
+  );
+  assert.equal(response.status, 201);
+  const result = await response.json();
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    Array.from(result.booking.services, (service) => service.id),
+    [1, 2]
+  );
+  assert.deepEqual(
+    f.appointments.map((appointment) => appointment.serviceId),
+    [1, 2]
+  );
+  assert.ok(
+    f.appointments.every(
+      (appointment) =>
+        appointment.bookingReference === result.booking.bookingReference &&
+        appointment.customerName === "Customer" &&
+        appointment.notes === null
+    )
+  );
+  assert.equal(
+    f.appointments[0].endTime.getTime(),
+    f.appointments[1].startTime.getTime()
+  );
+});
+
+test("the four-service boundary remains bookable", async () => {
+  const f = fixture();
+  const input = { ...base, serviceIds: [1, 2, 3, 4] };
+  assert.equal((await f.validate(f.request(input))).status, 200);
+  const response = await f.create(f.request(input));
+  assert.equal(response.status, 201);
+  assert.deepEqual(
+    f.appointments.map((appointment) => appointment.serviceId),
+    input.serviceIds
   );
 });
