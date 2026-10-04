@@ -103,3 +103,15 @@ model Closure {
   @@index([closureDate])
   @@index([startTime, endTime])
 }
+
+// Counters are shared by every API instance; keys contain HMACs, not client IPs.
+model BookingRequestLimit {
+  operation    String   @map("operation")
+  callerKey    String   @map("caller_key")
+  requestCount Int      @map("request_count")
+  expiresAt    DateTime @map("expires_at")
+
+  @@id([operation, callerKey])
+  @@index([expiresAt])
+  @@map("booking_request_limits")
+}

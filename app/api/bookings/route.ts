@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bookingRequestSchema } from "@/lib/validations/booking";
 import { createUniqueBookingReference } from "@/lib/bookingReference";
+import { bookingLimitResponse } from "@/lib/bookingRateLimit";
 
 function parseDateTime(date: string, time: string) {
   const [hhmm, ampm] = time.split(" ");
@@ -20,6 +21,8 @@ function parseDateTime(date: string, time: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await bookingLimitResponse(request, "create");
+  if (limited) return limited;
   try {
     const body = await request.json().catch(() => null);
 
