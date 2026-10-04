@@ -5,10 +5,16 @@ import { useRef, useState, useEffect, useCallback } from "react";
 function useDropdownMaxHeight(containerRef: React.RefObject<HTMLDivElement | null>, open: boolean, minHeight = 160): number | undefined {
   const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!open || !containerRef.current) { setMaxHeight(undefined); return; }
-    const rect = containerRef.current.getBoundingClientRect();
-    const available = window.innerHeight - rect.bottom - 8;
-    setMaxHeight(available >= minHeight ? available : undefined);
+    const frame = requestAnimationFrame(() => {
+      if (!open || !containerRef.current) {
+        setMaxHeight(undefined);
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      const available = window.innerHeight - rect.bottom - 8;
+      setMaxHeight(available >= minHeight ? available : undefined);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [open, containerRef, minHeight]);
   return maxHeight;
 }
@@ -304,51 +310,75 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
 interface MultiSelectDropdownProps {
   label: string;
   placeholder: string;
-  options: string[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
+  options: { id: number; label: string }[];
+  selected: number[];
+  onChange: (selected: number[]) => void;
+  maxSelected: number;
 }
 
-export function MultiSelectDropdown({ label, placeholder, options, selected, onChange }: MultiSelectDropdownProps) {
+export function MultiSelectDropdown({
+  label,
+  placeholder,
+  options,
+  selected,
+  onChange,
+  maxSelected,
+}: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open);
 
   useOutsideClick(ref, () => setOpen(false));
-
-  function toggle(option: string) {
+  function toggle(option: number) {
+    if (!selected.includes(option) && selected.length >= maxSelected) return;
     onChange(
-      selected.includes(option) ? selected.filter((s) => s !== option) : [...selected, option]
+      selected.includes(option)
+        ? selected.filter((s) => s !== option)
+        : [...selected, option]
     );
   }
-
-  const triggerLabel = selected.length > 0 ? selected.join(", ") : null;
+  const triggerLabel =
+    selected.length > 0
+      ? options
+          .filter((option) => selected.includes(option.id))
+          .map((option) => option.label)
+          .join(", ")
+      : null;
 
   return (
     <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+      <label className="text-[14px] leading-[17px] font-medium text-black">
+        {label}
+      </label>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
       >
-        <span className={`text-[14px] leading-[17px] text-left truncate pr-2 ${triggerLabel ? "text-black" : "text-black/50"}`}>
+        <span
+          className={`text-[14px] leading-[17px] text-left truncate pr-2 ${triggerLabel ? "text-black" : "text-black/50"}`}
+        >
           {triggerLabel ?? placeholder}
         </span>
         <ChevronIcon open={open} />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto" style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}>
+        <div
+          className="absolute left-0 right-0 top-full mt-1 flex flex-col bg-white rounded-lg z-10 overflow-y-auto"
+          style={{ ...dropdownPanelStyle, maxHeight: maxDropdownHeight }}
+        >
           {options.map((option) => {
-            const checked = selected.includes(option);
+            const checked = selected.includes(option.id);
+            const disabled = !checked && selected.length >= maxSelected;
             return (
               <button
-                key={option}
+                key={option.id}
                 type="button"
-                onClick={() => toggle(option)}
-                className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5"
+                onClick={() => toggle(option.id)}
+                disabled={disabled}
+                className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div
                   className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0"
@@ -359,11 +389,19 @@ export function MultiSelectDropdown({ label, placeholder, options, selected, onC
                 >
                   {checked && (
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   )}
                 </div>
-                <span className="text-[14px] leading-[17px] text-black">{option}</span>
+                <span className="text-[14px] leading-[17px] text-black">
+                  {option.label}
+                </span>
               </button>
             );
           })}
