@@ -126,8 +126,8 @@ function AdminSideNav({
 }) {
   const pathname = usePathname();
 
-  function handleLogout() {
-    clearAdminSession();
+  async function handleLogout() {
+    await clearAdminSession();
     onNavigate?.();
     // A full page load drops any admin data still held in memory.
     window.location.replace("/admin/login");

@@ -3,16 +3,19 @@
 let isRedirecting = false;
 let isWatching = false;
 
-export function clearAdminSession() {
+// Asks the server to end the session. The browser clears its own copy too,
+// in case the server can't be reached.
+export async function clearAdminSession() {
+  await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
   localStorage.removeItem("adminAccessToken");
   document.cookie = "adminAccessToken=; path=/; max-age=0; SameSite=Lax";
 }
 
-export function handleExpiredSession() {
+export async function handleExpiredSession() {
   if (isRedirecting) return;
   isRedirecting = true;
 
-  clearAdminSession();
+  await clearAdminSession();
   window.location.replace("/admin/login?expired=1");
 }
 
