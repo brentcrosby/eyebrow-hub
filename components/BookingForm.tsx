@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BookingSelection } from "@/lib/validations/booking";
 import type { BookingConfirmation } from "./BookingContainer";
+import { bookingRetryMessage } from "@/lib/bookingRetry";
 
 type Service = {
   id: number;
@@ -181,6 +182,10 @@ export default function BookingForm({
       const body = await res.json().catch(() => null);
 
       if (!res.ok) {
+        if (res.status === 429) {
+          setSubmitError(bookingRetryMessage(res.headers.get("Retry-After")));
+          return;
+        }
         const firstError =
           body?.errors && typeof body.errors === "object"
             ? Object.values(body.errors).flat()[0]
