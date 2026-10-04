@@ -111,3 +111,41 @@ exports, so `route.GET()` runs the real handler against your mocks.
   `service-security.test.mjs` predate `loadModule` and each contain their own
   copy of the same loader. They work as they are; new tests should use the
   shared helper.
+
+## Pull request checks
+
+`.github/workflows/pr-checks.yml` runs on every pull request into `main` and
+on every push to `main`. It has two jobs:
+
+- **Test and build:** clean `npm ci`, generate the Prisma client, `npm test`,
+  then `npm run build`. A failing test or a broken build fails this job.
+- **Lint:** clean `npm ci`, then `npm run lint`.
+
+The checks use no secrets and no real data. The build needs a database,
+because the homepage reads business hours while it is pre-rendered, so the
+job starts an empty, throwaway Postgres container, creates the tables in it,
+and discards it when the job ends. It never connects to the team database.
+
+To run the same checks locally: `npm ci`, `npm test`, `npm run build`,
+`npm run lint`.
+
+### Known failure: Lint
+
+The **Lint** job currently fails because of an error that was already on
+`main` before this workflow existed:
+
+```
+components/Dropdown.tsx  8:43  error  react-hooks/set-state-in-effect
+```
+
+The job turns green once that is fixed; the fix belongs in its own Jira issue
+with its own owner, not in this workflow. Lint runs as a separate job so this failure stays visible without
+hiding whether tests and the build passed.
+
+### Making the checks required
+
+A workflow file alone does not stop anyone merging. The repo owner has to turn
+that on in GitHub: **Settings → Branches → add a rule for `main` → Require
+status checks to pass**, then select **Test and build**. Add **Lint** once the
+known failure is fixed. The check names only appear in that list after the
+workflow has run at least once.
