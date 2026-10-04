@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "pretest": "node tests/helpers/generatePrismaClient.mjs",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"tests/**/*.test.mjs\"",
     "format": "prettier --write .",
     "migrate": "npx prisma migrate dev --name init",
     "seed": "node prisma/seed.js"
