@@ -8,6 +8,7 @@ import {
   PENDING_STATUS,
   getStatusLabel,
 } from "@/lib/appointmentStatus";
+import { BOOKING_LIMITS } from "@/lib/validations/booking";
 import ScheduleDialog from "./ScheduleDialog";
 
 export type NewAppointmentRequest = {
@@ -97,7 +98,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
-function AppointmentForm({
+export function AppointmentForm({
   request,
   onClose,
   onCreated,
@@ -118,6 +119,7 @@ function AppointmentForm({
   const [times, setTimes] = useState<AvailableTime[] | null>(null);
   const [isLoadingTimes, setIsLoadingTimes] = useState(false);
   const [timesError, setTimesError] = useState<string | null>(null);
+  const [availabilityRefreshId, setAvailabilityRefreshId] = useState(0);
 
   const [serviceId, setServiceId] = useState("");
   // "" is a real choice, not a missing one: the endpoint accepts a null
@@ -230,7 +232,7 @@ function AppointmentForm({
     loadTimes();
 
     return () => controller.abort();
-  }, [date, duration]);
+  }, [availabilityRefreshId, date, duration]);
 
   // Before a service is picked there is no duration to ask about, so the only
   // time on offer is the one the schedule handed over.
@@ -278,16 +280,22 @@ function AppointmentForm({
 
       if (payload?.errors) {
         setFieldErrors(toFieldErrors(payload.errors));
+      }
 
-        // The 409 reason lands on the time field, but the cause is somebody
-        // else's booking, so it gets a sentence at the top as well. Nothing
-        // typed is cleared: only the time has to change.
-        if (response.status === 409) {
-          setFormError(
-            "That time was taken while you were filling this in. Choose another time."
-          );
-        }
-      } else {
+      if (response.status === 409) {
+        // Keep every customer and appointment field, but immediately reject
+        // the stale time and ask for the day again through the existing
+        // abortable availability effect. Submission stays disabled until the
+        // refresh succeeds and staff select a new available time.
+        setTime("");
+        setTimes([]);
+        setTimesError(null);
+        setIsLoadingTimes(true);
+        setAvailabilityRefreshId((current) => current + 1);
+        setFormError(
+          "That time was taken while you were filling this in. Choose another time."
+        );
+      } else if (!payload?.errors) {
         setFormError(payload?.error ?? "The appointment could not be saved.");
       }
     } catch {
@@ -327,6 +335,7 @@ function AppointmentForm({
             type="text"
             autoFocus
             required
+            maxLength={BOOKING_LIMITS.name}
             value={customerName}
             onChange={(event) => setCustomerName(event.target.value)}
             aria-invalid={Boolean(fieldErrors.customerName)}
@@ -348,6 +357,7 @@ function AppointmentForm({
             type="tel"
             required
             inputMode="tel"
+            maxLength={BOOKING_LIMITS.phone}
             placeholder="(000) 000-0000"
             value={customerPhone}
             // Reformatting on every keystroke, the same as the customer
@@ -374,6 +384,7 @@ function AppointmentForm({
           <input
             id={`${fieldId}-email`}
             type="email"
+            maxLength={BOOKING_LIMITS.email}
             value={customerEmail}
             onChange={(event) => setCustomerEmail(event.target.value)}
             aria-invalid={Boolean(fieldErrors.customerEmail)}
@@ -461,7 +472,9 @@ function AppointmentForm({
           <select
             id={`${fieldId}-time`}
             required
-            disabled={isLoadingTimes || timeOptions.length === 0}
+            disabled={
+              isLoadingTimes || timesError !== null || timeOptions.length === 0
+            }
             value={time}
             onChange={(event) => setTime(event.target.value)}
             className={FIELD}
@@ -519,9 +532,16 @@ function AppointmentForm({
           <textarea
             id={`${fieldId}-notes`}
             rows={3}
+            maxLength={BOOKING_LIMITS.notes}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.notes)}
+            aria-describedby={`${fieldId}-notes-error`}
             className={`${FIELD} rounded-2xl`}
+          />
+          <FieldError
+            id={`${fieldId}-notes-error`}
+            message={fieldErrors.notes}
           />
         </div>
       </div>
