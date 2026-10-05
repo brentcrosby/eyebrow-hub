@@ -61,13 +61,6 @@ export default function AdminLoginPage() {
         return;
       }
 
-      if (data?.session?.access_token) {
-        localStorage.setItem("adminAccessToken", data.session.access_token);
-        document.cookie = `adminAccessToken=${encodeURIComponent(
-          data.session.access_token
-        )}; path=/; max-age=${data.session.expires_in || 86400}; SameSite=Lax`;
-      }
-
       setSuccessMessage(data?.message || "Login successful.");
       router.push("/admin/dashboard");
     } catch {

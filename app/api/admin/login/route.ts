@@ -33,26 +33,27 @@ export async function POST(request: NextRequest) {
       password,
     });
 
-    if (error || !data.user) {
+    if (error || !data.session) {
       return NextResponse.json(
         { message: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    // The token goes only into an HttpOnly cookie, so browser scripts can't read it.
+    const response = NextResponse.json({ message: "Login successful" });
+    response.cookies.set("adminAccessToken", data.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: data.session.expires_in,
+    });
+    return response;
+  } catch {
     return NextResponse.json(
-      {
-        message: "Login successful",
-        user: data.user,
-        session: data.session,
-      },
-      { status: 200 }
+      { message: "Login failed. Please try again." },
+      { status: 500 }
     );
-  } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ message: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ message: "Login failed" }, { status: 500 });
   }
 }
