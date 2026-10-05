@@ -1,0 +1,14 @@
+{
+  "GHSA-3f6p-5ww8-9rcr": {
+    "package": "mysql2",
+    "owner": "Babar Chechi",
+    "reason": "Pulled in by the Prisma CLI. Only affects MySQL connections; this app uses PostgreSQL through @prisma/adapter-pg. Every Prisma 7 release is in range; the only offered fix downgrades to Prisma 6.",
+    "reviewBy": "2026-10-25"
+  },
+  "GHSA-ggr8-5vv4-36mx": {
+    "package": "deepmerge-ts",
+    "owner": "Babar Chechi",
+    "reason": "Used by @prisma/config when the Prisma CLI loads prisma.config.ts, not while the app serves requests. Every Prisma 7 release is in range; the only offered fix downgrades to Prisma 6.",
+    "reviewBy": "2026-10-25"
+  }
+}

@@ -1,0 +1,53 @@
+name: Security checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Weekly, because new advisories are published without any code changing.
+  schedule:
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Reads package-lock.json against the live advisory database. Fails on
+      # any high or critical advisory not listed in security/audit-exceptions.json.
+      - name: Audit production dependencies
+        run: node security/check-audit.mjs
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Scans every commit on every branch. --redact keeps secret values out of
+      # the log, which matters because this repository's logs are public.
+      - name: Scan full history with gitleaks
+        run: >-
+          docker run --rm -v "$PWD:/repo" --entrypoint sh
+          ghcr.io/gitleaks/gitleaks:v8.30.1 -c
+          'git config --global --add safe.directory /repo &&
+          gitleaks git /repo --redact --no-banner'
