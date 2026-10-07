@@ -49,8 +49,7 @@ Status: `200 OK`
 }
 ```
 
-The appointment object contains the updated appointment and its service and
-stylist relations.
+The appointment object also includes its service and stylist relations.
 
 ## Error responses
 

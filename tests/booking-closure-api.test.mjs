@@ -17,16 +17,22 @@ function createFixture({
       mocks: {
         "next/server": { NextResponse },
         "@/lib/adminAuth": {
-          requireAdmin: async () =>
-            auth.authenticated
-              ? { authenticated: true, user: { id: "approved-admin" } }
-              : {
-                  authenticated: false,
-                  response: NextResponse.json(
-                    { error: auth.error },
-                    { status: auth.status }
-                  ),
-                },
+          requireAdmin: async () => {
+            if (auth.authenticated) {
+              return {
+                authenticated: true,
+                user: { id: "approved-admin" },
+              };
+            }
+
+            return {
+              authenticated: false,
+              response: NextResponse.json(
+                { error: auth.error },
+                { status: auth.status }
+              ),
+            };
+          },
         },
         "@/lib/db": {
           db: {
@@ -53,7 +59,9 @@ function createFixture({
 }
 
 function requestWithStatus(status = "completed") {
-  return { json: async () => ({ status }) };
+  return {
+    json: async () => ({ status }),
+  };
 }
 
 test("authorized admin completes a confirmed appointment successfully", async () => {
@@ -73,7 +81,11 @@ test("authorized admin completes a confirmed appointment successfully", async ()
 
 test("unauthenticated request is rejected before database work", async () => {
   const fixture = createFixture({
-    auth: { authenticated: false, status: 401, error: "Unauthorized" },
+    auth: {
+      authenticated: false,
+      status: 401,
+      error: "Unauthorized",
+    },
   });
 
   const response = await fixture.route.PATCH(requestWithStatus(), {
@@ -81,12 +93,19 @@ test("unauthenticated request is rejected before database work", async () => {
   });
 
   assert.equal(response.status, 401);
-  assert.deepEqual(fixture.calls(), { findCalls: 0, updateCalls: 0 });
+  assert.deepEqual(fixture.calls(), {
+    findCalls: 0,
+    updateCalls: 0,
+  });
 });
 
 test("authenticated user without admin permission is rejected before database work", async () => {
   const fixture = createFixture({
-    auth: { authenticated: false, status: 403, error: "Forbidden" },
+    auth: {
+      authenticated: false,
+      status: 403,
+      error: "Forbidden",
+    },
   });
 
   const response = await fixture.route.PATCH(requestWithStatus(), {
@@ -94,7 +113,10 @@ test("authenticated user without admin permission is rejected before database wo
   });
 
   assert.equal(response.status, 403);
-  assert.deepEqual(fixture.calls(), { findCalls: 0, updateCalls: 0 });
+  assert.deepEqual(fixture.calls(), {
+    findCalls: 0,
+    updateCalls: 0,
+  });
 });
 
 test("invalid appointment ID returns 404 without database work", async () => {
@@ -105,10 +127,13 @@ test("invalid appointment ID returns 404 without database work", async () => {
   });
 
   assert.equal(response.status, 404);
-  assert.deepEqual(fixture.calls(), { findCalls: 0, updateCalls: 0 });
+  assert.deepEqual(fixture.calls(), {
+    findCalls: 0,
+    updateCalls: 0,
+  });
 });
 
-test("missing appointment returns 404", async () => {
+test("missing appointment returns 404 without updating", async () => {
   const fixture = createFixture({ appointment: null });
 
   const response = await fixture.route.PATCH(requestWithStatus(), {
@@ -119,7 +144,7 @@ test("missing appointment returns 404", async () => {
   assert.equal(fixture.calls().updateCalls, 0);
 });
 
-test("already-completed appointment returns 409 and is not updated again", async () => {
+test("already-completed appointment returns 409 without updating again", async () => {
   const fixture = createFixture({
     appointment: { id: 7, status: "completed", notes: null },
   });
