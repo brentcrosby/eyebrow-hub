@@ -5,7 +5,7 @@
 `PATCH /api/admin/appointments/{id}/status`
 
 This endpoint uses the existing `Appointment` model. It closes a confirmed
-appointment by changing its status to `cancelled`.
+appointment by changing its status to `completed`.
 
 ## Authentication and authorization
 
@@ -29,11 +29,11 @@ Cookie: adminAccessToken=<admin-session-token>
 
 ```json
 {
-  "status": "cancelled"
+  "status": "completed"
 }
 ```
 
-Only a confirmed appointment can transition to `cancelled`.
+Only a confirmed appointment can transition to `completed`.
 
 ## Successful response
 
@@ -44,7 +44,7 @@ Status: `200 OK`
   "success": true,
   "appointment": {
     "id": 7,
-    "status": "cancelled"
+    "status": "completed"
   }
 }
 ```
@@ -59,7 +59,7 @@ stylist relations.
 - `403 Forbidden`: user is not an approved admin.
 - `404 Not Found`: invalid appointment ID or appointment does not exist.
 - `409 Conflict`: appointment is not eligible for this transition, is already
-  cancelled, or its status changed during the request.
+  completed, or its status changed during the request.
 - `500 Internal Server Error`: the status update could not be completed.
 
 Error responses contain a general error message and do not include sensitive

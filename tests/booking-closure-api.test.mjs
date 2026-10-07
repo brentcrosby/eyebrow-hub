@@ -6,7 +6,7 @@ import { loadModule } from "./helpers/loadModule.mjs";
 function createFixture({
   auth = { authenticated: true },
   appointment = { id: 7, status: "confirmed", notes: null },
-  updatedAppointment = { id: 7, status: "cancelled" },
+  updatedAppointment = { id: 7, status: "completed" },
 } = {}) {
   let findCalls = 0;
   let updateCalls = 0;
@@ -52,11 +52,11 @@ function createFixture({
   };
 }
 
-function requestWithStatus(status = "cancelled") {
+function requestWithStatus(status = "completed") {
   return { json: async () => ({ status }) };
 }
 
-test("authorized admin closes a confirmed appointment successfully", async () => {
+test("authorized admin completes a confirmed appointment successfully", async () => {
   const fixture = createFixture();
 
   const response = await fixture.route.PATCH(requestWithStatus(), {
@@ -66,7 +66,7 @@ test("authorized admin closes a confirmed appointment successfully", async () =>
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     success: true,
-    appointment: { id: 7, status: "cancelled" },
+    appointment: { id: 7, status: "completed" },
   });
   assert.equal(fixture.calls().updateCalls, 1);
 });
@@ -119,9 +119,9 @@ test("missing appointment returns 404", async () => {
   assert.equal(fixture.calls().updateCalls, 0);
 });
 
-test("already-closed appointment returns 409 and is not updated again", async () => {
+test("already-completed appointment returns 409 and is not updated again", async () => {
   const fixture = createFixture({
-    appointment: { id: 7, status: "cancelled", notes: null },
+    appointment: { id: 7, status: "completed", notes: null },
   });
 
   const response = await fixture.route.PATCH(requestWithStatus(), {
