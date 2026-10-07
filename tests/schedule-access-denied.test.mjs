@@ -72,6 +72,8 @@ test("shared 401 handling redirects once and excludes the login endpoint", async
       document,
       localStorage,
       Request,
+        fetch: async () => ({ status: 200 }),
+
     },
   });
 
