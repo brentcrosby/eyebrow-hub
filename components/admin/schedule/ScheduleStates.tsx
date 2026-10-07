@@ -4,6 +4,42 @@
 // pulsing skeleton, a neutral message, and a red panel with an action. Colour
 // alone would not separate empty from error for someone not looking closely.
 
+type ScheduleResponse = {
+  ok: boolean;
+  status: number;
+};
+
+export type ScheduleAccessResult =
+  | "authorized"
+  | "unauthorized"
+  | "forbidden"
+  | "error";
+
+export function classifyScheduleResponses(
+  responses: ScheduleResponse[]
+): ScheduleAccessResult {
+  // Preserve the shared expired-session redirect whenever any admin request
+  // says the session is no longer valid. A genuine permission denial is a
+  // separate, stable state and must not be treated as a transient error.
+  if (responses.some((response) => response.status === 401)) {
+    return "unauthorized";
+  }
+  if (responses.some((response) => response.status === 403)) {
+    return "forbidden";
+  }
+  if (responses.some((response) => !response.ok)) return "error";
+  return "authorized";
+}
+
+export function createClearedScheduleState() {
+  return {
+    appointments: [],
+    availabilityBlocks: [],
+    selectedAppointmentId: null,
+    bookingRequest: null,
+  };
+}
+
 export function ScheduleLoadingState({ rowCount }: { rowCount: number }) {
   return (
     <div
@@ -65,6 +101,22 @@ export function ScheduleErrorState({
       >
         Try again
       </button>
+    </div>
+  );
+}
+
+export function ScheduleAccessDeniedState() {
+  return (
+    <div
+      role="alert"
+      className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-6 text-center"
+    >
+      <p className="text-sm font-medium text-amber-900">
+        You do not have permission to view or manage this schedule.
+      </p>
+      <p className="mt-2 text-sm text-amber-800">
+        Contact an administrator if you believe you should have access.
+      </p>
     </div>
   );
 }

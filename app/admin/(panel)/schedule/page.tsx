@@ -26,9 +26,12 @@ import NewAppointmentDialog, {
 import ScheduleDayNav from "@/components/admin/schedule/ScheduleDayNav";
 import WeekScheduleGrid from "@/components/admin/schedule/WeekScheduleGrid";
 import {
+  ScheduleAccessDeniedState,
   ScheduleEmptyState,
   ScheduleErrorState,
   ScheduleLoadingState,
+  classifyScheduleResponses,
+  createClearedScheduleState,
 } from "@/components/admin/schedule/ScheduleStates";
 import type {
   AvailabilityBlock,
@@ -77,6 +80,7 @@ function SchedulePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [reloadRequest, setReloadRequest] = useState<ReloadRequest>({
     id: 0,
     silent: false,
@@ -188,11 +192,29 @@ function SchedulePageContent() {
             }),
           ]);
 
-        if (
-          !hoursResponse.ok ||
-          !appointmentsResponse.ok ||
-          !blocksResponse.ok
-        ) {
+        const accessResult = classifyScheduleResponses([
+          hoursResponse,
+          appointmentsResponse,
+          blocksResponse,
+        ]);
+
+        if (accessResult === "forbidden" || accessResult === "unauthorized") {
+          const cleared = createClearedScheduleState();
+          setBusinessHours(null);
+          setAppointments(cleared.appointments);
+          setAvailabilityBlocks(cleared.availabilityBlocks);
+          selectedAppointmentIdRef.current = cleared.selectedAppointmentId;
+          setSelectedAppointmentId(cleared.selectedAppointmentId);
+          setBookingRequest(cleared.bookingRequest);
+          focusReturnTarget.current = null;
+          setError(null);
+          setRefreshError(null);
+          setAccessDenied(accessResult === "forbidden");
+          setIsLoading(false);
+          return;
+        }
+
+        if (accessResult === "error") {
           throw new Error("Request failed");
         }
 
@@ -203,6 +225,7 @@ function SchedulePageContent() {
         ]);
 
         setBusinessHours(hours);
+        setAccessDenied(false);
         handleAppointmentsLoaded(appointmentData);
         setAvailabilityBlocks(blockData);
         setIsLoading(false);
@@ -241,6 +264,7 @@ function SchedulePageContent() {
   }
 
   function handleSlotClick(slot: ScheduleSlot) {
+    if (accessDenied) return;
     const start = slot.start.toISOString();
     focusReturnTarget.current = { kind: "slot", start };
     setBookingRequest({
@@ -250,12 +274,14 @@ function SchedulePageContent() {
   }
 
   function handleAppointmentClick(appointment: ScheduleAppointment) {
+    if (accessDenied) return;
     focusReturnTarget.current = { kind: "appointment", id: appointment.id };
     selectedAppointmentIdRef.current = appointment.id;
     setSelectedAppointmentId(appointment.id);
   }
 
   function handleAddAppointment() {
+    if (accessDenied) return;
     focusReturnTarget.current = { kind: "toolbar" };
     setBookingRequest({ date: toDateParam(selectedDate), time: null });
   }
@@ -272,6 +298,10 @@ function SchedulePageContent() {
       : "No appointments or blocked time for this day.";
 
   function renderSchedule() {
+    if (accessDenied) {
+      return <ScheduleAccessDeniedState />;
+    }
+
     if (error) {
       return <ScheduleErrorState message={error} onRetry={retry} />;
     }
@@ -312,15 +342,17 @@ function SchedulePageContent() {
   return (
     <main className="min-h-full p-3 sm:p-6">
       <section className="mx-auto w-full max-w-[1400px] rounded-[28px] bg-[#fcf8f3] px-3 py-5 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
-        <ScheduleDayNav
-          selectedDate={selectedDate}
-          view={view}
-          hours={hoursForDay}
-          onDateChange={(date) => updateParams({ date })}
-          onViewChange={(nextView) => updateParams({ view: nextView })}
-          onAddAppointment={handleAddAppointment}
-          addAppointmentButtonRef={addAppointmentButtonRef}
-        />
+        <fieldset disabled={accessDenied} className="contents">
+          <ScheduleDayNav
+            selectedDate={selectedDate}
+            view={view}
+            hours={hoursForDay}
+            onDateChange={(date) => updateParams({ date })}
+            onViewChange={(nextView) => updateParams({ view: nextView })}
+            onAddAppointment={handleAddAppointment}
+            addAppointmentButtonRef={addAppointmentButtonRef}
+          />
+        </fieldset>
 
         {refreshError && (
           <div
@@ -337,12 +369,12 @@ function SchedulePageContent() {
       </section>
 
       <AppointmentDetailDialog
-        appointment={selectedAppointment}
+        appointment={accessDenied ? null : selectedAppointment}
         onClose={closeAppointmentDialog}
         onStatusChange={() => reload({ silent: true })}
       />
       <NewAppointmentDialog
-        request={bookingRequest}
+        request={accessDenied ? null : bookingRequest}
         onClose={closeBookingDialog}
         onCreated={async () => {
           setBookingRequest(null);
