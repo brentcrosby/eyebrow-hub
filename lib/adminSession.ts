@@ -35,7 +35,7 @@ export function watchAdminApi() {
       url.includes("/api/admin/") && !url.includes("/api/admin/login");
 
     if (response.status === 401 && isAdminApi) {
-      handleExpiredSession();
+await handleExpiredSession();
     }
 
     return response;

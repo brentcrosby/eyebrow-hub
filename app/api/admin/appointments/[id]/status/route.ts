@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminAuth";
 
-const requestedStatuses = ["confirmed", "rejected", "cancelled"] as const;
+const requestedStatuses = [
+  "confirmed",
+  "rejected",
+  "cancelled",
+  "completed",
+] as const;
 const allowedTransitions: Record<string, readonly string[]> = {
   pending: ["confirmed", "rejected"],
-  confirmed: ["cancelled"],
+  confirmed: ["cancelled", "completed"],
 };
 
 function coerceReason(value: unknown): string | undefined {
@@ -48,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     !requestedStatuses.includes(status as (typeof requestedStatuses)[number])
   ) {
     return NextResponse.json(
-      { error: "Status must be confirmed, rejected, or cancelled" },
+      { error: "Status must be confirmed, rejected, cancelled, or completed" },
       { status: 400 }
     );
   }
