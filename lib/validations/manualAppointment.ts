@@ -5,6 +5,7 @@ import {
   COMPLETED_STATUS,
   CANCELLED_STATUS,
 } from "@/lib/appointmentStatus";
+import { BOOKING_LIMITS } from "@/lib/validations/booking";
 
 // Validates a staff-entered phone/walk-in booking. Single service per
 // appointment, unlike the customer flow's serviceIds array — a manual entry
@@ -14,20 +15,48 @@ export const manualAppointmentSchema = z.object({
   stylistId: z.number().int().positive().nullable().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   time: z.string().regex(/^\d{1,2}:\d{2}\s(AM|PM)$/, "Time must be H:MM AM/PM"),
-  customerName: z.string().trim().min(1, "Name is required"),
+  customerName: z
+    .string()
+    .max(
+      BOOKING_LIMITS.name,
+      `Name must be ${BOOKING_LIMITS.name} characters or fewer`
+    )
+    .trim()
+    .min(1, "Name is required"),
   customerPhone: z
     .string()
+    // Measure the submitted value before trimming so direct API callers
+    // cannot bypass the shared public-booking limit with whitespace.
+    .max(
+      BOOKING_LIMITS.phone,
+      `Phone must be ${BOOKING_LIMITS.phone} characters or fewer`
+    )
     .trim()
     .refine((phone) => phone.replace(/\D/g, "").length === 10, {
       message: "Enter a 10-digit phone number",
     }),
   customerEmail: z
     .string()
+    .max(
+      BOOKING_LIMITS.email,
+      `Email must be ${BOOKING_LIMITS.email} characters or fewer`
+    )
     .trim()
-    .email("Enter a valid email address")
+    .refine(
+      (email) => email === "" || z.string().email().safeParse(email).success,
+      "Enter a valid email address"
+    )
     .optional()
     .nullable(),
-  notes: z.string().trim().optional().nullable(),
+  notes: z
+    .string()
+    .max(
+      BOOKING_LIMITS.notes,
+      `Notes must be ${BOOKING_LIMITS.notes} characters or fewer`
+    )
+    .trim()
+    .optional()
+    .nullable(),
   // Staff are entering an already-decided booking, so it defaults to
   // confirmed rather than pending (which is for the customer-facing flow
   // awaiting approval).
