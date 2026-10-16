@@ -30,6 +30,12 @@ test("booking fields, picker triggers and native submit guard", async () => {
     stylists: [],
     onBook() {},
     onBack() {},
+    onTimeConflict() {},
+    contact: { name: "", email: "", phone: "", notes: "" },
+    onContactChange() {},
+    touched: { name: true, email: true, phone: true, notes: false },
+    onTouchedChange() {},
+    selectionReady: true,
   };
   const html = renderToStaticMarkup(React.createElement(BookingForm, props));
   assert.match(html, /<form[^>]*noValidate=""/);
@@ -76,7 +82,7 @@ test("booking fields, picker triggers and native submit guard", async () => {
   assert.equal(focused, 4);
   assert.equal(closed, 4);
 
-  const valid = ["Fixture Customer", "fixture@example.invalid", "(530) 555-0100", "", { name: false, email: false, phone: false, notes: false }, false, null];
+  const valid = [false, null];
   let requests = 0;
   let finishRequest;
   const pending = new Promise((resolve) => { finishRequest = resolve; });
@@ -89,7 +95,7 @@ test("booking fields, picker triggers and native submit guard", async () => {
     },
     globals: { fetch: () => { requests++; return pending; } },
   });
-  const form = ValidForm(props);
+  const form = ValidForm({ ...props, contact: { name: "Fixture Customer", email: "fixture@example.invalid", phone: "(530) 555-0100", notes: "" } });
   let prevented = 0;
   const event = { preventDefault() { prevented++; } };
   const first = form.props.onSubmit(event);
