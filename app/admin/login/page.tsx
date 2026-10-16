@@ -113,7 +113,16 @@ export default function AdminLoginPage() {
         </p>
       </div>
 
-      <div className="relative z-10 w-full max-w-md min-h-[460px] rounded-2xl border border-white/40 bg-white p-10 shadow-xl mt-6 lg:mr-28">        <h1 className="mb-2 text-center text-3xl font-semibold">
+      <div className="relative z-10 w-full max-w-md min-h-[460px] rounded-2xl border border-white/40 bg-white p-10 shadow-xl mt-6 lg:mr-28">
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a5a3c]"
+        >
+          <span aria-hidden="true">←</span>
+          Back
+        </Link>
+
+        <h1 className="mb-2 text-center text-3xl font-semibold">
         Admin Portal
       </h1>
 
