@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import {
   BOOKING_LIMITS,
   bookingContactSchemas,
@@ -27,7 +27,16 @@ interface BookingFormProps {
   stylists: Stylist[];
   onBook: (booking: BookingConfirmation) => void;
   onBack: () => void;
+  onTimeConflict: (message: string) => void;
+  contact: BookingContact;
+  onContactChange: Dispatch<SetStateAction<BookingContact>>;
+  touched: BookingTouched;
+  onTouchedChange: Dispatch<SetStateAction<BookingTouched>>;
+  selectionReady: boolean;
 }
+
+export type BookingContact = { name: string; email: string; phone: string; notes: string };
+export type BookingTouched = { name: boolean; email: boolean; phone: boolean; notes: boolean };
 
 function formatPhone(raw: string): string {
   // Keep invalid pasted input visible so the shared validator can explain it.
@@ -102,18 +111,18 @@ export default function BookingForm({
   stylists,
   onBook,
   onBack,
+  onTimeConflict,
+  contact,
+  onContactChange,
+  touched,
+  onTouchedChange,
+  selectionReady,
 }: BookingFormProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
-
-  const [touched, setTouched] = useState({
-    name: false,
-    email: false,
-    phone: false,
-    notes: false,
-  });
+  const { name, email, phone, notes } = contact;
+  const setField = (field: keyof BookingContact, value: string) =>
+    onContactChange((previous) => ({ ...previous, [field]: value }));
+  const touch = (field: keyof BookingTouched) =>
+    onTouchedChange((previous) => ({ ...previous, [field]: true }));
 
   const [submitting, setSubmitting] = useState(false);
   const inFlight = useRef(false);
@@ -155,6 +164,7 @@ export default function BookingForm({
 
   const canBook =
     selection !== null &&
+    selectionReady &&
     !submitting &&
     nameValidation === null &&
     emailValidation === null &&
@@ -164,12 +174,13 @@ export default function BookingForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current) return;
-    setTouched({
+    onTouchedChange((previous) => ({
+      ...previous,
       name: true,
       email: true,
       phone: true,
       notes: true,
-    });
+    }));
 
     setSubmitError(null);
 
@@ -198,6 +209,10 @@ export default function BookingForm({
       if (!res.ok) {
         if (res.status === 429) {
           setSubmitError(bookingRetryMessage(res.headers.get("Retry-After")));
+          return;
+        }
+        if (res.status === 409 && typeof body?.errors?.time === "string") {
+          onTimeConflict(body.errors.time);
           return;
         }
         const firstError =
@@ -267,8 +282,8 @@ export default function BookingForm({
         label="Name"
         placeholder="Full name"
         value={name}
-        onChange={setName}
-        onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+        onChange={(value) => setField("name", value)}
+        onBlur={() => touch("name")}
         error={nameError}
       />
 
@@ -278,8 +293,8 @@ export default function BookingForm({
         type="email"
         placeholder="name@email.com"
         value={email}
-        onChange={setEmail}
-        onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+        onChange={(value) => setField("email", value)}
+        onBlur={() => touch("email")}
         error={emailError}
       />
 
@@ -289,8 +304,8 @@ export default function BookingForm({
         type="tel"
         placeholder="(000) 000-0000"
         value={phone}
-        onChange={(raw) => setPhone(formatPhone(raw))}
-        onBlur={() => setTouched((prev) => ({ ...prev, phone: true }))}
+        onChange={(raw) => setField("phone", formatPhone(raw))}
+        onBlur={() => touch("phone")}
         error={phoneError}
       />
 
@@ -306,8 +321,8 @@ export default function BookingForm({
           id="booking-notes"
           placeholder="Anything we should know before your appointment?"
           value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          onBlur={() => setTouched((prev) => ({ ...prev, notes: true }))}
+          onChange={(event) => setField("notes", event.target.value)}
+          onBlur={() => touch("notes")}
           aria-invalid={notesError ? "true" : undefined}
           aria-describedby={notesError ? "booking-notes-error" : undefined}
           rows={4}

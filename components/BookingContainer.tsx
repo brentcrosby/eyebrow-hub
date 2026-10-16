@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MultiSelectDropdown,
   SingleSelectDropdown,
@@ -8,7 +8,7 @@ import {
   TimePickerDropdown,
   TimeSlot,
 } from "./Dropdown";
-import BookingForm from "./BookingForm";
+import BookingForm, { type BookingContact, type BookingTouched } from "./BookingForm";
 import {
   BOOKING_LIMITS,
   bookingSelectionSchema,
@@ -96,11 +96,19 @@ export default function BookingContainer() {
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(
     new Set()
   );
+  const [datesStatus, setDatesStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [datesRefresh, setDatesRefresh] = useState(0);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [selectedStylist, setSelectedStylist] = useState(NEXT_AVAILABLE);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
+  const [contact, setContact] = useState<BookingContact>({ name: "", email: "", phone: "", notes: "" });
+  const [touched, setTouched] = useState<BookingTouched>({ name: false, email: false, phone: false, notes: false });
+  const [availability, setAvailability] = useState<{ key: string; status: "loading" | "ready" | "error" }>({ key: "", status: "loading" });
+  const [refresh, setRefresh] = useState(0);
+  const availabilityRequest = useRef(0);
+  const selectionRef = useRef("");
   const [bookingSelection, setBookingSelection] =
     useState<BookingSelection | null>(null);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
@@ -108,14 +116,22 @@ export default function BookingContainer() {
   );
   const [continueError, setContinueError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const validating = useRef(false);
+
+  function invalidateSelection() {
+    selectionRef.current = "";
+  }
 
   function resetBookingFlow() {
+    invalidateSelection();
     setSelectedServices([]);
     setSelectedStylist(NEXT_AVAILABLE);
     setSelectedDate(null);
     setSelectedTime("");
     setTimeSlots([]);
     setBookingSelection(null);
+    setContact({ name: "", email: "", phone: "", notes: "" });
+    setTouched({ name: false, email: false, phone: false, notes: false });
     setConfirmation(null);
     setContinueError(null);
     setSubmitting(false);
@@ -125,6 +141,10 @@ export default function BookingContainer() {
   const totalDuration = services
     .filter((service) => selectedServices.includes(service.id))
     .reduce((sum, service) => sum + service.durationMinutes, 0);
+  const dateKey = selectedDate ? toDateParam(selectedDate) : "";
+  const availabilityKey = `${dateKey}:${totalDuration}:${selectedServices.join(",")}:${selectedStylist}:${refresh}`;
+  const selectionKey = JSON.stringify({ serviceIds: selectedServices, stylist: selectedStylist, date: dateKey, time: selectedTime, availabilityKey });
+  selectionRef.current = selectionKey;
 
   useEffect(() => {
     fetch("/api/services")
@@ -137,8 +157,16 @@ export default function BookingContainer() {
       .then((data: Stylist[]) => setStylists(data))
       .catch((err) => console.error("Failed to load stylists:", err));
 
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setDatesStatus("loading");
     fetch("/api/availability/dates")
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load available dates");
+        return res.json();
+      })
       .then(
         (
           data: {
@@ -147,6 +175,8 @@ export default function BookingContainer() {
             available?: boolean;
           }[]
         ) => {
+          if (!active) return;
+          if (!Array.isArray(data) || !data.every((item) => item && typeof item.date === "string" && (typeof item.available === "boolean" || typeof item.unavailable === "boolean"))) throw new Error("Invalid available dates");
           setUnavailableDates(
             new Set(
               data
@@ -158,16 +188,23 @@ export default function BookingContainer() {
                 .map((dateInfo) => dateInfo.date)
             )
           );
+          setDatesStatus("ready");
         }
       )
-      .catch((err) => console.error("Failed to load available dates:", err));
-  }, []);
+      .catch((err) => {
+        if (!active) return;
+        console.error("Failed to load available dates:", err);
+        setDatesStatus("error");
+      });
+    return () => { active = false; };
+  }, [datesRefresh]);
 
   useEffect(() => {
-    if (!selectedDate) {
-      setTimeSlots([]);
-      return;
-    }
+    const request = ++availabilityRequest.current;
+    const controller = new AbortController();
+    setAvailability({ key: availabilityKey, status: "loading" });
+    setTimeSlots([]);
+    if (!selectedDate) return () => controller.abort();
 
     const params = new URLSearchParams({
       date: toDateParam(selectedDate),
@@ -177,11 +214,25 @@ export default function BookingContainer() {
       params.set("duration", String(totalDuration));
     }
 
-    fetch(`/api/availability/times?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data: TimeSlot[]) => setTimeSlots(data))
-      .catch((err) => console.error("Failed to load time slots:", err));
-  }, [selectedDate, totalDuration]);
+    fetch(`/api/availability/times?${params.toString()}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load time slots");
+        const data: unknown = await res.json();
+        if (!Array.isArray(data) || !data.every((slot) =>
+          slot && typeof slot.time === "string" && typeof slot.available === "boolean"
+        )) throw new Error("Invalid time slots");
+        if (request !== availabilityRequest.current || controller.signal.aborted) return;
+        setTimeSlots(data as TimeSlot[]);
+        setAvailability({ key: availabilityKey, status: "ready" });
+      })
+      .catch((err) => {
+        if (request !== availabilityRequest.current || controller.signal.aborted) return;
+        console.error("Failed to load time slots:", err);
+        setTimeSlots([]);
+        setAvailability({ key: availabilityKey, status: "error" });
+      });
+    return () => controller.abort();
+  }, [selectedDate, totalDuration, availabilityKey]);
 
   useEffect(() => {
     if (!selectedTime) return;
@@ -190,10 +241,11 @@ export default function BookingContainer() {
       (slot) => slot.time === selectedTime && slot.available
     );
 
-    if (!stillAvailable) {
+    if (availability.key === availabilityKey && availability.status === "ready" && !stillAvailable) {
+      invalidateSelection();
       setSelectedTime("");
     }
-  }, [timeSlots, selectedTime]);
+  }, [timeSlots, selectedTime, availability, availabilityKey]);
 
   useEffect(() => {
     if (services.length === 0) return;
@@ -220,6 +272,7 @@ export default function BookingContainer() {
     if (!selectedDate) return;
 
     if (unavailableDates.has(toDateParam(selectedDate))) {
+      invalidateSelection();
       setSelectedDate(null);
     }
   }, [unavailableDates, selectedDate]);
@@ -259,24 +312,35 @@ export default function BookingContainer() {
   });
 
   const canContinue =
+    datesStatus === "ready" &&
     selectedServices.length > 0 &&
     selectedServices.length <= BOOKING_LIMITS.services &&
     selectedDate !== null &&
     selectedTime !== "" &&
+    availability.key === availabilityKey &&
+    availability.status === "ready" &&
+    timeSlots.some((slot) => slot.time === selectedTime && slot.available) &&
     !submitting;
 
-  async function handleContinue() {
-    if (!selectedDate) return;
+  const selectedStylistId =
+    selectedStylist === NEXT_AVAILABLE
+      ? null
+      : (stylists.find((stylist) => stylist.name === selectedStylist)?.id ?? null);
+  const selectionReady =
+    canContinue &&
+    bookingSelection?.time === selectedTime &&
+    bookingSelection?.date === dateKey &&
+    JSON.stringify(bookingSelection?.serviceIds) === JSON.stringify(selectedServices) &&
+    bookingSelection?.stylistId === selectedStylistId;
 
-    const stylistId =
-      selectedStylist === NEXT_AVAILABLE
-        ? null
-        : (stylists.find((stylist) => stylist.name === selectedStylist)?.id ??
-          null);
+  async function handleContinue() {
+    if (!selectedDate || !canContinue || validating.current) return;
+    validating.current = true;
+    const validatedSelection = selectionKey;
 
     const payload: BookingSelection = {
       serviceIds: selectedServices,
-      stylistId,
+      stylistId: selectedStylistId,
       date: toDateParam(selectedDate),
       time: selectedTime,
     };
@@ -301,8 +365,11 @@ export default function BookingContainer() {
         body: JSON.stringify(payload),
       });
 
+      if (selectionRef.current !== validatedSelection) return;
+
       if (!res.ok) {
         const body = await res.json().catch(() => null);
+        if (selectionRef.current !== validatedSelection) return;
 
         const firstError =
           body?.errors && typeof body.errors === "object"
@@ -318,12 +385,15 @@ export default function BookingContainer() {
         return;
       }
 
+      if (selectionRef.current !== validatedSelection) return;
       setBookingSelection(payload);
       setStep("form");
     } catch (err) {
+      if (selectionRef.current !== validatedSelection) return;
       console.error("Failed to validate booking:", err);
       setContinueError("Could not reach the server. Please try again.");
     } finally {
+      validating.current = false;
       setSubmitting(false);
     }
   }
@@ -454,6 +524,7 @@ export default function BookingContainer() {
             options={serviceOptions}
             selected={selectedServices}
             onChange={(ids) => {
+              invalidateSelection();
               setSelectedServices(ids);
               setContinueError(null);
             }}
@@ -469,25 +540,33 @@ export default function BookingContainer() {
             label="Stylist"
             options={stylistOptions}
             value={selectedStylist}
-            onChange={setSelectedStylist}
+            onChange={(stylist) => { invalidateSelection(); setSelectedStylist(stylist); }}
           />
 
           <DatePickerDropdown
             label="Date"
             value={selectedDate}
-            onChange={setSelectedDate}
+            onChange={(date) => { invalidateSelection(); setSelectedDate(date); setSelectedTime(""); }}
             unavailableDates={unavailableDates}
           />
+
+          {datesStatus === "error" && (
+            <button type="button" onClick={() => setDatesRefresh((current) => current + 1)} className="text-[14px] underline text-black">Could not load dates. Retry loading dates</button>
+          )}
 
           <TimePickerDropdown
             label="Time"
             value={selectedTime}
-            onChange={setSelectedTime}
-            slots={timeSlots}
+            onChange={(time) => { invalidateSelection(); setSelectedTime(time); }}
+            slots={availability.key === availabilityKey && availability.status === "ready" ? timeSlots : []}
             emptyMessage={
-              selectedDate ? "No times available" : "Select a date first"
+              !selectedDate ? "Select a date first" : availability.key !== availabilityKey || availability.status === "loading" ? "Loading times…" : availability.status === "error" ? "Could not load times. Please retry." : "No times available"
             }
           />
+
+          {selectedDate && availability.key === availabilityKey && availability.status === "error" && (
+            <button type="button" onClick={() => setRefresh((current) => current + 1)} className="text-[14px] underline text-black">Retry loading times</button>
+          )}
 
           {continueError && (
             <p className="text-[12px] leading-[15px] text-red-500 w-full">
@@ -512,6 +591,7 @@ export default function BookingContainer() {
       ) : (
         <BookingForm
           selection={bookingSelection}
+          selectionReady={selectionReady}
           services={services}
           stylists={stylists}
           onBook={(booking) => {
@@ -519,6 +599,18 @@ export default function BookingContainer() {
             setStep("confirmation");
           }}
           onBack={() => setStep("dropdowns")}
+          contact={contact}
+          onContactChange={setContact}
+          touched={touched}
+          onTouchedChange={setTouched}
+          onTimeConflict={(message) => {
+            invalidateSelection();
+            setSelectedTime("");
+            setBookingSelection(null);
+            setContinueError(message);
+            setRefresh((current) => current + 1);
+            setStep("dropdowns");
+          }}
         />
       )}
     </div>
