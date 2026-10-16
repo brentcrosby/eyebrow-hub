@@ -56,6 +56,22 @@ const dropdownPanelStyle = {
   boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
 };
 
+function closeOnEscape(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  open: boolean,
+  close: () => void,
+  trigger: React.RefObject<HTMLButtonElement | null>
+) {
+  if (open && event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+    trigger.current?.focus();
+  }
+}
+
+const pickerFocus = "[&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-[#6B4F3A]";
+
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function buildCalendarDays(year: number, month: number): { date: Date; currentMonth: boolean }[] {
@@ -107,6 +123,7 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
   const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(value?.getMonth() ?? today.getMonth());
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open, 280);
 
   useOutsideClick(ref, () => setOpen(false));
@@ -128,10 +145,13 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
     : null;
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+    <div className={`flex flex-col gap-2 w-full relative ${pickerFocus}`} ref={ref} onKeyDown={(event) => closeOnEscape(event, open, () => setOpen(false), trigger)}>
+      <span className="text-[14px] leading-[17px] font-medium text-black">{label}</span>
       <button
+        ref={trigger}
         type="button"
+        aria-label={`${label}: ${triggerLabel ?? "Select a date"}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
@@ -155,6 +175,7 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
             <div className="flex items-center gap-1">
               <button
                 type="button"
+                aria-label="Previous month"
                 onClick={prevMonth}
                 disabled={isCurrentMonth}
                 className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${!isCurrentMonth ? "hover:bg-black/5 cursor-pointer" : "cursor-default"}`}
@@ -166,6 +187,7 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
               </button>
               <button
                 type="button"
+                aria-label="Next month"
                 onClick={nextMonth}
                 className="w-7 h-7 flex items-center justify-center rounded hover:bg-black/5 cursor-pointer transition-colors"
               >
@@ -198,7 +220,9 @@ export function DatePickerDropdown({ label, value, onChange, unavailableDates }:
                 <button
                   key={i}
                   type="button"
-                  onClick={() => { if (!disabled) { onChange(date); setOpen(false); } }}
+                  aria-label={date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                  aria-pressed={selected}
+                  onClick={() => { if (!disabled) { onChange(date); trigger.current?.focus(); setOpen(false); } }}
                   disabled={disabled}
                   className={`flex items-center justify-center aspect-square rounded-full text-[13px] transition-colors ${!disabled && !selected ? "hover:bg-black/10" : ""}`}
                   style={{
@@ -235,14 +259,18 @@ interface TimePickerDropdownProps {
 export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage = "No times available" }: TimePickerDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   useOutsideClick(ref, () => setOpen(false));
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+    <div className={`flex flex-col gap-2 w-full relative ${pickerFocus}`} ref={ref} onKeyDown={(event) => closeOnEscape(event, open, () => setOpen(false), trigger)}>
+      <span className="text-[14px] leading-[17px] font-medium text-black">{label}</span>
       <button
+        ref={trigger}
         type="button"
+        aria-label={`${label}: ${value || "Choose a time"}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
@@ -261,7 +289,7 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
           {/* Reset option */}
           <button
             type="button"
-            onClick={() => { onChange(""); setOpen(false); }}
+            onClick={() => { onChange(""); trigger.current?.focus(); setOpen(false); }}
             className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5"
           >
             <span className="w-4 flex items-center justify-center flex-shrink-0">
@@ -287,7 +315,7 @@ export function TimePickerDropdown({ label, value, onChange, slots, emptyMessage
               key={time}
               type="button"
               disabled={!available}
-              onClick={() => { if (available) { onChange(time); setOpen(false); } }}
+              onClick={() => { if (available) { onChange(time); trigger.current?.focus(); setOpen(false); } }}
               className={`flex flex-row items-center justify-between px-4 py-3 w-full text-left ${available ? "cursor-pointer hover:bg-black/5" : "cursor-default"}`}
             >
               <span
@@ -326,6 +354,7 @@ export function MultiSelectDropdown({
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open);
 
   useOutsideClick(ref, () => setOpen(false));
@@ -346,12 +375,15 @@ export function MultiSelectDropdown({
       : null;
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">
+    <div className={`flex flex-col gap-2 w-full relative ${pickerFocus}`} ref={ref} onKeyDown={(event) => closeOnEscape(event, open, () => setOpen(false), trigger)}>
+      <span className="text-[14px] leading-[17px] font-medium text-black">
         {label}
-      </label>
+      </span>
       <button
+        ref={trigger}
         type="button"
+        aria-label={`${label}: ${triggerLabel ?? placeholder}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
@@ -377,6 +409,7 @@ export function MultiSelectDropdown({
                 key={option.id}
                 type="button"
                 onClick={() => toggle(option.id)}
+                aria-pressed={checked}
                 disabled={disabled}
                 className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -421,15 +454,19 @@ interface SingleSelectDropdownProps {
 export function SingleSelectDropdown({ label, options, value, onChange }: SingleSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const maxDropdownHeight = useDropdownMaxHeight(ref, open);
 
   useOutsideClick(ref, () => setOpen(false));
 
   return (
-    <div className="flex flex-col gap-2 w-full relative" ref={ref}>
-      <label className="text-[14px] leading-[17px] font-medium text-black">{label}</label>
+    <div className={`flex flex-col gap-2 w-full relative ${pickerFocus}`} ref={ref} onKeyDown={(event) => closeOnEscape(event, open, () => setOpen(false), trigger)}>
+      <span className="text-[14px] leading-[17px] font-medium text-black">{label}</span>
       <button
+        ref={trigger}
         type="button"
+        aria-label={`${label}: ${value}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex flex-row justify-between items-center px-4 py-4 w-full rounded-lg bg-white cursor-pointer"
         style={{ border: "1px solid rgba(0,0,0,0.1)" }}
@@ -446,7 +483,8 @@ export function SingleSelectDropdown({ label, options, value, onChange }: Single
               <button
                 key={option}
                 type="button"
-                onClick={() => { onChange(option); setOpen(false); }}
+                onClick={() => { onChange(option); trigger.current?.focus(); setOpen(false); }}
+                aria-pressed={selected}
                 className="flex flex-row items-center gap-3 px-4 py-3 w-full text-left cursor-pointer hover:bg-black/5"
               >
                 <span className="w-4 flex items-center justify-center flex-shrink-0">

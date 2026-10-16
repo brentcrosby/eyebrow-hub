@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   BOOKING_LIMITS,
   bookingContactSchemas,
@@ -48,6 +48,7 @@ function fieldError(
 }
 
 function FormField({
+  id,
   label,
   type = "text",
   placeholder,
@@ -56,6 +57,7 @@ function FormField({
   onBlur,
   error,
 }: {
+  id: string;
   label: string;
   type?: string;
   placeholder: string;
@@ -66,16 +68,19 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col gap-2 w-full">
-      <label className="text-[14px] leading-[17px] font-medium text-black">
+      <label htmlFor={id} className="text-[14px] leading-[17px] font-medium text-black">
         {label}
       </label>
 
       <input
+        id={id}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="px-4 py-4 w-full rounded-lg bg-white text-[14px] leading-[17px] text-black placeholder:text-black/50 outline-none focus:ring-1 focus:ring-black/20"
         style={{
           border: `1px solid ${
@@ -85,7 +90,7 @@ function FormField({
       />
 
       {error && (
-        <span className="text-[12px] leading-[15px] text-red-500">{error}</span>
+        <span id={`${id}-error`} className="text-[12px] leading-[15px] text-red-500">{error}</span>
       )}
     </div>
   );
@@ -111,6 +116,7 @@ export default function BookingForm({
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedServices = selection
@@ -155,7 +161,9 @@ export default function BookingForm({
     phoneValidation === null &&
     notesValidation === null;
 
-  async function handleSubmit() {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inFlight.current) return;
     setTouched({
       name: true,
       email: true,
@@ -167,6 +175,7 @@ export default function BookingForm({
 
     if (!selection || !canBook) return;
 
+    inFlight.current = true;
     try {
       setSubmitting(true);
 
@@ -210,12 +219,13 @@ export default function BookingForm({
       console.error("Failed to submit booking:", error);
       setSubmitError("Could not reach the server. Please try again.");
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
       {selection && selectedServices.length > 0 && (
         <div
           className="flex flex-col gap-3 p-4 rounded-lg bg-[#F8F5F2]"
@@ -253,6 +263,7 @@ export default function BookingForm({
       )}
 
       <FormField
+        id="booking-name"
         label="Name"
         placeholder="Full name"
         value={name}
@@ -262,6 +273,7 @@ export default function BookingForm({
       />
 
       <FormField
+        id="booking-email"
         label="Email"
         type="email"
         placeholder="name@email.com"
@@ -272,6 +284,7 @@ export default function BookingForm({
       />
 
       <FormField
+        id="booking-phone"
         label="Phone"
         type="tel"
         placeholder="(000) 000-0000"
@@ -332,8 +345,7 @@ export default function BookingForm({
       </p>
 
       <button
-        type="button"
-        onClick={handleSubmit}
+        type="submit"
         disabled={!canBook}
         className="flex justify-center items-center w-full h-12 rounded-[48px] text-[14px] leading-[17px] font-medium text-white"
         style={{
@@ -354,6 +366,6 @@ export default function BookingForm({
       >
         Back
       </button>
-    </div>
+    </form>
   );
 }
