@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   MultiSelectDropdown,
@@ -45,6 +46,35 @@ export type BookingConfirmation = {
 
 const NEXT_AVAILABLE = "Next Available";
 
+function escapeCalendarText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
+}
+
+function foldCalendarLine(line: string): string {
+  const encoder = new TextEncoder();
+  const parts: string[] = [];
+  let part = "";
+  let octets = 0;
+
+  // Count UTF-8 bytes, not JavaScript code units; never split a code point.
+  for (const character of line) {
+    const width = encoder.encode(character).length;
+    if (octets + width > 75) {
+      parts.push(part);
+      part = " "; // The continuation space counts toward the next 75 octets.
+      octets = 1;
+    }
+    part += character;
+    octets += width;
+  }
+  parts.push(part);
+  return parts.join("\r\n");
+}
+
 function downloadCalendarFile(booking: BookingConfirmation) {
   const start = new Date(booking.startTime);
   const end = new Date(booking.endTime);
@@ -66,12 +96,12 @@ function downloadCalendarFile(booking: BookingConfirmation) {
     `DTSTART:${formatCalendarDate(start)}`,
     `DTEND:${formatCalendarDate(end)}`,
     "SUMMARY:Eyebrow Hub Appointment",
-    `DESCRIPTION:Services: ${serviceNames}\\nStylist: ${
-      booking.stylistName ?? NEXT_AVAILABLE
-    }\\nCustomer: ${booking.customerName}`,
+    `DESCRIPTION:${escapeCalendarText(
+      `Services: ${serviceNames}\nStylist: ${booking.stylistName ?? NEXT_AVAILABLE}\nCustomer: ${booking.customerName}`
+    )}`,
     "END:VEVENT",
     "END:VCALENDAR",
-  ].join("\r\n");
+  ].map(foldCalendarLine).join("\r\n") + "\r\n";
 
   const blob = new Blob([calendarContent], {
     type: "text/calendar;charset=utf-8",
@@ -410,8 +440,13 @@ export default function BookingContainer() {
           </h2>
 
           <p className="text-[14px] leading-[22px] text-black/50">
-            Your appointment was successfully requested. You will receive email
-            confirmation soon.
+            Your appointment has been requested and is pending approval. Please
+            save your confirmation number and booking phone number to look up or
+            cancel your request in{" "}
+            <Link href="/manage-booking" className="underline text-black">
+              Manage Booking
+            </Link>
+            .
           </p>
 
           <div
@@ -473,8 +508,9 @@ export default function BookingContainer() {
           </div>
 
           <p className="text-[14px] leading-[22px] text-black/50">
-            Cancellation Policy: Please cancel or reschedule at least 4 hours
-            before your appointment time.
+            Cancellation Policy: Online cancellation is available only while all
+            services are pending or confirmed and the first service starts more
+            than 4 hours from now.
           </p>
         </div>
 
