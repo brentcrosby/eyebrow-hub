@@ -6,16 +6,7 @@ import { CANCELLED_STATUS, REJECTED_STATUS } from "@/lib/appointmentStatus";
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 15;
 
-function formatTime(date: Date): string {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const period = hours >= 12 ? "PM" : "AM";
-  const displayHours =
-    hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  const displayMinutes = String(minutes).padStart(2, "0");
-
-  return `${displayHours}:${displayMinutes} ${period}`;
-}
+import { addSalonDays, formatSalonDate, formatSalonTime, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,9 +26,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [year, month, day] = dateParam.split("-").map(Number);
+    const range = salonDayRange(dateParam);
 
-    if (!year || !month || !day) {
+    if (!range) {
       return NextResponse.json(
         {
           error: "Invalid date format, expected YYYY-MM-DD",
@@ -63,14 +54,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+    const { start: dayStart, end: dayEnd } = range;
 
     const { businessHours, schedulingRule } =
       await getAvailabilitySettings();
 
     const hours = businessHours.find(
-      (item) => item.dayOfWeek === dayStart.getDay()
+      (item) => item.dayOfWeek === salonWeekday(dateParam)
     );
 
     if (!hours?.enabled) {
@@ -86,14 +76,9 @@ export async function GET(request: NextRequest) {
         schedulingRule.minimumNoticeMinutes * 60_000
     );
 
-    const maximumDate = new Date(now);
-    maximumDate.setHours(0, 0, 0, 0);
-    maximumDate.setDate(
-      maximumDate.getDate() +
-        schedulingRule.maximumAdvanceDays
-    );
+    const maximumDate = addSalonDays(formatSalonDate(now), schedulingRule.maximumAdvanceDays);
 
-    if (dayStart > maximumDate) {
+    if (dateParam > maximumDate) {
       return NextResponse.json([], {
         status: 200,
       });
@@ -138,25 +123,9 @@ export async function GET(request: NextRequest) {
       available: boolean;
     }[] = [];
 
-    const openTime = new Date(
-      year,
-      month - 1,
-      day,
-      0,
-      hours.openMinutes,
-      0,
-      0
-    );
-
-    const closeTime = new Date(
-      year,
-      month - 1,
-      day,
-      0,
-      hours.closeMinutes,
-      0,
-      0
-    );
+    const openTime = salonTimeAtMinutes(dateParam, hours.openMinutes);
+    const closeTime = salonTimeAtMinutes(dateParam, hours.closeMinutes);
+    if (!openTime || !closeTime) return NextResponse.json([], { status: 200 });
 
     for (
       let slotStart = new Date(openTime);
@@ -197,7 +166,7 @@ export async function GET(request: NextRequest) {
       );
 
       slots.push({
-        time: formatTime(slotStart),
+        time: formatSalonTime(slotStart),
         available:
           slotStart >= bookingCutoff &&
           !overlapsBlock &&

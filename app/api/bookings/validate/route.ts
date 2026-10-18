@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { bookingSelectionSchema } from "@/lib/validations/booking";
+import { parseSalonDateTime } from "@/lib/salonTime";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +19,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { serviceIds, stylistId, date, time } = parsed.data;
+    if (!parseSalonDateTime(date, time)) {
+      return NextResponse.json(
+        { valid: false, errors: { time: "Invalid date or time" } },
+        { status: 400 }
+      );
+    }
     const errors: Record<string, string> = {};
 
     const services = await db.service.findMany({
