@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { bookingRequestSchema } from "@/lib/validations/booking";
 import { createUniqueBookingReference } from "@/lib/bookingReference";
 import { bookingLimitResponse } from "@/lib/bookingRateLimit";
+import { assertReservationAvailable, isReservationConflict } from "@/lib/bookingReservation";
 
 function parseDateTime(date: string, time: string) {
   const [hhmm, ampm] = time.split(" ");
@@ -130,6 +132,9 @@ export async function POST(request: NextRequest) {
     let currentStart = parseDateTime(date, time);
 
     const booking = await db.$transaction(async (tx) => {
+      await assertReservationAvailable(
+        tx, currentStart, new Date(currentStart.getTime() + totalDuration * 60_000), stylistId
+      );
       const bookingReference = await createUniqueBookingReference(tx);
 
       const appointmentData = services.map((service) => {
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest) {
       }
 
       return { appointments, bookingReference };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     const appointments = booking.appointments;
     const firstAppointment = appointments[0];
@@ -196,6 +201,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (isReservationConflict(error)) {
+      return NextResponse.json(
+        { success: false, errors: { time: "Selected time is no longer available. Please choose another time." } },
+        { status: 409 }
+      );
+    }
     console.error("Failed to create booking:", error);
 
     return NextResponse.json(

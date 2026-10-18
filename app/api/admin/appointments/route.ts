@@ -6,6 +6,7 @@ import { parseDateTimeParams } from "@/lib/dateUtils";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
+import { isReservationConflict } from "@/lib/bookingReservation";
 
 // This endpoint is written for the intended camelCase Prisma schema.
 // It requires the Appointment table to have startTime/endTime fields
@@ -224,8 +225,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const isConflict =
       error instanceof SchedulingConflictError ||
-      (error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2034");
+      isReservationConflict(error);
 
     if (isConflict) {
       return NextResponse.json(

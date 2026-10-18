@@ -8,6 +8,8 @@ import { z } from "zod";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
+import { Prisma } from "@prisma/client";
+import { loadModule } from "./helpers/loadModule.mjs";
 
 function load(path, mocks, globals = {}, jsx = false) {
   const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -37,6 +39,10 @@ function load(path, mocks, globals = {}, jsx = false) {
 }
 
 const schemas = load("../lib/validations/booking.ts", { zod: { z } });
+const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  "@prisma/client": { Prisma },
+  "@/lib/appointmentStatus": loadModule("lib/appointmentStatus.ts"),
+} });
 const {
   BOOKING_LIMITS: limits,
   bookingSelectionSchema,
@@ -198,7 +204,9 @@ function fixture() {
     $transaction: async (callback) => {
       calls.push("transaction");
       return callback({
+        availabilityBlock: { findMany: async () => [] },
         appointment: {
+          findMany: async () => [],
           create: async ({ data }) => {
             const appointment = { ...data, id: appointments.length + 1 };
             appointments.push(appointment);
@@ -209,6 +217,8 @@ function fixture() {
     },
   };
   const mocks = {
+    "@prisma/client": { Prisma },
+    "@/lib/bookingReservation": reservation,
     "next/server": { NextResponse },
     "@/lib/db": { db },
     "@/lib/validations/booking": schemas,
