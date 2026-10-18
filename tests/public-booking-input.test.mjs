@@ -8,6 +8,7 @@ import { z } from "zod";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
+import * as bookingClosures from "../lib/bookingClosures.ts";
 
 function load(path, mocks, globals = {}, jsx = false) {
   const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -198,6 +199,7 @@ function fixture() {
     $transaction: async (callback) => {
       calls.push("transaction");
       return callback({
+        closure: { findMany: async () => [] },
         appointment: {
           create: async ({ data }) => {
             const appointment = { ...data, id: appointments.length + 1 };
@@ -217,6 +219,7 @@ function fixture() {
     },
     // If DT-524 merges, exercise validation on a non-limited request, not a 429.
     "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },
+    "@/lib/bookingClosures": bookingClosures,
   };
   const fetchSlot = async () => ({
     ok: true,

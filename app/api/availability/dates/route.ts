@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toDateParam } from "@/lib/dateUtils";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
+import { findBookingClosures } from "@/lib/bookingClosures";
 
 export async function GET() {
   try {
@@ -40,6 +41,8 @@ export async function GET() {
       available: boolean;
     }[] = [];
 
+    const closures = await findBookingClosures(db, today, rangeEnd);
+
     for (let i = 0; i < daysAhead; i++) {
       const dayStart = new Date(today);
       dayStart.setDate(dayStart.getDate() + i);
@@ -58,12 +61,18 @@ export async function GET() {
 
       const closingTime = new Date(dayStart);
       closingTime.setMinutes(hours?.closeMinutes ?? 0);
+      const openingTime = new Date(dayStart);
+      openingTime.setMinutes(hours?.openMinutes ?? 0);
+      const closedForBusinessHours = closures.some(
+        (closure) => closure.startTime <= openingTime && closure.endTime >= closingTime
+      );
 
       result.push({
         date: toDateParam(dayStart),
         available:
           Boolean(hours?.enabled) &&
           closingTime > firstBookableTime &&
+          !closedForBusinessHours &&
           !fullDayBlocked,
       });
     }

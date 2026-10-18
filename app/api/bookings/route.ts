@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { bookingRequestSchema } from "@/lib/validations/booking";
 import { createUniqueBookingReference } from "@/lib/bookingReference";
 import { bookingLimitResponse } from "@/lib/bookingRateLimit";
+import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 function parseDateTime(date: string, time: string) {
   const [hhmm, ampm] = time.split(" ");
@@ -130,6 +131,11 @@ export async function POST(request: NextRequest) {
     let currentStart = parseDateTime(date, time);
 
     const booking = await db.$transaction(async (tx) => {
+      const endTime = new Date(currentStart.getTime() + totalDuration * 60_000);
+      const closures = await findBookingClosures(tx, currentStart, endTime);
+      if (overlapsClosure(closures, currentStart, endTime)) {
+        return null;
+      }
       const bookingReference = await createUniqueBookingReference(tx);
 
       const appointmentData = services.map((service) => {
@@ -160,6 +166,13 @@ export async function POST(request: NextRequest) {
 
       return { appointments, bookingReference };
     });
+
+    if (!booking) {
+      return NextResponse.json(
+        { success: false, errors: { time: "Selected time is no longer available" } },
+        { status: 409 }
+      );
+    }
 
     const appointments = booking.appointments;
     const firstAppointment = appointments[0];

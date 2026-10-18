@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 import { CANCELLED_STATUS, REJECTED_STATUS } from "@/lib/appointmentStatus";
+import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 15;
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [blocks, appointments] = await Promise.all([
+    const [blocks, appointments, closures] = await Promise.all([
       db.availabilityBlock.findMany({
         where: {
           startTime: {
@@ -131,6 +132,7 @@ export async function GET(request: NextRequest) {
           endTime: true,
         },
       }),
+      findBookingClosures(db, dayStart, dayEnd),
     ]);
 
     const slots: {
@@ -201,6 +203,7 @@ export async function GET(request: NextRequest) {
         available:
           slotStart >= bookingCutoff &&
           !overlapsBlock &&
+          !overlapsClosure(closures, slotStart, slotEnd) &&
           !overlapsAppointment,
       });
     }

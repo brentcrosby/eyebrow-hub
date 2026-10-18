@@ -6,6 +6,7 @@ import { parseDateTimeParams } from "@/lib/dateUtils";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
+import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 // This endpoint is written for the intended camelCase Prisma schema.
 // It requires the Appointment table to have startTime/endTime fields
@@ -85,7 +86,7 @@ async function hasSchedulingConflict(
   endTime: Date,
   stylistId: number | null
 ): Promise<boolean> {
-  const [blocks, appointments] = await Promise.all([
+  const [blocks, appointments, closures] = await Promise.all([
     tx.availabilityBlock.findMany({
       where: { startTime: { lt: endTime }, endTime: { gt: startTime } },
       select: { id: true },
@@ -100,9 +101,10 @@ async function hasSchedulingConflict(
           select: { status: true },
         })
       : Promise.resolve([]),
+    findBookingClosures(tx, startTime, endTime),
   ]);
 
-  if (blocks.length > 0) return true;
+  if (blocks.length > 0 || overlapsClosure(closures, startTime, endTime)) return true;
 
   return appointments.some((appointment) => !isInactive(appointment.status));
 }
