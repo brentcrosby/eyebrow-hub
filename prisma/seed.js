@@ -1,8 +1,18 @@
 // prisma/seed.js
+// Must stay the first import: it reads the opt-in before dotenv loads .env.
+import { demoSeedRefusal, describeTarget } from "./seedGuard.mjs";
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+
+// Stops before a database connection even exists.
+const refusal = demoSeedRefusal();
+if (refusal) {
+  console.error(refusal);
+  process.exit(1);
+}
+console.log(`Seeding demo data into ${describeTarget(process.env.DATABASE_URL)}`);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
