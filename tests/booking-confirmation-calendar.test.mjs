@@ -25,7 +25,7 @@ const booking = {
   date: "2026-10-20",
   time: "10:00 AM",
   // Known UTC instants for this fixture; this test does not validate the API's
-  // conversion from a selected Pacific wall time (see docs/DT-557-findings.md).
+  // conversion from a selected Pacific wall time.
   startTime: "2026-10-20T17:00:00.000Z",
   endTime: "2026-10-20T18:00:00.000Z",
   totalPrice: 50,
