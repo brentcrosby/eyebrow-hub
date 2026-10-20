@@ -355,8 +355,9 @@ export default function BookingForm({
       )}
 
       <p className="text-[14px] leading-[22px] text-black/50">
-        Cancellation Policy: Please cancel or reschedule at least 4 hours before
-        your appointment time.
+        Cancellation Policy: Online cancellation is available only while all
+        services are pending or confirmed and the first service starts more than
+        4 hours from now.
       </p>
 
       <button

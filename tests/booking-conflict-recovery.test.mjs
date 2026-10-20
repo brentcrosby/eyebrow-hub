@@ -113,6 +113,7 @@ function containerFixture(fetchMock, { actualForm = false } = {}) {
     mocks: {
       react,
       "react/jsx-runtime": jsxRuntime,
+      "next/link": { default: (props) => React.createElement("a", props) },
       "./Dropdown": {
         MultiSelectDropdown: picker, SingleSelectDropdown: picker,
         DatePickerDropdown: picker, TimePickerDropdown: picker,
