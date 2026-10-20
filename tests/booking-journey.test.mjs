@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
 import { z } from "zod";
@@ -103,8 +102,7 @@ function calendar(booking) {
   return blob.text();
 }
 
-const hasPacificBackend = existsSync(new URL("../lib/salonTime.ts", import.meta.url));
-test("PR #114 integration: two services share one reference and PDT/PST creation, lookup and calendar agree under UTC and Pacific hosts", { skip: !hasPacificBackend && "PR #114 is not on this branch" }, async () => {
+test("two services share one reference and PDT/PST creation, lookup and calendar agree under UTC and Pacific hosts", async () => {
   const salon = await import("../lib/salonTime.ts");
   const original = process.env.TZ;
   try {
