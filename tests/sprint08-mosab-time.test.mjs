@@ -85,3 +85,33 @@ test("availability rejects impossible dates before loading settings or querying"
   });
   assert.equal((await GET({ url: "http://localhost/api/availability/times?date=2026-10-32" })).status, 400);
 });
+
+test("fall-back availability omits both occurrences of ambiguous Pacific labels", async () => {
+  const now = Date.parse("2026-10-20T12:00:00Z");
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [now])); }
+    static now() { return now; }
+  }
+  const { GET } = loadModule("app/api/availability/times/route.ts", {
+    mocks: {
+      "next/server": { NextResponse },
+      "@/lib/db": { db: {
+        availabilityBlock: { findMany: async () => [] },
+        appointment: { findMany: async () => [] },
+      } },
+      "@/lib/salonTime": salon,
+      "@/lib/availabilitySettings": { getAvailabilitySettings: async () => ({
+        businessHours: [{ dayOfWeek: 0, enabled: true, openMinutes: 0, closeMinutes: 180 }],
+        schedulingRule: { minimumNoticeMinutes: 0, maximumAdvanceDays: 30, bufferMinutes: 0 },
+      }) },
+      "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected" },
+    },
+    globals: { Date: FixedDate },
+  });
+  const response = await GET({ url: "http://localhost/api/availability/times?date=2026-11-01&duration=30" });
+  assert.equal(response.status, 200);
+  const slots = await response.json();
+  assert.deepEqual(slots, ["12:00 AM", "12:30 AM", "2:00 AM", "2:30 AM"].map((time) => ({ time, available: true })));
+  assert.equal(new Set(slots.map((slot) => slot.time)).size, slots.length);
+  for (const slot of slots) assert.ok(salon.parseSalonDateTime("2026-11-01", slot.time));
+});

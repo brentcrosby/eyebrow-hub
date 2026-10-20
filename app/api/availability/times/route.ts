@@ -6,7 +6,7 @@ import { CANCELLED_STATUS, REJECTED_STATUS } from "@/lib/appointmentStatus";
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 15;
 
-import { addSalonDays, formatSalonDate, formatSalonTime, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
+import { addSalonDays, formatSalonDate, formatSalonTime, parseSalonDateTime, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 
 export async function GET(request: NextRequest) {
   try {
@@ -136,6 +136,10 @@ export async function GET(request: NextRequest) {
           SLOT_INTERVAL_MINUTES * 60_000
       )
     ) {
+      const time = formatSalonTime(slotStart);
+      // Booking rejects ambiguous fall-back labels; do not offer either occurrence.
+      if (parseSalonDateTime(dateParam, time)?.getTime() !== slotStart.getTime()) continue;
+
       const slotEnd = new Date(
         slotStart.getTime() + duration * 60_000
       );
@@ -166,7 +170,7 @@ export async function GET(request: NextRequest) {
       );
 
       slots.push({
-        time: formatSalonTime(slotStart),
+        time,
         available:
           slotStart >= bookingCutoff &&
           !overlapsBlock &&
