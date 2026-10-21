@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       # Reads package-lock.json against the live advisory database. Fails on
       # any high or critical advisory not listed in security/audit-exceptions.json.
