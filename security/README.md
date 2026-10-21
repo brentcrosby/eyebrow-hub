@@ -22,6 +22,32 @@ locally anyway:
   on macOS), then run
   `gitleaks git . --redact` from the repo root.
 
+## Review: 2026-10-19 (DT-563)
+
+Branched from `main` at `7b16236`, Node 22.14.0, npm 10.9.2.
+
+**Production dependencies: 0 critical, 0 high, 0 moderate, 0 low. No
+exceptions remain.**
+
+- **`source-map-js` GHSA-68fv-2mgg-jv7q** (denial of service through a
+  crafted source map). Published after the Oct 4 scan, it failed the
+  Dependency audit check on `main` from Oct 6. PR #111 fixed it with a
+  lockfile-only change that moved every copy to 1.2.2.
+  - **Risk assessment:** it reaches us through `postcss`, which Next.js and
+    Tailwind load only while building the site's own stylesheets. No Next.js
+    server code loads it. Exploiting it would have needed an attacker to supply
+    a source map at build time, so the practical risk was low. This is an
+    assessment; no exploit was attempted or reproduced.
+- **The two Prisma exceptions** (`mysql2` GHSA-3f6p-5ww8-9rcr and
+  `deepmerge-ts` GHSA-ggr8-5vv4-36mx) were due for review on Oct 25. Prisma
+  7.10.1 resolves both (`mysql2` 3.24.4, `deepmerge-ts` 8.0.2). `prisma`,
+  `@prisma/client` and `@prisma/adapter-pg` were upgraded together to 7.10.1,
+  and both exceptions were removed instead of renewed, so
+  `audit-exceptions.json` is now empty.
+- Development-only lint tooling (`eslint-config-next` and four packages it
+  pulls in) still reports 5 high advisories. It doesn't ship with the app, so
+  it isn't gated. Its only offered fix is a breaking downgrade.
+
 ## Results: 2026-10-04
 
 Scanned commit `08a952d` (`main` after PR #99), Node 22.14.0, npm 10.9.2.
