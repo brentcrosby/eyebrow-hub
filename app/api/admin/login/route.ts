@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
+import { isApprovedAdmin } from "@/lib/adminAuth";
 
 type LoginBody = {
   email?: string;
@@ -37,6 +38,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { message: "Invalid email or password" },
         { status: 401 }
+      );
+    }
+
+    // Only approved admins get a session. The message doesn't reveal who is approved.
+    if (!isApprovedAdmin(data.user.id)) {
+      return NextResponse.json(
+        { message: "This account does not have admin access." },
+        { status: 403 }
       );
     }
 

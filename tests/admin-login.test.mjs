@@ -4,17 +4,27 @@ import { NextResponse } from "next/server.js";
 import { loadModule } from "./helpers/loadModule.mjs";
 
 // signIn is what the fake Supabase returns for signInWithPassword.
-function loadLogin(signIn, env = {}) {
+// Only "owner-id" is on the approved-admin list.
+function loadLogin(signIn, extraEnv = {}) {
+  const env = { ADMIN_USER_IDS: "owner-id", ...extraEnv };
+  const supabase = {
+    createSupabaseClient: () => ({ auth: { signInWithPassword: signIn } }),
+  };
+  const adminAuth = loadModule("lib/adminAuth.ts", {
+    mocks: { "next/server": { NextResponse }, "@/lib/supabase": supabase },
+    env,
+  });
   return loadModule("app/api/admin/login/route.ts", {
     mocks: {
       "next/server": { NextResponse },
-      "@/lib/supabase": {
-        createSupabaseClient: () => ({ auth: { signInWithPassword: signIn } }),
-      },
+      "@/lib/supabase": supabase,
+      "@/lib/adminAuth": adminAuth,
     },
     env,
   });
 }
+
+const owner = { id: "owner-id" };
 
 function loginRequest(body) {
   return { json: async () => body };
@@ -24,7 +34,7 @@ const credentials = { email: "fixture@example.invalid", password: "fixture-pass"
 const session = { access_token: "a.b.c", expires_in: 3600 };
 
 test("login sets an HttpOnly cookie and returns no token", async () => {
-  const route = loadLogin(async () => ({ data: { session }, error: null }), {
+  const route = loadLogin(async () => ({ data: { session, user: owner }, error: null }), {
     NODE_ENV: "production",
   });
 
@@ -43,7 +53,7 @@ test("login sets an HttpOnly cookie and returns no token", async () => {
 });
 
 test("the cookie is not marked Secure outside production, so localhost works", async () => {
-  const route = loadLogin(async () => ({ data: { session }, error: null }), {
+  const route = loadLogin(async () => ({ data: { session, user: owner }, error: null }), {
     NODE_ENV: "development",
   });
 

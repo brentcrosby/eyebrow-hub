@@ -19,6 +19,15 @@ function extractAccessToken(request: NextRequest): string | AdminAuthResult {
   return token;
 }
 
+// True when the user ID is in the server-only ADMIN_USER_IDS list.
+export function isApprovedAdmin(userId: string): boolean {
+  return (process.env.ADMIN_USER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .includes(userId);
+}
+
 async function verifySession(token: string): Promise<AdminAuthResult> {
   const supabase = createSupabaseClient();
   const { data, error } = await supabase.auth.getUser(token);
@@ -30,12 +39,7 @@ async function verifySession(token: string): Promise<AdminAuthResult> {
     };
   }
 
-  const approvedIds = (process.env.ADMIN_USER_IDS ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-
-  if (!approvedIds.includes(data.user.id)) {
+  if (!isApprovedAdmin(data.user.id)) {
     return {
       authenticated: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
