@@ -6,6 +6,8 @@ import { NextResponse } from "next/server.js";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { loadModule } from "./helpers/loadModule.mjs";
+import * as bookingClosures from "../lib/bookingClosures.ts";
+import * as salonTime from "../lib/salonTime.ts";
 
 const url = process.env.DT571_TEST_DATABASE_URL;
 test("PostgreSQL public/public, public/manual and manual/manual races; atomic multi-service writes", {
@@ -35,7 +37,7 @@ test("PostgreSQL public/public, public/manual and manual/manual races; atomic mu
     const mocks = {
       "next/server": { NextResponse }, "@prisma/client": { Prisma }, "@/lib/db": { db },
       "@/lib/bookingReservation": reservation, "@/lib/appointmentStatus": status,
-      "@/lib/dateUtils": loadModule("lib/dateUtils.ts"),
+      "@/lib/bookingClosures": bookingClosures, "@/lib/salonTime": salonTime,
       "@/lib/validations/booking": schemas, "@/lib/validations/manualAppointment": manual,
       "@/lib/adminAuth": { requireAdmin: async () => ({ authenticated: true }) },
       "@/lib/appointmentSource": { MANUAL_SOURCE: "manual" },
@@ -70,7 +72,7 @@ test("PostgreSQL public/public, public/manual and manual/manual races; atomic mu
     const failingDb = { service: db.service, stylist: db.stylist };
     failingDb.$transaction = (callback, options) => db.$transaction(async (tx) => {
       let creates = 0;
-      const wrapped = { availabilityBlock: tx.availabilityBlock, appointment: { findMany: tx.appointment.findMany, create: async (args) => {
+      const wrapped = { availabilityBlock: tx.availabilityBlock, closure: tx.closure, appointment: { findMany: tx.appointment.findMany, create: async (args) => {
         if (++creates === 2) throw new reservation.ReservationConflictError();
         return tx.appointment.create(args);
       } } };

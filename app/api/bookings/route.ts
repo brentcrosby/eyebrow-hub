@@ -5,22 +5,9 @@ import { bookingRequestSchema } from "@/lib/validations/booking";
 import { createUniqueBookingReference } from "@/lib/bookingReference";
 import { bookingLimitResponse } from "@/lib/bookingRateLimit";
 import { assertReservationAvailable, isReservationConflict } from "@/lib/bookingReservation";
+import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
-function parseDateTime(date: string, time: string) {
-  const [hhmm, ampm] = time.split(" ");
-  const [parsedHour, minute] = hhmm.split(":").map(Number);
-  let hour = parsedHour;
-
-  if (ampm === "PM" && hour !== 12) hour += 12;
-  if (ampm === "AM" && hour === 12) hour = 0;
-
-  return new Date(
-    `${date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(
-      2,
-      "0"
-    )}:00`
-  );
-}
+import { parseSalonDateTime } from "@/lib/salonTime";
 
 export async function POST(request: NextRequest) {
   const limited = await bookingLimitResponse(request, "create");
@@ -42,6 +29,14 @@ export async function POST(request: NextRequest) {
 
     const { serviceIds, stylistId, date, time, name, email, phone, notes } =
       parsed.data;
+
+    const startTime = parseSalonDateTime(date, time);
+    if (!startTime) {
+      return NextResponse.json(
+        { success: false, errors: { time: "Invalid date or time" } },
+        { status: 400 }
+      );
+    }
 
     const errors: Record<string, string> = {};
 
@@ -129,12 +124,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let currentStart = parseDateTime(date, time);
+    let currentStart = startTime;
 
     const booking = await db.$transaction(async (tx) => {
+      const endTime = new Date(currentStart.getTime() + totalDuration * 60_000);
       await assertReservationAvailable(
-        tx, currentStart, new Date(currentStart.getTime() + totalDuration * 60_000), stylistId
+        tx, currentStart, endTime, stylistId
       );
+      const closures = await findBookingClosures(tx, currentStart, endTime);
+      if (overlapsClosure(closures, currentStart, endTime)) {
+        return null;
+      }
       const bookingReference = await createUniqueBookingReference(tx);
 
       const appointmentData = services.map((service) => {
@@ -165,6 +165,13 @@ export async function POST(request: NextRequest) {
 
       return { appointments, bookingReference };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (!booking) {
+      return NextResponse.json(
+        { success: false, errors: { time: "Selected time is no longer available" } },
+        { status: 409 }
+      );
+    }
 
     const appointments = booking.appointments;
     const firstAppointment = appointments[0];

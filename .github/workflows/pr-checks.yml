@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install
@@ -61,16 +61,28 @@ jobs:
       - name: Test
         run: npm test
 
-      # --url pins this to the throwaway database above, so it can never
-      # write to any other database.
-      - name: Create empty database schema
-        run: npx prisma db push --url postgresql://ci:ci@localhost:5432/ci
+      # Applies the committed migrations in order, the way a real release will,
+      # so a broken or missing migration fails here instead of in production.
+      # migrate deploy has no --url option, so the address is set on this step:
+      # it can only reach the throwaway database above.
+      - name: Apply committed migrations
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npx prisma migrate deploy
+
+      # migrate deploy only runs the migration files and never compares them to
+      # schema.prisma. This fails the job (exit code 2) if the schema was changed
+      # without a matching migration.
+      - name: Check schema matches migrations
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
       - name: Build
         run: npm run build
 
-  # Separate job so the known lint failure (see tests/README.md) shows on its
-  # own instead of hiding whether tests and build passed.
+  # Separate job so a lint problem shows on its own instead of hiding whether
+  # tests and build passed.
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -80,7 +92,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install

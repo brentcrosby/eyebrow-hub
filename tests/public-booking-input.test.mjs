@@ -10,6 +10,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import { Prisma } from "@prisma/client";
 import { loadModule } from "./helpers/loadModule.mjs";
+import * as bookingClosures from "../lib/bookingClosures.ts";
+import * as salonTime from "../lib/salonTime.ts";
 
 function load(path, mocks, globals = {}, jsx = false) {
   const source = readFileSync(new URL(path, import.meta.url), "utf8");
@@ -205,6 +207,7 @@ function fixture() {
       calls.push("transaction");
       return callback({
         availabilityBlock: { findMany: async () => [] },
+        closure: { findMany: async () => [] },
         appointment: {
           findMany: async () => [],
           create: async ({ data }) => {
@@ -227,6 +230,8 @@ function fixture() {
     },
     // If DT-524 merges, exercise validation on a non-limited request, not a 429.
     "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },
+    "@/lib/bookingClosures": bookingClosures,
+    "@/lib/salonTime": salonTime,
   };
   const fetchSlot = async () => ({
     ok: true,

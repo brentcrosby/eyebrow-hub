@@ -18,7 +18,11 @@ const server = createServer((incoming, outgoing) => {
   delete headers["x-real-ip"];
   delete headers.connection;
   headers["x-trusted-client-ip"] = peer;
-  headers.host = `127.0.0.1:${upstream}`;
+  // Keep the Host the browser used (this proxy's address). The admin CSRF check
+  // compares it with the browser's Origin, so rewriting it to the app's port
+  // made every admin change through the proxy fail with 403. Requests from other
+  // sites still carry a different Origin and are still blocked.
+  headers.host = incoming.headers.host ?? `127.0.0.1:${listen}`;
   const target = httpRequest(
     {
       hostname: "127.0.0.1",
