@@ -4,6 +4,7 @@ import { NextResponse } from "next/server.js";
 import { z } from "zod";
 import { loadModule } from "./helpers/loadModule.mjs";
 import * as salon from "../lib/salonTime.ts";
+import * as bookingClosures from "../lib/bookingClosures.ts";
 
 test("Pacific dates round-trip independently of the server timezone", () => {
   const original = process.env.TZ;
@@ -54,12 +55,13 @@ test("public booking writes the Pacific instant and rejects impossible input bef
   const { POST } = loadModule("app/api/bookings/route.ts", {
     mocks: {
       "next/server": { NextResponse }, "@/lib/salonTime": salon,
+      "@/lib/bookingClosures": bookingClosures,
       "@/lib/validations/booking": schemas,
       "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },
       "@/lib/bookingReference": { createUniqueBookingReference: async () => "TEST-ONLY" },
       "@/lib/db": { db: {
         service: { findMany: async () => [service] },
-        $transaction: async (callback) => callback({ appointment: { create: async ({ data }) => {
+        $transaction: async (callback) => callback({ closure: { findMany: async () => [] }, appointment: { create: async ({ data }) => {
           writes.push(data); return { id: 1, ...data };
         } } }),
       } },
@@ -79,6 +81,7 @@ test("availability rejects impossible dates before loading settings or querying"
     mocks: {
       "next/server": { NextResponse }, "@/lib/db": { db: {} },
       "@/lib/salonTime": salon,
+      "@/lib/bookingClosures": bookingClosures,
       "@/lib/availabilitySettings": {},
       "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected" },
     },
@@ -98,8 +101,10 @@ test("fall-back availability omits both occurrences of ambiguous Pacific labels"
       "@/lib/db": { db: {
         availabilityBlock: { findMany: async () => [] },
         appointment: { findMany: async () => [] },
+        closure: { findMany: async () => [] },
       } },
       "@/lib/salonTime": salon,
+      "@/lib/bookingClosures": bookingClosures,
       "@/lib/availabilitySettings": { getAvailabilitySettings: async () => ({
         businessHours: [{ dayOfWeek: 0, enabled: true, openMinutes: 0, closeMinutes: 180 }],
         schedulingRule: { minimumNoticeMinutes: 0, maximumAdvanceDays: 30, bufferMinutes: 0 },

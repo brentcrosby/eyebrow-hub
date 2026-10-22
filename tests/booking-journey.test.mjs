@@ -8,6 +8,7 @@ import { loadModule } from "./helpers/loadModule.mjs";
 import { formatPacificDateTime } from "../lib/manageBooking.ts";
 import { isBookingAlreadyCancelled, isBookingCancellable, matchesBookingPhone } from "../lib/bookingAccess.ts";
 import { CANCELLED_STATUS } from "../lib/appointmentStatus.ts";
+import * as bookingClosures from "../lib/bookingClosures.ts";
 
 const reference = "0123456789ABCDEF";
 const phone = "5305550100";
@@ -24,6 +25,7 @@ function fixture(salon = null) {
   const rows = [];
   let writes = 0;
   const tx = {
+    closure: { findMany: async () => [] },
     appointment: {
       create: async ({ data }) => {
         const row = { ...data, id: rows.length + 1, service: { name: services.find((s) => s.id === data.serviceId).name }, stylist: null };
@@ -53,6 +55,7 @@ function fixture(salon = null) {
       ...common,
       "@/lib/validations/booking": creationSchema,
       "@/lib/bookingReference": { createUniqueBookingReference: async () => reference },
+      "@/lib/bookingClosures": bookingClosures,
       ...(salon ? { "@/lib/salonTime": salon } : {}),
     },
     globals: { fetch: async () => ({ ok: true, json: async () => [{ time: "10:00 AM", available: true }] }) },

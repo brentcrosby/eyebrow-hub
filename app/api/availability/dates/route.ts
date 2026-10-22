@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { addSalonDays, formatSalonDate, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
+import { findBookingClosures } from "@/lib/bookingClosures";
 
 export async function GET() {
   try {
@@ -39,6 +40,8 @@ export async function GET() {
       available: boolean;
     }[] = [];
 
+    const closures = await findBookingClosures(db, today, rangeEnd);
+
     for (let i = 0; i < daysAhead; i++) {
       const date = addSalonDays(todayDate, i);
       const { start: dayStart, end: dayEnd } = salonDayRange(date)!;
@@ -52,13 +55,23 @@ export async function GET() {
         (item) => item.dayOfWeek === salonWeekday(date)
       );
 
+      const openingTime = salonTimeAtMinutes(date, hours?.openMinutes ?? 0);
       const closingTime = salonTimeAtMinutes(date, hours?.closeMinutes ?? 0);
+      const closedForBusinessHours =
+        openingTime !== null &&
+        closingTime !== null &&
+        closures.some(
+          (closure) =>
+            closure.startTime <= openingTime && closure.endTime >= closingTime
+        );
 
       result.push({
         date,
         available:
           Boolean(hours?.enabled) &&
+          openingTime !== null &&
           closingTime !== null && closingTime > firstBookableTime &&
+          !closedForBusinessHours &&
           !fullDayBlocked,
       });
     }
