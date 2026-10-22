@@ -5,7 +5,8 @@ npm test
 ```
 
 Runs every `tests/**/*.test.mjs` file with Node's built-in test runner. There
-is no extra framework to install. Requires Node 22.6 or newer.
+is no extra framework to install. Use Node 22, the version pinned in `.nvmrc`
+and used by CI (`nvm use` picks it up).
 
 Before the tests run, `npm test` regenerates the Prisma client so it always
 matches the schema. That step never connects to a database, and it works on a
@@ -118,34 +119,27 @@ exports, so `route.GET()` runs the real handler against your mocks.
 on every push to `main`. It has two jobs:
 
 - **Test and build:** clean `npm ci`, generate the Prisma client, `npm test`,
-  then `npm run build`. A failing test or a broken build fails this job.
-- **Lint:** clean `npm ci`, then `npm run lint`.
+  apply the committed migrations with `prisma migrate deploy`, check that the
+  migrated database matches `prisma/schema.prisma`, then `npm run build`. A
+  failing test, a broken migration, a schema change with no migration, or a
+  broken build fails this job.
+- **Lint:** clean `npm ci`, then `npm run lint`. It runs as a separate job so
+  a lint problem doesn't hide whether tests and the build passed.
 
-The checks use no secrets and no real data. The build needs a database,
-because the homepage reads business hours while it is pre-rendered, so the
-job starts an empty, throwaway Postgres container, creates the tables in it,
-and discards it when the job ends. It never connects to the team database.
+The checks use no secrets and no real data. The job starts an empty, throwaway
+Postgres container, applies every migration in `prisma/migrations/` to it in
+order (the same way a real release will), builds against it, and discards it
+when the job ends. It never connects to the team database. Both workflows use
+the Node version in `.nvmrc`.
 
 To run the same checks locally: `npm ci`, `npm test`, `npm run build`,
-`npm run lint`.
-
-### Known failure: Lint
-
-The **Lint** job currently fails because of an error that was already on
-`main` before this workflow existed:
-
-```
-components/Dropdown.tsx  8:43  error  react-hooks/set-state-in-effect
-```
-
-The job turns green once that is fixed; the fix belongs in its own Jira issue
-with its own owner, not in this workflow. Lint runs as a separate job so this failure stays visible without
-hiding whether tests and the build passed.
+`npm run lint`. Don't run `prisma migrate deploy` locally unless
+`DATABASE_URL` points at a throwaway database: it writes to whatever database
+that variable names.
 
 ### Making the checks required
 
 A workflow file alone does not stop anyone merging. The repo owner has to turn
 that on in GitHub: **Settings → Branches → add a rule for `main` → Require
-status checks to pass**, then select **Test and build**. Add **Lint** once the
-known failure is fixed. The check names only appear in that list after the
-workflow has run at least once.
+status checks to pass**, then select **Test and build** and **Lint**. The check
+names only appear in that list after the workflow has run at least once.

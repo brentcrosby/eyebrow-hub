@@ -178,13 +178,18 @@ npx dotenv -e .env.local -- npx prisma migrate dev
 
 Follow the prompts to apply pending migrations or create a new named migration when you change `prisma/schema.prisma`. For deployment pipelines (no interactive prompt), use `prisma migrate deploy`.
 
-**Seed the database:**
+**Demo data (disposable local databases only):**
+
+The demo seed replaces services and stylists, so it never runs against the shared
+team database. It needs `ALLOW_DEMO_SEED=1` and a `DATABASE_URL` on this computer,
+both given on the command line:
 
 ```bash
-npx dotenv -e .env.local -- npx prisma db seed
+ALLOW_DEMO_SEED=1 DATABASE_URL=postgresql://dev:dev@localhost:5432/eyebrow npm run seed
 ```
 
-If no seed is configured yet, add one per the [Prisma seeding docs](https://www.prisma.io/docs/guides/database/seed-database).
+See [docs/staging-checklist.md](docs/staging-checklist.md) for starting a disposable
+local database and the PowerShell version of this command.
 
 ### Run Locally
 

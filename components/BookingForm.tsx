@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import {
   BOOKING_LIMITS,
   bookingContactSchemas,
@@ -27,7 +27,16 @@ interface BookingFormProps {
   stylists: Stylist[];
   onBook: (booking: BookingConfirmation) => void;
   onBack: () => void;
+  onTimeConflict: (message: string) => void;
+  contact: BookingContact;
+  onContactChange: Dispatch<SetStateAction<BookingContact>>;
+  touched: BookingTouched;
+  onTouchedChange: Dispatch<SetStateAction<BookingTouched>>;
+  selectionReady: boolean;
 }
+
+export type BookingContact = { name: string; email: string; phone: string; notes: string };
+export type BookingTouched = { name: boolean; email: boolean; phone: boolean; notes: boolean };
 
 function formatPhone(raw: string): string {
   // Keep invalid pasted input visible so the shared validator can explain it.
@@ -48,6 +57,7 @@ function fieldError(
 }
 
 function FormField({
+  id,
   label,
   type = "text",
   placeholder,
@@ -56,6 +66,7 @@ function FormField({
   onBlur,
   error,
 }: {
+  id: string;
   label: string;
   type?: string;
   placeholder: string;
@@ -66,16 +77,19 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col gap-2 w-full">
-      <label className="text-[14px] leading-[17px] font-medium text-black">
+      <label htmlFor={id} className="text-[14px] leading-[17px] font-medium text-black">
         {label}
       </label>
 
       <input
+        id={id}
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="px-4 py-4 w-full rounded-lg bg-white text-[14px] leading-[17px] text-black placeholder:text-black/50 outline-none focus:ring-1 focus:ring-black/20"
         style={{
           border: `1px solid ${
@@ -85,7 +99,7 @@ function FormField({
       />
 
       {error && (
-        <span className="text-[12px] leading-[15px] text-red-500">{error}</span>
+        <span id={`${id}-error`} className="text-[12px] leading-[15px] text-red-500">{error}</span>
       )}
     </div>
   );
@@ -97,20 +111,21 @@ export default function BookingForm({
   stylists,
   onBook,
   onBack,
+  onTimeConflict,
+  contact,
+  onContactChange,
+  touched,
+  onTouchedChange,
+  selectionReady,
 }: BookingFormProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
-
-  const [touched, setTouched] = useState({
-    name: false,
-    email: false,
-    phone: false,
-    notes: false,
-  });
+  const { name, email, phone, notes } = contact;
+  const setField = (field: keyof BookingContact, value: string) =>
+    onContactChange((previous) => ({ ...previous, [field]: value }));
+  const touch = (field: keyof BookingTouched) =>
+    onTouchedChange((previous) => ({ ...previous, [field]: true }));
 
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedServices = selection
@@ -149,24 +164,29 @@ export default function BookingForm({
 
   const canBook =
     selection !== null &&
+    selectionReady &&
     !submitting &&
     nameValidation === null &&
     emailValidation === null &&
     phoneValidation === null &&
     notesValidation === null;
 
-  async function handleSubmit() {
-    setTouched({
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inFlight.current) return;
+    onTouchedChange((previous) => ({
+      ...previous,
       name: true,
       email: true,
       phone: true,
       notes: true,
-    });
+    }));
 
     setSubmitError(null);
 
     if (!selection || !canBook) return;
 
+    inFlight.current = true;
     try {
       setSubmitting(true);
 
@@ -191,6 +211,10 @@ export default function BookingForm({
           setSubmitError(bookingRetryMessage(res.headers.get("Retry-After")));
           return;
         }
+        if (res.status === 409 && typeof body?.errors?.time === "string") {
+          onTimeConflict(body.errors.time);
+          return;
+        }
         const firstError =
           body?.errors && typeof body.errors === "object"
             ? Object.values(body.errors).flat()[0]
@@ -210,12 +234,13 @@ export default function BookingForm({
       console.error("Failed to submit booking:", error);
       setSubmitError("Could not reach the server. Please try again.");
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
       {selection && selectedServices.length > 0 && (
         <div
           className="flex flex-col gap-3 p-4 rounded-lg bg-[#F8F5F2]"
@@ -253,31 +278,34 @@ export default function BookingForm({
       )}
 
       <FormField
+        id="booking-name"
         label="Name"
         placeholder="Full name"
         value={name}
-        onChange={setName}
-        onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+        onChange={(value) => setField("name", value)}
+        onBlur={() => touch("name")}
         error={nameError}
       />
 
       <FormField
+        id="booking-email"
         label="Email"
         type="email"
         placeholder="name@email.com"
         value={email}
-        onChange={setEmail}
-        onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+        onChange={(value) => setField("email", value)}
+        onBlur={() => touch("email")}
         error={emailError}
       />
 
       <FormField
+        id="booking-phone"
         label="Phone"
         type="tel"
         placeholder="(000) 000-0000"
         value={phone}
-        onChange={(raw) => setPhone(formatPhone(raw))}
-        onBlur={() => setTouched((prev) => ({ ...prev, phone: true }))}
+        onChange={(raw) => setField("phone", formatPhone(raw))}
+        onBlur={() => touch("phone")}
         error={phoneError}
       />
 
@@ -293,8 +321,8 @@ export default function BookingForm({
           id="booking-notes"
           placeholder="Anything we should know before your appointment?"
           value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          onBlur={() => setTouched((prev) => ({ ...prev, notes: true }))}
+          onChange={(event) => setField("notes", event.target.value)}
+          onBlur={() => touch("notes")}
           aria-invalid={notesError ? "true" : undefined}
           aria-describedby={notesError ? "booking-notes-error" : undefined}
           rows={4}
@@ -327,13 +355,13 @@ export default function BookingForm({
       )}
 
       <p className="text-[14px] leading-[22px] text-black/50">
-        Cancellation Policy: Please cancel or reschedule at least 4 hours before
-        your appointment time.
+        Cancellation Policy: Online cancellation is available only while all
+        services are pending or confirmed and the first service starts more than
+        4 hours from now.
       </p>
 
       <button
-        type="button"
-        onClick={handleSubmit}
+        type="submit"
         disabled={!canBook}
         className="flex justify-center items-center w-full h-12 rounded-[48px] text-[14px] leading-[17px] font-medium text-white"
         style={{
@@ -354,6 +382,6 @@ export default function BookingForm({
       >
         Back
       </button>
-    </div>
+    </form>
   );
 }

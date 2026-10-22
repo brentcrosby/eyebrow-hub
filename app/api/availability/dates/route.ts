@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { toDateParam } from "@/lib/dateUtils";
+import { addSalonDays, formatSalonDate, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 import { findBookingClosures } from "@/lib/bookingClosures";
 
 export async function GET() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = formatSalonDate(new Date());
+    const today = salonDayRange(todayDate)!.start;
 
     const { businessHours, schedulingRule } =
       await getAvailabilitySettings();
@@ -18,8 +18,7 @@ export async function GET() {
       Date.now() + schedulingRule.minimumNoticeMinutes * 60_000
     );
 
-    const rangeEnd = new Date(today);
-    rangeEnd.setDate(rangeEnd.getDate() + daysAhead);
+    const rangeEnd = salonDayRange(addSalonDays(todayDate, daysAhead))!.start;
 
     const blocks = await db.availabilityBlock.findMany({
       where: {
@@ -44,11 +43,8 @@ export async function GET() {
     const closures = await findBookingClosures(db, today, rangeEnd);
 
     for (let i = 0; i < daysAhead; i++) {
-      const dayStart = new Date(today);
-      dayStart.setDate(dayStart.getDate() + i);
-
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
+      const date = addSalonDays(todayDate, i);
+      const { start: dayStart, end: dayEnd } = salonDayRange(date)!;
 
       const fullDayBlocked = blocks.some(
         (block) =>
@@ -56,22 +52,25 @@ export async function GET() {
       );
 
       const hours = businessHours.find(
-        (item) => item.dayOfWeek === dayStart.getDay()
+        (item) => item.dayOfWeek === salonWeekday(date)
       );
 
-      const closingTime = new Date(dayStart);
-      closingTime.setMinutes(hours?.closeMinutes ?? 0);
-      const openingTime = new Date(dayStart);
-      openingTime.setMinutes(hours?.openMinutes ?? 0);
-      const closedForBusinessHours = closures.some(
-        (closure) => closure.startTime <= openingTime && closure.endTime >= closingTime
-      );
+      const openingTime = salonTimeAtMinutes(date, hours?.openMinutes ?? 0);
+      const closingTime = salonTimeAtMinutes(date, hours?.closeMinutes ?? 0);
+      const closedForBusinessHours =
+        openingTime !== null &&
+        closingTime !== null &&
+        closures.some(
+          (closure) =>
+            closure.startTime <= openingTime && closure.endTime >= closingTime
+        );
 
       result.push({
-        date: toDateParam(dayStart),
+        date,
         available:
           Boolean(hours?.enabled) &&
-          closingTime > firstBookableTime &&
+          openingTime !== null &&
+          closingTime !== null && closingTime > firstBookableTime &&
           !closedForBusinessHours &&
           !fullDayBlocked,
       });

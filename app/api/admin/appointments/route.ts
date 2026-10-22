@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isInactive } from "@/lib/appointmentStatus";
-import { parseDateTimeParams } from "@/lib/dateUtils";
+import { parseSalonDateTime } from "@/lib/salonTime";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const startTime = parseDateTimeParams(date, time);
+    const startTime = parseSalonDateTime(date, time);
 
     if (!startTime) {
       return NextResponse.json(
