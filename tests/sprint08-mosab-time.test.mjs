@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { loadModule } from "./helpers/loadModule.mjs";
 import * as salon from "../lib/salonTime.ts";
 import * as bookingClosures from "../lib/bookingClosures.ts";
@@ -44,6 +45,10 @@ test("invalid dates/times and DST gaps/folds are rejected; day ranges follow DST
 });
 
 const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
+const status = loadModule("lib/appointmentStatus.ts");
+const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
+} });
 const payload = {
   serviceIds: [1], stylistId: null, date: "2026-10-20", time: "11:00 AM",
   name: "Test", email: "test@example.com", phone: "5305550100",
@@ -56,14 +61,19 @@ test("public booking writes the Pacific instant and rejects impossible input bef
     mocks: {
       "next/server": { NextResponse }, "@/lib/salonTime": salon,
       "@/lib/bookingClosures": bookingClosures,
+      "@/lib/bookingReservation": reservation, "@prisma/client": { Prisma },
       "@/lib/validations/booking": schemas,
       "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },
       "@/lib/bookingReference": { createUniqueBookingReference: async () => "TEST-ONLY" },
       "@/lib/db": { db: {
         service: { findMany: async () => [service] },
-        $transaction: async (callback) => callback({ closure: { findMany: async () => [] }, appointment: { create: async ({ data }) => {
+        $transaction: async (callback) => callback({
+          availabilityBlock: { findMany: async () => [] },
+          closure: { findMany: async () => [] },
+          appointment: { findMany: async () => [], create: async ({ data }) => {
           writes.push(data); return { id: 1, ...data };
-        } } }),
+          } },
+        }),
       } },
     },
     globals: { fetch: async () => ({ ok: true, json: async () => [{ time: "11:00 AM", available: true }] }) },

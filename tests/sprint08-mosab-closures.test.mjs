@@ -8,6 +8,9 @@ import * as closures from "../lib/bookingClosures.ts";
 import * as salonTime from "../lib/salonTime.ts";
 
 const status = loadModule("lib/appointmentStatus.ts");
+const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
+} });
 const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
 const manual = loadModule("lib/validations/manualAppointment.ts", { mocks: {
   zod: { z }, "@/lib/appointmentStatus": status, "@/lib/validations/booking": schemas,
@@ -34,6 +37,7 @@ function fixture(saved) {
   const mocks = {
     "next/server": { NextResponse }, "@/lib/db": { db },
     "@/lib/bookingClosures": closures, "@/lib/salonTime": salonTime,
+    "@/lib/bookingReservation": reservation,
     "@/lib/appointmentStatus": status, "@prisma/client": { Prisma },
     "@/lib/validations/booking": schemas, "@/lib/validations/manualAppointment": manual,
     "@/lib/bookingRateLimit": { bookingLimitResponse: async () => null },

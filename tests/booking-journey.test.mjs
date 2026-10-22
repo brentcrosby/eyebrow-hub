@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -18,6 +19,10 @@ const services = [
 ];
 const accessSchema = loadModule("lib/validations/bookingAccess.ts", { mocks: { zod: { z } } });
 const creationSchema = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
+const status = loadModule("lib/appointmentStatus.ts");
+const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
+} });
 const limited = { bookingLimitResponse: async () => null };
 const request = (body) => ({ json: async () => body, nextUrl: { origin: "https://example.invalid" } });
 
@@ -25,6 +30,7 @@ function fixture(salon = null) {
   const rows = [];
   let writes = 0;
   const tx = {
+    availabilityBlock: { findMany: async () => [] },
     closure: { findMany: async () => [] },
     appointment: {
       create: async ({ data }) => {
@@ -33,8 +39,11 @@ function fixture(salon = null) {
         writes++;
         return row;
       },
-      findMany: async ({ where }) => rows.filter((row) => row.bookingReference === where.bookingReference)
-        .sort((a, b) => a.startTime - b.startTime),
+      findMany: async ({ where }) => rows.filter((row) =>
+        where.bookingReference
+          ? row.bookingReference === where.bookingReference
+          : row.startTime < where.endTime.gt && row.endTime > where.startTime.lt
+      ).sort((a, b) => a.startTime - b.startTime),
       updateMany: async ({ where, data }) => {
         const targets = rows.filter((row) => row.bookingReference === where.bookingReference && where.id.in.includes(row.id) && where.status.in.includes(row.status));
         targets.forEach((row) => { row.status = data.status; });
@@ -56,6 +65,8 @@ function fixture(salon = null) {
       "@/lib/validations/booking": creationSchema,
       "@/lib/bookingReference": { createUniqueBookingReference: async () => reference },
       "@/lib/bookingClosures": bookingClosures,
+      "@/lib/bookingReservation": reservation,
+      "@prisma/client": { Prisma },
       ...(salon ? { "@/lib/salonTime": salon } : {}),
     },
     globals: { fetch: async () => ({ ok: true, json: async () => [{ time: "10:00 AM", available: true }] }) },

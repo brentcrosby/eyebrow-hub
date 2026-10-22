@@ -6,6 +6,7 @@ import { parseSalonDateTime } from "@/lib/salonTime";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
+import { isReservationConflict } from "@/lib/bookingReservation";
 import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 // This endpoint is written for the intended camelCase Prisma schema.
@@ -226,8 +227,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const isConflict =
       error instanceof SchedulingConflictError ||
-      (error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2034");
+      isReservationConflict(error);
 
     if (isConflict) {
       return NextResponse.json(

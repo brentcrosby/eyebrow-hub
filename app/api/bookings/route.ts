@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { bookingRequestSchema } from "@/lib/validations/booking";
 import { createUniqueBookingReference } from "@/lib/bookingReference";
 import { bookingLimitResponse } from "@/lib/bookingRateLimit";
+import { assertReservationAvailable, isReservationConflict } from "@/lib/bookingReservation";
 import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 import { parseSalonDateTime } from "@/lib/salonTime";
@@ -126,6 +128,9 @@ export async function POST(request: NextRequest) {
 
     const booking = await db.$transaction(async (tx) => {
       const endTime = new Date(currentStart.getTime() + totalDuration * 60_000);
+      await assertReservationAvailable(
+        tx, currentStart, endTime, stylistId
+      );
       const closures = await findBookingClosures(tx, currentStart, endTime);
       if (overlapsClosure(closures, currentStart, endTime)) {
         return null;
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest) {
       }
 
       return { appointments, bookingReference };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     if (!booking) {
       return NextResponse.json(
@@ -203,6 +208,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (isReservationConflict(error)) {
+      return NextResponse.json(
+        { success: false, errors: { time: "Selected time is no longer available. Please choose another time." } },
+        { status: 409 }
+      );
+    }
     console.error("Failed to create booking:", error);
 
     return NextResponse.json(
