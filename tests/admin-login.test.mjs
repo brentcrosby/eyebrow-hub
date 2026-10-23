@@ -19,6 +19,7 @@ function loadLogin(signIn, extraEnv = {}) {
       "next/server": { NextResponse },
       "@/lib/supabase": supabase,
       "@/lib/adminAuth": adminAuth,
+      "@/lib/bookingRateLimit": { checkBookingLimit: async () => null },
     },
     env,
   });

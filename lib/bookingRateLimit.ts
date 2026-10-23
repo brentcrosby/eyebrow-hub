@@ -3,12 +3,14 @@ import { isIP } from "node:net";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export type BookingOperation = "create" | "lookup" | "cancel";
+// "login" reuses the same table and window for admin sign-in attempts (DT-576).
+export type BookingOperation = "create" | "lookup" | "cancel" | "login";
 
 export const BOOKING_LIMITS: Record<BookingOperation, number> = {
   create: 5,
   lookup: 30,
   cancel: 10,
+  login: 10,
 };
 export const BOOKING_WINDOW_MS = 15 * 60_000;
 
