@@ -5,7 +5,7 @@ import type { BusinessHoursDay } from "@/lib/businessHours";
 import { DAY_NAMES, formatHourLabel } from "@/lib/businessHours";
 import { formatTime, isSameDay, minutesBetween } from "@/lib/dateUtils";
 import { layoutScheduleItems } from "@/lib/scheduleLayout";
-import { getOpenSlots } from "@/lib/scheduleSlots";
+import { getOpenSlots, toSalonScheduleDate } from "@/lib/scheduleSlots";
 import type { BlockGeometry } from "./ScheduleItemBlock";
 import { AppointmentBlock, BlockedTimeBlock } from "./ScheduleItemBlock";
 import type {
@@ -59,7 +59,7 @@ type Placed<T> = {
   item: T;
   start: Date;
   end: Date;
-  geometry: BlockGeometry;
+  geometry: BlockGeometry & { isVisible?: boolean };
 };
 
 /**
@@ -128,22 +128,27 @@ export default function DayScheduleGrid({
 
   // Only meaningful while looking at today, and only inside opening hours.
   const now =
-    currentMinute === null ? null : new Date(currentMinute * MINUTE_MS);
+    currentMinute === null
+      ? null
+      : toSalonScheduleDate(new Date(currentMinute * MINUTE_MS));
   const nowOffset =
     now && isSameDay(now, date) ? minutesBetween(gridStart, now) : null;
   const showNowMarker =
     nowOffset !== null && nowOffset >= 0 && nowOffset <= totalMinutes;
 
   const placedBlocks: Placed<AvailabilityBlock>[] = availabilityBlocks
-    .map((block) => {
-      const start = new Date(block.startTime);
-      const end = new Date(block.endTime);
-      return {
-        item: block,
-        start,
-        end,
-        geometry: getGeometry(gridStart, totalMinutes, start, end),
-      };
+    .flatMap((block): Placed<AvailabilityBlock>[] => {
+      const start = toSalonScheduleDate(block.startTime);
+      const end = toSalonScheduleDate(block.endTime);
+      if (!start || !end) return [];
+      return [
+        {
+          item: block,
+          start,
+          end,
+          geometry: getGeometry(gridStart, totalMinutes, start, end),
+        },
+      ];
     })
     .filter((entry) => entry.geometry.isVisible);
 
@@ -152,15 +157,18 @@ export default function DayScheduleGrid({
   // computed from real times, not clamped ones, since two appointments overlap
   // regardless of where the grid happens to start.
   const visibleAppointments = appointments
-    .map((appointment) => {
-      const start = new Date(appointment.startTime);
-      const end = new Date(appointment.endTime);
-      return {
-        item: appointment,
-        start,
-        end,
-        geometry: getGeometry(gridStart, totalMinutes, start, end),
-      };
+    .flatMap((appointment): Placed<ScheduleAppointment>[] => {
+      const start = toSalonScheduleDate(appointment.startTime);
+      const end = toSalonScheduleDate(appointment.endTime);
+      if (!start || !end) return [];
+      return [
+        {
+          item: appointment,
+          start,
+          end,
+          geometry: getGeometry(gridStart, totalMinutes, start, end),
+        },
+      ];
     })
     .filter((entry) => entry.geometry.isVisible);
 

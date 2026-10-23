@@ -3,11 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 
 export default function AdminServicesPage() {
-  type Employee = {
-    id: number;
-    name: string;
-    active: boolean;
-  };
   type Service = {
     id: number;
     name: string;
@@ -23,10 +18,8 @@ export default function AdminServicesPage() {
     service: Service;
   };
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
   const [newService, setNewService] = useState<string>("");
   const [newDuration, setNewDuration] = useState<string>("");
   const [newPrice, setNewPrice] = useState<string>("");
@@ -39,55 +32,31 @@ export default function AdminServicesPage() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const fetchEmployees = useCallback(async () => {
+  const fetchServices = useCallback(async () => {
     try {
-      const response = await fetch("/api/stylists");
+      setLoading(true);
+      const response = await fetch("/api/admin/services");
       if (response.ok) {
-        const data: Employee[] = await response.json();
-        setEmployees(data);
-        if (data.length > 0) {
-          setSelectedEmployee(data[0].id);
-        }
+        const data: Service[] = await response.json();
+        setServices(data);
+        setError("");
       } else {
-        setError("Failed to fetch employees");
-        console.error("Failed to fetch employees:", response.status);
+        setError("Services could not be loaded. Please retry.");
+        console.error("Failed to fetch services:", response.status);
       }
     } catch (err) {
-      setError("Failed to fetch employees");
-      console.error("Failed to fetch employees:", err);
+      setError(
+        "Services could not be loaded. Check your connection and retry."
+      );
+      console.error("Failed to fetch services:", err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
-
-  useEffect(() => {
-    if (selectedEmployee !== null) {
-      fetchEmployeeServices(selectedEmployee);
-    }
-  }, [selectedEmployee]);
-
-  async function fetchEmployeeServices(employeeId: number) {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `/api/admin/employee-services?employeeId=${employeeId}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setServices(data.services);
-      } else {
-        setError("Failed to fetch employee services");
-        console.error("Failed to fetch employee services:", response.status);
-      }
-    } catch (err) {
-      setError("Failed to fetch employee services");
-      console.error("Failed to fetch employee services:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
+    void fetchServices();
+  }, [fetchServices]);
 
   function validateService(): boolean {
     const errors: FieldErrors = {};
@@ -260,25 +229,17 @@ export default function AdminServicesPage() {
     <main className="min-h-full p-4 sm:p-6 bg-[#fdf8f1]">
       <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-6xl rounded-[28px] bg-white px-5 py-6 shadow-[0_18px_50px_rgba(96,74,50,0.1)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
         <div className="flex flex-col gap-4 border-b border-[#d8c4ae] pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <h1 className="text-3xl font-semibold text-[#7a5a3c]">Services</h1>
+          <div>
+            <h1 className="text-3xl font-semibold text-[#7a5a3c]">Services</h1>
+            <p className="mt-2 max-w-2xl text-sm text-[#8f725d]">
+              Manage the salon-wide service catalog. Changes here apply to every
+              stylist and booking flow.
+            </p>
+          </div>
         </div>
 
         <div className="mt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              value={selectedEmployee || ""}
-              onChange={(event) =>
-                setSelectedEmployee(Number(event.target.value))
-              }
-              className="rounded-full border border-[#dccab5] bg-[#fffaf4] px-4 py-2 text-sm capitalize text-[#7a5a3c] outline-none hover:border-[#bfa17a] transition-colors"
-            >
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-
             <button
               type="button"
               onClick={() => {
@@ -292,20 +253,17 @@ export default function AdminServicesPage() {
             </button>
           </div>
 
-          {selectedEmployee !== null && (
-            <p className="mt-4 text-sm font-medium text-[#7a5a3c]">
-              Showing services for{" "}
-              <span className="capitalize">
-                {employees.find((employee) => employee.id === selectedEmployee)
-                  ?.name ?? "Employee"}
-              </span>
-            </p>
-          )}
-
           {showAddForm && (
             <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 shadow-sm sm:flex-row sm:items-start">
               <div className="w-full">
+                <label
+                  htmlFor="service-name"
+                  className="mb-1 block text-sm font-medium text-[#5e4735]"
+                >
+                  Service name
+                </label>
                 <input
+                  id="service-name"
                   type="text"
                   value={newService}
                   onChange={(event) => setNewService(event.target.value)}
@@ -328,7 +286,14 @@ export default function AdminServicesPage() {
                 )}
               </div>
               <div className="w-full">
+                <label
+                  htmlFor="service-duration"
+                  className="mb-1 block text-sm font-medium text-[#5e4735]"
+                >
+                  Duration (minutes)
+                </label>
                 <input
+                  id="service-duration"
                   type="number"
                   min="1"
                   step="1"
@@ -355,7 +320,14 @@ export default function AdminServicesPage() {
                 )}
               </div>
               <div className="w-full">
+                <label
+                  htmlFor="service-price"
+                  className="mb-1 block text-sm font-medium text-[#5e4735]"
+                >
+                  Price
+                </label>
                 <input
+                  id="service-price"
                   type="number"
                   min="0.01"
                   step="0.01"
@@ -379,7 +351,10 @@ export default function AdminServicesPage() {
                   </p>
                 )}
               </div>
-              <label className="flex items-center gap-2">
+              <label
+                htmlFor="active-toggle"
+                className="flex min-h-16 items-center gap-2"
+              >
                 <input
                   type="checkbox"
                   id="active-toggle"
