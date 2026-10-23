@@ -165,12 +165,15 @@ export default function AdminLoginPage() {
                 Password
               </label>
 
-              <Link
-                href="/forgot-password"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                Forgot password?
-              </Link>
+              {/* There is no self-service reset yet, so say how to get help. */}
+              <details className="text-right text-sm">
+                <summary className="cursor-pointer text-blue-600 hover:underline">
+                  Forgot password?
+                </summary>
+                <p className="mt-1 text-gray-600">
+                  Contact the salon owner to reset your password.
+                </p>
+              </details>
             </div>
 
             <div className="flex items-center gap-2">

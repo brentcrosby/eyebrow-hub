@@ -45,18 +45,6 @@ export default function AdminSettingsPage() {
       .catch(() => setEmailNotice({ ok: false, text: "Could not load your email." }));
   }, []);
 
-  // Notification preferences object to reduce state variables
-  const [preferences, setPreferences] = useState({
-    phone: true,
-    email: true,
-    text: true,
-    calendar: true,
-  });
-  // Edit mode state for notifications
-  const [editMode, setEditMode] = useState(false);
-  // Draft preferences state to hold changes before saving
-  const [draftPreferences, setDraftPreferences] = useState(preferences);
-
   // Function to validate email format
   function emailValidation(): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -239,72 +227,12 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* The site doesn't send notifications yet, so there are no settings to show. */}
         <div className="mt-6 rounded-2xl bg-[#fff3eb] p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#7a5a3c]">
-              Notifications
-            </h2>
-
-            <span
-              className="cursor-pointer text-[#a1866f]"
-              onClick={() => {
-                setDraftPreferences(preferences);
-                setEditMode(true);
-              }}
-            >
-              ✎
-            </span>
-          </div>
-
-          {!editMode ? (
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-[#7a5a3c]">
-              <div>Phone: {preferences.phone ? "On" : "Off"}</div>
-              <div>Email: {preferences.email ? "On" : "Off"}</div>
-              <div>Text: {preferences.text ? "On" : "Off"}</div>
-              <div>Calendar: {preferences.calendar ? "On" : "Off"}</div>
-            </div>
-          ) : (
-      
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              {Object.entries(draftPreferences).map(([key, value]) => (
-                <label
-                  key={key}
-                  className="flex items-center gap-2 text-sm text-[#7a5a3c]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={value}
-                    onChange={(e) =>
-                      setDraftPreferences({
-                        ...draftPreferences,
-                        [key]: e.target.checked,
-                      })
-                    }
-                  />
-                  {key}
-                </label>
-              ))}
-
-              <div className="col-span-2 flex gap-2 mt-2">
-                <button
-                  onClick={() => {
-                    setPreferences(draftPreferences);
-                    setEditMode(false);
-                  }}
-                  className="bg-[#7a5a3c] text-white px-4 py-1.5 rounded-full"
-                >
-                  Save
-                </button>
-
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="border px-4 py-1.5 rounded-full"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          <h2 className="text-sm font-semibold text-[#7a5a3c]">Notifications</h2>
+          <p className="mt-2 text-sm text-[#7a5a3c]">
+            Email and text notifications are not available yet.
+          </p>
         </div>
 
       </section>
