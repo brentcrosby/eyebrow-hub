@@ -11,13 +11,18 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import {
-  addDays,
   parseDateParam,
   startOfDay,
   startOfWeek,
   toDateParam,
   toTimeParam,
 } from "@/lib/dateUtils";
+import {
+  addSalonDays,
+  formatSalonDate,
+  salonDayRange,
+  salonWeekday,
+} from "@/lib/salonTime";
 import AppointmentDetailDialog from "@/components/admin/schedule/AppointmentDetailDialog";
 import DayScheduleGrid from "@/components/admin/schedule/DayScheduleGrid";
 import NewAppointmentDialog, {
@@ -66,7 +71,10 @@ function SchedulePageContent() {
   // instance on every render. An unparseable or missing date falls back to
   // today rather than rendering a plausible but wrong day.
   const selectedDate = useMemo(
-    () => parseDateParam(dateParam) ?? startOfDay(new Date()),
+    () =>
+      parseDateParam(dateParam) ??
+      parseDateParam(formatSalonDate(new Date())) ??
+      startOfDay(new Date()),
     [dateParam]
   );
 
@@ -150,8 +158,9 @@ function SchedulePageContent() {
   );
 
   const hoursForDay =
-    businessHours?.find((day) => day.dayOfWeek === selectedDate.getDay()) ??
-    null;
+    businessHours?.find(
+      (day) => day.dayOfWeek === salonWeekday(toDateParam(selectedDate))
+    ) ?? null;
   const selectedAppointment =
     appointments.find(
       (appointment) => appointment.id === selectedAppointmentId
@@ -168,9 +177,21 @@ function SchedulePageContent() {
   useEffect(() => {
     const controller = new AbortController();
 
-    const rangeStart =
+    const calendarStart =
       view === "week" ? startOfWeek(selectedDate) : startOfDay(selectedDate);
-    const rangeEnd = addDays(rangeStart, view === "week" ? 7 : 1);
+    const startDate = toDateParam(calendarStart);
+    const endDate = addSalonDays(startDate, view === "week" ? 7 : 1);
+    const rangeStart = salonDayRange(startDate)?.start;
+    const rangeEnd = salonDayRange(endDate)?.start;
+
+    if (!rangeStart || !rangeEnd) {
+      setAppointments([]);
+      setAvailabilityBlocks([]);
+      setError("The selected schedule date is invalid.");
+      setIsLoading(false);
+      return () => controller.abort();
+    }
+
     const range = `start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`;
 
     async function load() {

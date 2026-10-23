@@ -1,4 +1,6 @@
 import { isInactive } from "@/lib/appointmentStatus";
+import { parseDateTimeParams } from "@/lib/dateUtils";
+import { formatSalonDate, formatSalonTime } from "@/lib/salonTime";
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
@@ -16,15 +18,30 @@ type GetOpenSlotsOptions = {
 
 type ParsedRange = { start: Date; end: Date };
 
-function parseRange(startValue: string, endValue: string): ParsedRange | null {
-  const start = new Date(startValue);
-  const end = new Date(endValue);
+/**
+ * Projects a stored instant onto the salon's wall clock.
+ *
+ * Schedule layout uses Date as a convenient calendar/clock value. Constructing
+ * that value directly from an ISO timestamp makes the grid depend on the
+ * browser timezone, though, so an 11 AM Pacific booking can render at 4 AM on
+ * a UTC host. This projection keeps comparisons and layout on the salon clock
+ * while the API continues to store and exchange real UTC instants.
+ */
+export function toSalonScheduleDate(value: string | Date): Date | null {
+  const instant = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(instant.getTime())) return null;
 
-  if (
-    Number.isNaN(start.getTime()) ||
-    Number.isNaN(end.getTime()) ||
-    start >= end
-  ) {
+  return parseDateTimeParams(
+    formatSalonDate(instant),
+    formatSalonTime(instant)
+  );
+}
+
+function parseRange(startValue: string, endValue: string): ParsedRange | null {
+  const start = toSalonScheduleDate(startValue);
+  const end = toSalonScheduleDate(endValue);
+
+  if (!start || !end || start >= end) {
     return null;
   }
 

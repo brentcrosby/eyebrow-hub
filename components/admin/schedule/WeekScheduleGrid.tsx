@@ -7,7 +7,7 @@ import {
 } from "@/lib/businessHours";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { addDays, formatTimeRange, isSameDay } from "@/lib/dateUtils";
-import { getOpenSlots } from "@/lib/scheduleSlots";
+import { getOpenSlots, toSalonScheduleDate } from "@/lib/scheduleSlots";
 import {
   getStatusAccentClasses,
   getStatusLabel,
@@ -43,9 +43,10 @@ export default function WeekScheduleGrid({
     const dayDate = addDays(weekStart, dayIndex);
 
     return appointments.filter((appointment) => {
-      const appointmentStart = new Date(appointment.startTime);
+      const appointmentStart = toSalonScheduleDate(appointment.startTime);
 
       return (
+        appointmentStart !== null &&
         isSameDay(appointmentStart, dayDate) &&
         appointmentStart.getHours() === hourIndex
       );
@@ -56,10 +57,12 @@ export default function WeekScheduleGrid({
     const dayDate = addDays(weekStart, dayIndex);
 
     return availabilityBlocks.filter((block) => {
-      const blockStart = new Date(block.startTime);
+      const blockStart = toSalonScheduleDate(block.startTime);
 
       return (
-        isSameDay(blockStart, dayDate) && blockStart.getHours() === hourIndex
+        blockStart !== null &&
+        isSameDay(blockStart, dayDate) &&
+        blockStart.getHours() === hourIndex
       );
     });
   }
@@ -162,8 +165,10 @@ export default function WeekScheduleGrid({
                               </span>
                               <span className="block truncate">
                                 {formatTimeRange(
-                                  new Date(block.startTime),
-                                  new Date(block.endTime)
+                                  toSalonScheduleDate(block.startTime) ??
+                                    new Date(block.startTime),
+                                  toSalonScheduleDate(block.endTime) ??
+                                    new Date(block.endTime)
                                 )}
                               </span>
                             </div>
@@ -180,8 +185,10 @@ export default function WeekScheduleGrid({
                               }
                               data-appointment-id={appointment.id}
                               aria-label={`${appointment.service.name}, ${formatTimeRange(
-                                new Date(appointment.startTime),
-                                new Date(appointment.endTime)
+                                toSalonScheduleDate(appointment.startTime) ??
+                                  new Date(appointment.startTime),
+                                toSalonScheduleDate(appointment.endTime) ??
+                                  new Date(appointment.endTime)
                               )}, ${getStatusLabel(appointment.status)}, ${
                                 appointment.customerName
                               }`}
@@ -194,8 +201,10 @@ export default function WeekScheduleGrid({
                               </span>
                               <span className="block truncate">
                                 {formatTimeRange(
-                                  new Date(appointment.startTime),
-                                  new Date(appointment.endTime)
+                                  toSalonScheduleDate(appointment.startTime) ??
+                                    new Date(appointment.startTime),
+                                  toSalonScheduleDate(appointment.endTime) ??
+                                    new Date(appointment.endTime)
                                 )}
                               </span>
                             </button>
