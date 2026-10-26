@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  CONFIRMED_STATUS,
   getStatusBadgeClasses,
   getStatusLabel,
   PENDING_STATUS,
@@ -27,10 +28,14 @@ export type AppointmentDetail = {
 
 type AppointmentDetailPanelProps = {
   appointment: AppointmentDetail;
-  onApprove?: () => void | Promise<void>;
-  onReject?: (reason?: string) => void | Promise<void>;
+  onApprove?: (signal?: AbortSignal) => void | Promise<void>;
+  onReject?: (reason?: string, signal?: AbortSignal) => void | Promise<void>;
+  onCancel?: (signal?: AbortSignal) => void | Promise<void>;
+  onComplete?: (signal?: AbortSignal) => void | Promise<void>;
   onClose?: () => void;
 };
+
+type AppointmentAction = "approve" | "reject" | "cancel" | "complete";
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -71,14 +76,23 @@ export default function AppointmentDetailPanel({
   appointment,
   onApprove,
   onReject,
+  onCancel,
+  onComplete,
   onClose,
 }: AppointmentDetailPanelProps) {
-  const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(
+  const [pendingAction, setPendingAction] = useState<AppointmentAction | null>(
     null
   );
+  const pendingRequest = useRef<AbortController | null>(null);
+  const [confirmationAction, setConfirmationAction] = useState<
+    "cancel" | "complete" | null
+  >(null);
   const [showRejectPrompt, setShowRejectPrompt] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  useEffect(() => () => pendingRequest.current?.abort(), []);
   const customerName = appointment.customerName.trim() || "Unnamed customer";
   const serviceName = appointment.service.name.trim() || "Service unavailable";
   const stylistName = appointment.stylist?.name.trim() || "No stylist assigned";
@@ -89,29 +103,66 @@ export default function AppointmentDetailPanel({
   const email = appointment.customerEmail?.trim() || null;
   const statusLabel = getStatusLabel(appointment.status);
   const isPending = appointment.status.trim().toLowerCase() === PENDING_STATUS;
+  const isConfirmed =
+    appointment.status.trim().toLowerCase() === CONFIRMED_STATUS;
 
   const runAction = async (
-    action: "approve" | "reject",
-    callback: ((reason?: string) => void | Promise<void>) | undefined,
-    reason?: string
+    action: AppointmentAction,
+    callback: ((signal?: AbortSignal) => void | Promise<void>) | undefined
   ) => {
-    if (!callback || pendingAction) return;
+    if (!callback || pendingRequest.current) return;
 
+    const request = new AbortController();
+    pendingRequest.current = request;
     setPendingAction(action);
     setActionError(null);
 
     try {
-      await callback(reason);
+      await callback(request.signal);
+      if (request.signal.aborted) return;
+      setConfirmationAction(null);
+      setShowRejectPrompt(false);
+      setRejectionReason("");
     } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "Unable to update appointment status"
-      );
+      if (request.signal.aborted) return;
+      const status =
+        typeof error === "object" && error !== null && "status" in error
+          ? error.status
+          : undefined;
+      const message =
+        status === 401
+          ? "Your session has expired. Sign in again to view appointment details."
+          : status === 403
+            ? "You no longer have access to appointment details."
+            : status === 409
+              ? "This appointment has changed. Close and reopen the details to see its current status."
+              : status === 404
+                ? "This appointment is no longer available."
+                : status === 0
+                  ? "Unable to load the latest appointment details. Close and reopen them before trying again."
+                  : null;
+      if (message) {
+        setDetailError(message);
+      } else {
+        setActionError(
+          error instanceof Error
+            ? error.message
+            : "Unable to update appointment status"
+        );
+      }
     } finally {
-      setPendingAction(null);
+      pendingRequest.current = null;
+      if (!request.signal.aborted) setPendingAction(null);
     }
   };
+
+  if (detailError) {
+    return (
+      <p role="alert" className="px-5 py-5 text-sm text-red-700">
+        {detailError}
+      </p>
+    );
+  }
 
   return (
     <aside
@@ -142,9 +193,7 @@ export default function AppointmentDetailPanel({
       <dl className="grid gap-4 px-5 py-5 text-sm sm:grid-cols-2 sm:px-6">
         <div className="min-w-0">
           <dt className="font-medium text-[#a08a75]">Service</dt>
-          <dd className="mt-1 wrap-break-word text-[#5e4735]">
-            {serviceName}
-          </dd>
+          <dd className="mt-1 wrap-break-word text-[#5e4735]">{serviceName}</dd>
           <dd className="mt-1 text-xs text-[#a08a75]">
             {formatDuration(appointment.service.durationMinutes)} ·{" "}
             {formatPrice(appointment.service.price)}
@@ -153,9 +202,7 @@ export default function AppointmentDetailPanel({
 
         <div className="min-w-0">
           <dt className="font-medium text-[#a08a75]">Stylist</dt>
-          <dd className="mt-1 wrap-break-word text-[#5e4735]">
-            {stylistName}
-          </dd>
+          <dd className="mt-1 wrap-break-word text-[#5e4735]">{stylistName}</dd>
         </div>
 
         <div className="min-w-0">
@@ -174,9 +221,7 @@ export default function AppointmentDetailPanel({
 
         <div className="min-w-0">
           <dt className="font-medium text-[#a08a75]">Source</dt>
-          <dd className="mt-1 wrap-break-word text-[#5e4735]">
-            {sourceLabel}
-          </dd>
+          <dd className="mt-1 wrap-break-word text-[#5e4735]">{sourceLabel}</dd>
         </div>
 
         <div className="min-w-0">
@@ -218,6 +263,7 @@ export default function AppointmentDetailPanel({
                 value={rejectionReason}
                 onChange={(event) => setRejectionReason(event.target.value)}
                 rows={3}
+                disabled={pendingAction !== null}
                 className="mt-1 w-full rounded-lg border border-[#d8c4ae] bg-[#fffaf4] px-3 py-2 text-sm text-[#5e4735] placeholder:text-[#a08a75] focus:border-[#7a5a3c] focus:outline-none"
                 placeholder="Add the reason for rejecting this appointment"
               />
@@ -231,9 +277,9 @@ export default function AppointmentDetailPanel({
                     setActionError("A rejection reason is required.");
                     return;
                   }
-                  void runAction("reject", onReject, reason);
-                  setShowRejectPrompt(false);
-                  setRejectionReason("");
+                  void runAction("reject", (signal) =>
+                    onReject(reason, signal)
+                  );
                 }}
                 disabled={pendingAction !== null}
                 className="inline-flex min-h-10 items-center rounded-xl bg-[#7a5a3c] px-3 py-2 text-sm font-medium text-white hover:bg-[#69513a] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
@@ -255,6 +301,87 @@ export default function AppointmentDetailPanel({
             </div>
           </div>
         )}
+
+        {isConfirmed && !confirmationAction && (
+          <>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError(null);
+                  setConfirmationAction("cancel");
+                }}
+                disabled={pendingAction !== null}
+                className="inline-flex min-h-10 items-center rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel appointment
+              </button>
+            )}
+            {onComplete && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError(null);
+                  setConfirmationAction("complete");
+                }}
+                disabled={pendingAction !== null}
+                className="inline-flex min-h-10 items-center rounded-xl bg-[#2f7d5a] px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#286d4d] focus-visible:ring-2 focus-visible:ring-[#2f7d5a] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Complete appointment
+              </button>
+            )}
+          </>
+        )}
+
+        {isConfirmed &&
+          confirmationAction &&
+          (confirmationAction === "cancel" ? onCancel : onComplete) && (
+            <div
+              role="group"
+              aria-label={
+                confirmationAction === "cancel"
+                  ? "Cancel appointment confirmation"
+                  : "Complete appointment confirmation"
+              }
+              className="w-full space-y-3 rounded-xl border border-[#e8dac9] bg-white p-3"
+            >
+              <p className="text-sm font-medium text-[#7a5a3c]">
+                {confirmationAction === "cancel"
+                  ? "Cancel this confirmed appointment?"
+                  : "Mark this appointment as completed?"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void runAction(
+                      confirmationAction,
+                      confirmationAction === "cancel" ? onCancel : onComplete
+                    )
+                  }
+                  disabled={pendingAction !== null}
+                  className="inline-flex min-h-10 items-center rounded-xl bg-[#7a5a3c] px-3 py-2 text-sm font-medium text-white hover:bg-[#69513a] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {pendingAction === confirmationAction
+                    ? "Working…"
+                    : confirmationAction === "cancel"
+                      ? "Confirm cancellation"
+                      : "Confirm completion"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmationAction(null);
+                    setActionError(null);
+                  }}
+                  disabled={pendingAction !== null}
+                  className="inline-flex min-h-10 items-center rounded-xl border border-[#d8c4ae] bg-white px-3 py-2 text-sm font-medium text-[#7a5a3c] hover:bg-[#f3ebe2] focus-visible:ring-2 focus-visible:ring-[#7a5a3c] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Go back
+                </button>
+              </div>
+            </div>
+          )}
 
         {onClose && (
           <button
