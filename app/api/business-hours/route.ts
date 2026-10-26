@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
