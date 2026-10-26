@@ -5,6 +5,7 @@ import ServicesSection from "@/components/ServicesSection";
 import ImageCarousel from "@/components/ImageCarousel";
 import LocationSection from "@/components/LocationSection";
 import BookingContainer from "@/components/BookingContainer";
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (
