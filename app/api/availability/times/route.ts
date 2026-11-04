@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAvailabilitySettings } from "@/lib/availabilitySettings";
-import { CANCELLED_STATUS, REJECTED_STATUS } from "@/lib/appointmentStatus";
+import { getAvailabilitySettings, isWithinSchedulingPolicy } from "@/lib/availabilitySettings";
+import { isInactive } from "@/lib/appointmentStatus";
 import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 const SLOT_INTERVAL_MINUTES = 30;
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
 
     const { start: dayStart, end: dayEnd } = range;
 
-    const { businessHours, schedulingRule } =
-      await getAvailabilitySettings();
+    const settings = await getAvailabilitySettings();
+    const { businessHours, schedulingRule } = settings;
 
     const hours = businessHours.find(
       (item) => item.dayOfWeek === salonWeekday(dateParam)
@@ -71,11 +71,6 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
-
-    const bookingCutoff = new Date(
-      now.getTime() +
-        schedulingRule.minimumNoticeMinutes * 60_000
-    );
 
     const maximumDate = addSalonDays(formatSalonDate(now), schedulingRule.maximumAdvanceDays);
 
@@ -103,18 +98,16 @@ export async function GET(request: NextRequest) {
       db.appointment.findMany({
         where: {
           startTime: {
-            lt: dayEnd,
+            lt: new Date(dayEnd.getTime() + schedulingRule.bufferMinutes * 60_000),
           },
           endTime: {
-            gt: dayStart,
-          },
-          status: {
-            notIn: [CANCELLED_STATUS, REJECTED_STATUS, "canceled"],
+            gt: new Date(dayStart.getTime() - schedulingRule.bufferMinutes * 60_000),
           },
         },
         select: {
           startTime: true,
           endTime: true,
+          status: true,
         },
       }),
       findBookingClosures(db, dayStart, dayEnd),
@@ -152,7 +145,7 @@ export async function GET(request: NextRequest) {
           block.endTime > slotStart
       );
 
-      const overlapsAppointment = appointments.some(
+      const overlapsAppointment = appointments.filter((row) => !isInactive(row.status)).some(
         (appointment) => {
           const bufferedStart = new Date(
             appointment.startTime.getTime() -
@@ -174,7 +167,7 @@ export async function GET(request: NextRequest) {
       slots.push({
         time,
         available:
-          slotStart >= bookingCutoff &&
+          isWithinSchedulingPolicy(slotStart, slotEnd, settings, now) &&
           !overlapsBlock &&
           !overlapsClosure(closures, slotStart, slotEnd) &&
           !overlapsAppointment,

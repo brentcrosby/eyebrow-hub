@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
     const slotsResponse = await fetch(
       `${request.nextUrl.origin}/api/availability/times?${params.toString()}`
     );
+    if (!slotsResponse.ok) {
+      return NextResponse.json({ valid: false, error: "Could not verify appointment availability" }, { status: 503 });
+    }
     const slots: { time: string; available: boolean }[] = await slotsResponse.json();
     const slot = slots.find((s) => s.time === time);
 

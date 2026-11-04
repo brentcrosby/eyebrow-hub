@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -42,6 +43,7 @@ function load(path, mocks, globals = {}, jsx = false) {
 
 const schemas = load("../lib/validations/booking.ts", { zod: { z } });
 const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
   "@prisma/client": { Prisma },
   "@/lib/appointmentStatus": loadModule("lib/appointmentStatus.ts"),
 } });

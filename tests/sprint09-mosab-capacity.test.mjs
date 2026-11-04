@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -21,6 +22,7 @@ test("PostgreSQL salon-wide assigned/unassigned race matrix and grouped writes",
   const status = loadModule("lib/appointmentStatus.ts");
   const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
   const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
     "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
   } });
   const manual = loadModule("lib/validations/manualAppointment.ts", { mocks: {
@@ -51,7 +53,7 @@ test("PostgreSQL salon-wide assigned/unassigned race matrix and grouped writes",
     const globals = { fetch: async () => ({ ok: true, json: async () => [{ time: "11:00 AM", available: true }] }) };
     const publicPost = loadModule("app/api/bookings/route.ts", { mocks, globals }).POST;
     const manualPost = loadModule("app/api/admin/appointments/route.ts", { mocks }).POST;
-    const request = (ids = [services[0].id], date = `2030-01-${String(day).padStart(2, "0")}`, assignment = stylist.id) => ({
+    const request = (ids = [services[0].id], date = `2030-03-${String(day).padStart(2, "0")}`, assignment = stylist.id) => ({
       nextUrl: { origin: "http://localhost" },
       json: async () => ({ serviceIds: ids, serviceId: ids[0], stylistId: assignment, date, time: "11:00 AM",
         name, email: "fixture@example.com", phone: "5305550100", customerName: name, customerPhone: "5305550100" }),

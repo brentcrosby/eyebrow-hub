@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
@@ -47,6 +48,7 @@ test("invalid dates/times and DST gaps/folds are rejected; day ranges follow DST
 const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
 const status = loadModule("lib/appointmentStatus.ts");
 const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
   "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
 } });
 const payload = {
@@ -92,8 +94,8 @@ test("availability rejects impossible dates before loading settings or querying"
       "next/server": { NextResponse }, "@/lib/db": { db: {} },
       "@/lib/salonTime": salon,
       "@/lib/bookingClosures": bookingClosures,
-      "@/lib/availabilitySettings": {},
-      "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected" },
+      "@/lib/availabilitySettings": legacySchedulingMocks["@/lib/availabilitySettings"],
+      "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected", isInactive: (value) => ["cancelled", "canceled", "rejected"].includes(value) },
     },
   });
   assert.equal((await GET({ url: "http://localhost/api/availability/times?date=2026-10-32" })).status, 400);
@@ -115,11 +117,11 @@ test("fall-back availability omits both occurrences of ambiguous Pacific labels"
       } },
       "@/lib/salonTime": salon,
       "@/lib/bookingClosures": bookingClosures,
-      "@/lib/availabilitySettings": { getAvailabilitySettings: async () => ({
+      "@/lib/availabilitySettings": { ...legacySchedulingMocks["@/lib/availabilitySettings"], getAvailabilitySettings: async () => ({
         businessHours: [{ dayOfWeek: 0, enabled: true, openMinutes: 0, closeMinutes: 180 }],
         schedulingRule: { minimumNoticeMinutes: 0, maximumAdvanceDays: 30, bufferMinutes: 0 },
       }) },
-      "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected" },
+      "@/lib/appointmentStatus": { CANCELLED_STATUS: "cancelled", REJECTED_STATUS: "rejected", isInactive: (value) => ["cancelled", "canceled", "rejected"].includes(value) },
     },
     globals: { Date: FixedDate },
   });
