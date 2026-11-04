@@ -6,7 +6,7 @@ import { parseSalonDateTime } from "@/lib/salonTime";
 import { requireAdmin } from "@/lib/adminAuth";
 import { manualAppointmentSchema } from "@/lib/validations/manualAppointment";
 import { MANUAL_SOURCE } from "@/lib/appointmentSource";
-import { isReservationConflict } from "@/lib/bookingReservation";
+import { assertReservationAvailable, isReservationConflict } from "@/lib/bookingReservation";
 import { findBookingClosures, overlapsClosure } from "@/lib/bookingClosures";
 
 // This endpoint is written for the intended camelCase Prisma schema.
@@ -77,37 +77,16 @@ export async function GET(request: NextRequest) {
 
 class SchedulingConflictError extends Error {}
 
-// Blocked time always conflicts, regardless of stylist. An appointment only
-// conflicts when it's booked with the *same* stylist — a different stylist
-// at the same time is not a conflict. When no stylist is assigned, only
-// blocked time is checked, since there is no specific resource to double-book.
+// Manual and public creation reserve the same salon-wide resource.
 async function hasSchedulingConflict(
   tx: Prisma.TransactionClient,
   startTime: Date,
   endTime: Date,
   stylistId: number | null
 ): Promise<boolean> {
-  const [blocks, appointments, closures] = await Promise.all([
-    tx.availabilityBlock.findMany({
-      where: { startTime: { lt: endTime }, endTime: { gt: startTime } },
-      select: { id: true },
-    }),
-    stylistId !== null
-      ? tx.appointment.findMany({
-          where: {
-            stylistId,
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-          },
-          select: { status: true },
-        })
-      : Promise.resolve([]),
-    findBookingClosures(tx, startTime, endTime),
-  ]);
-
-  if (blocks.length > 0 || overlapsClosure(closures, startTime, endTime)) return true;
-
-  return appointments.some((appointment) => !isInactive(appointment.status));
+  await assertReservationAvailable(tx, startTime, endTime, stylistId);
+  const closures = await findBookingClosures(tx, startTime, endTime);
+  return overlapsClosure(closures, startTime, endTime);
 }
 
 // Staff-entered phone/walk-in appointments.
@@ -185,8 +164,8 @@ export async function POST(request: NextRequest) {
     );
 
     // The conflict check and the create happen inside one serializable
-    // transaction, so a second, near-simultaneous request for the same
-    // stylist and time cannot also pass the check before the first request's
+    // transaction, so a second, near-simultaneous request for the salon
+    // cannot also pass the check before the first request's
     // row becomes visible.
     const appointment = await db.$transaction(
       async (tx) => {
@@ -234,7 +213,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           errors: {
-            time: "This stylist is no longer available at that time",
+            time: "Selected time is no longer available. Please choose another time.",
           },
         },
         { status: 409 }
