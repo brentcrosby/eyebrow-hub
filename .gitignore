@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The template has setting names and placeholders only, never real values.
+!.env.example
 
 # vercel
 .vercel

@@ -136,7 +136,7 @@ These reflect what's shown on the live prototype — final values stay configura
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20 or newer
+- Node.js 22 (pinned in `.nvmrc`; `nvm use` picks it up)
 - npm 10 or newer
 
 ### Install
@@ -145,7 +145,13 @@ These reflect what's shown on the live prototype — final values stay configura
 npm install
 ```
 
-Then create a `.env.local` file at the repo root for local secrets (see [Database Setup](#database-setup-supabase) below). That file is gitignored — do not commit it.
+Then copy `.env.example` to `.env.local` at the repo root and fill in the values (see [Database Setup](#database-setup-supabase) below and [docs/staging-checklist.md](docs/staging-checklist.md) for every setting). `.env.local` is gitignored — do not commit it. Check your settings with:
+
+```bash
+npm run preflight
+```
+
+It names any missing or invalid setting without printing values.
 
 ### Database Setup (Supabase)
 
@@ -199,6 +205,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) for the site and [http://localhost:3000/api/health](http://localhost:3000/api/health) for the health check.
 
+**Booking and admin login** need the request limiter, which needs a trusted client IP. On plain `npm run dev` they return 503 ("temporarily unavailable"). To use them locally:
+
+1. In `.env.local`, set `BOOKING_RATE_LIMIT_SECRET` (32+ random characters) and `BOOKING_CLIENT_IP_HEADER=x-trusted-client-ip` (see `.env.example`).
+2. Terminal 1: `npx next dev -p 3101`
+3. Terminal 2: `node scripts/dt524-local-proxy.mjs`
+4. Open [http://localhost:3100/admin/login](http://localhost:3100/admin/login). Use `localhost`, not `127.0.0.1`, or the page loads but never becomes usable.
+
+Your Supabase account must also be listed in `ADMIN_USER_IDS`.
+
 ---
 
 ## Folder Overview
@@ -223,6 +238,7 @@ Open [http://localhost:3000](http://localhost:3000) for the site and [http://loc
 | `npm run build` | Build for production |
 | `npm run start` | Start the production server |
 | `npm run lint` | Run ESLint |
+| `npm run preflight` | Check that every required setting is present and valid |
 | `npm run format` | Run Prettier across the repo |
 
 Database commands (with `.env.local` loaded) are documented under [Database Setup](#database-setup-supabase).
