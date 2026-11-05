@@ -10,8 +10,16 @@ export default function LocationSection() {
           Location
         </div>
         <div className="self-stretch text-black/50 text-sm font-normal font-['Inter']">
-          1215 Colusa Ave, Yuba City, CA 95991
+          {address}
         </div>
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`}
+          className="text-sm text-[#5e3d1e] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Get directions on Google Maps
+        </a>
       </div>
       {apiKey ? (
         <iframe
@@ -22,11 +30,7 @@ export default function LocationSection() {
           referrerPolicy="no-referrer-when-downgrade"
           title="Business location map"
         />
-      ) : (
-        <div className="self-stretch h-64 rounded-lg bg-gray-100 flex items-center justify-center text-sm text-gray-400">
-          Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to .env.local to show map
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

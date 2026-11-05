@@ -114,6 +114,7 @@ function containerFixture(fetchMock, { actualForm = false } = {}) {
       react,
       "react/jsx-runtime": jsxRuntime,
       "next/link": { default: (props) => React.createElement("a", props) },
+      "./ServicesSection": loadModule("components/ServicesSection.tsx", { mocks: { react: {}, "react/jsx-runtime": jsxRuntime } }),
       "./Dropdown": {
         MultiSelectDropdown: picker, SingleSelectDropdown: picker,
         DatePickerDropdown: picker, TimePickerDropdown: picker,
@@ -165,8 +166,8 @@ test("actual booking form POST 409 restores all fields via container and reloads
   const refreshes = [];
   const fixture = containerFixture((url, options) => {
     calls.push({ url, options });
-    if (url === "/api/services") return Promise.resolve({ json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
-    if (url === "/api/stylists") return Promise.resolve({ json: async () => [{ id: 2, name: "Fixture Stylist" }] });
+    if (url === "/api/services") return Promise.resolve({ ok: true, json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
+    if (url === "/api/stylists") return Promise.resolve({ ok: true, json: async () => [{ id: 2, name: "Fixture Stylist" }] });
     if (url === "/api/availability/dates") return Promise.resolve({ ok: true, json: async () => [] });
     if (url === "/api/bookings/validate") return Promise.resolve({ ok: true });
     if (url === "/api/bookings") return Promise.resolve({
@@ -251,8 +252,8 @@ test("actual booking form POST 409 restores all fields via container and reloads
 test("Back and time-conflict recovery preserve contact and notes and refresh the same selection", async () => {
   const pendingTimes = [];
   const fixture = containerFixture((url) => {
-    if (url === "/api/services") return Promise.resolve({ json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
-    if (url === "/api/stylists") return Promise.resolve({ json: async () => [{ id: 2, name: "Fixture Stylist" }] });
+    if (url === "/api/services") return Promise.resolve({ ok: true, json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
+    if (url === "/api/stylists") return Promise.resolve({ ok: true, json: async () => [{ id: 2, name: "Fixture Stylist" }] });
     if (url === "/api/availability/dates") return Promise.resolve({ ok: true, json: async () => [] });
     if (url === "/api/bookings/validate") return Promise.resolve({ ok: true });
     return new Promise((resolve) => pendingTimes.push(resolve));
@@ -308,8 +309,8 @@ test("outdated availability, failures, and stale full-selection validation canno
   const calls = [];
   const fixture = containerFixture((url, options) => {
     calls.push(String(url));
-    if (url === "/api/services") return Promise.resolve({ json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
-    if (url === "/api/stylists") return Promise.resolve({ json: async () => [{ id: 2, name: "Fixture Stylist" }] });
+    if (url === "/api/services") return Promise.resolve({ ok: true, json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
+    if (url === "/api/stylists") return Promise.resolve({ ok: true, json: async () => [{ id: 2, name: "Fixture Stylist" }] });
     if (url === "/api/availability/dates") return Promise.resolve({ ok: true, json: async () => [] });
     if (url === "/api/bookings/validate") return new Promise((resolve) => { finishValidation = resolve; });
     return new Promise((resolve) => pendingTimes.push({ resolve, signal: options.signal }));
@@ -360,8 +361,8 @@ test("dates failure and malformed time response keep Continue disabled until ret
   let datesCalls = 0;
   let timeCalls = 0;
   const fixture = containerFixture((url) => {
-    if (url === "/api/services") return Promise.resolve({ json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
-    if (url === "/api/stylists") return Promise.resolve({ json: async () => [] });
+    if (url === "/api/services") return Promise.resolve({ ok: true, json: async () => [{ id: 1, name: "Fixture", durationMinutes: 30, price: 20 }] });
+    if (url === "/api/stylists") return Promise.resolve({ ok: true, json: async () => [] });
     if (url === "/api/availability/dates") {
       datesCalls++;
       return Promise.resolve(datesCalls === 1 ? { ok: false, status: 500 } : { ok: true, json: async () => [] });
