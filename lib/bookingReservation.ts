@@ -10,11 +10,14 @@ export async function assertReservationAvailable(
   end: Date,
   stylistId: number | null
 ) {
+  // Provisional salon-wide capacity: assignment never partitions the resource.
+  // Keep the argument stable for callers and a future reviewed per-stylist policy.
+  void stylistId;
   const overlap = { startTime: { lt: end }, endTime: { gt: start } };
   const [blocks, appointments] = await Promise.all([
     tx.availabilityBlock.findMany({ where: overlap, select: { id: true } }),
     tx.appointment.findMany({
-      where: { ...overlap, ...(stylistId === null ? {} : { stylistId }) },
+      where: overlap,
       select: { status: true },
     }),
   ]);
