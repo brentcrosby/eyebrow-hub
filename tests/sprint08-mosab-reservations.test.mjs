@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Prisma, PrismaClient } from "@prisma/client";
@@ -21,6 +22,7 @@ test("PostgreSQL public/public, public/manual and manual/manual races; atomic mu
   const status = loadModule("lib/appointmentStatus.ts");
   const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
   const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
     "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
   } });
   const manual = loadModule("lib/validations/manualAppointment.ts", { mocks: {

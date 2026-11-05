@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
@@ -21,6 +22,7 @@ const accessSchema = loadModule("lib/validations/bookingAccess.ts", { mocks: { z
 const creationSchema = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
 const status = loadModule("lib/appointmentStatus.ts");
 const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
   "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
 } });
 const limited = { bookingLimitResponse: async () => null };

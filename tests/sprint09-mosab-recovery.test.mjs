@@ -6,12 +6,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { NextResponse } from "next/server.js";
 import { z } from "zod";
 import { loadModule } from "./helpers/loadModule.mjs";
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import * as salonTime from "../lib/salonTime.ts";
 import * as bookingClosures from "../lib/bookingClosures.ts";
 import { PACIFIC_BOOKING_CASES, CANONICAL_STATUS_CASES, bookingPayload, bookingRequest } from "./fixtures/sprint09-bookings.mjs";
 
 const status = loadModule("lib/appointmentStatus.ts");
 const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
   "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
 } });
 const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });

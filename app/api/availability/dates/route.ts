@@ -3,14 +3,17 @@ import { db } from "@/lib/db";
 import { addSalonDays, formatSalonDate, salonDayRange, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 import { findBookingClosures } from "@/lib/bookingClosures";
+import { getSchedulingIntervals, isSchedulingSlotAvailable } from "@/lib/bookingReservation";
+import { DEFAULT_DURATION_MINUTES, SLOT_INTERVAL_MINUTES } from "@/lib/availabilitySettings";
 
 export async function GET() {
   try {
     const todayDate = formatSalonDate(new Date());
     const today = salonDayRange(todayDate)!.start;
 
-    const { businessHours, schedulingRule } =
-      await getAvailabilitySettings();
+    const settings = await getAvailabilitySettings();
+    const { businessHours, schedulingRule } = settings;
+    const now = new Date();
 
     const daysAhead = schedulingRule.maximumAdvanceDays + 1;
 
@@ -65,6 +68,17 @@ export async function GET() {
             closure.startTime <= openingTime && closure.endTime >= closingTime
         );
 
+      let hasSlot = false;
+      if (hours?.enabled && openingTime && closingTime && !closedForBusinessHours && !fullDayBlocked) {
+        const intervals = await getSchedulingIntervals(db, dayStart, dayEnd, settings);
+        for (let start = openingTime; start.getTime() + DEFAULT_DURATION_MINUTES * 60_000 <= closingTime.getTime(); start = new Date(start.getTime() + SLOT_INTERVAL_MINUTES * 60_000)) {
+          if (isSchedulingSlotAvailable(start, new Date(start.getTime() + DEFAULT_DURATION_MINUTES * 60_000), settings, intervals, now)) {
+            hasSlot = true;
+            break;
+          }
+        }
+      }
+
       result.push({
         date,
         available:
@@ -72,7 +86,7 @@ export async function GET() {
           openingTime !== null &&
           closingTime !== null && closingTime > firstBookableTime &&
           !closedForBusinessHours &&
-          !fullDayBlocked,
+          !fullDayBlocked && hasSlot,
       });
     }
 

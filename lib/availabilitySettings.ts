@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
+import { addSalonDays, formatSalonDate, formatSalonTime, parseSalonDateTime, salonTimeAtMinutes, salonWeekday } from "@/lib/salonTime";
 
 export type PersistedBusinessHour = {
   dayOfWeek: number;
@@ -34,14 +36,14 @@ export const DEFAULT_SCHEDULING_RULE: PersistedSchedulingRule = {
   bufferMinutes: 15,
 };
 
-export async function getAvailabilitySettings() {
+export async function getAvailabilitySettings(client: Pick<Prisma.TransactionClient, "businessHour" | "schedulingRule"> = db) {
   const [savedHours, savedRule] = await Promise.all([
-    db.businessHour.findMany({
+    client.businessHour.findMany({
       orderBy: {
         dayOfWeek: "asc",
       },
     }),
-    db.schedulingRule.findUnique({
+    client.schedulingRule.findUnique({
       where: {
         id: 1,
       },
@@ -77,4 +79,21 @@ export async function getAvailabilitySettings() {
     businessHours,
     schedulingRule,
   };
+}
+
+export const SLOT_INTERVAL_MINUTES = 30;
+export const DEFAULT_DURATION_MINUTES = 15;
+export type AvailabilitySettings = Awaited<ReturnType<typeof getAvailabilitySettings>>;
+
+export function isWithinSchedulingPolicy(start: Date, end: Date, settings: AvailabilitySettings, now = new Date()) {
+  const date = formatSalonDate(start);
+  const hours = settings.businessHours.find((row) => row.dayOfWeek === salonWeekday(date));
+  if (!hours?.enabled || !Number.isFinite(end.getTime()) || end <= start) return false;
+  const open = salonTimeAtMinutes(date, hours.openMinutes);
+  const close = salonTimeAtMinutes(date, hours.closeMinutes);
+  if (!open || !close || start < open || end > close) return false;
+  if (parseSalonDateTime(date, formatSalonTime(start))?.getTime() !== start.getTime()) return false;
+  if ((start.getTime() - open.getTime()) % (SLOT_INTERVAL_MINUTES * 60_000) !== 0) return false;
+  return start.getTime() >= now.getTime() + settings.schedulingRule.minimumNoticeMinutes * 60_000 &&
+    date <= addSalonDays(formatSalonDate(now), settings.schedulingRule.maximumAdvanceDays);
 }
