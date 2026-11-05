@@ -1,3 +1,4 @@
+import { legacySchedulingMocks } from "./sprint09-mosab-policy-fixtures.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextResponse } from "next/server.js";
@@ -9,6 +10,7 @@ import * as salonTime from "../lib/salonTime.ts";
 
 const status = loadModule("lib/appointmentStatus.ts");
 const reservation = loadModule("lib/bookingReservation.ts", { mocks: {
+  ...legacySchedulingMocks,
   "@prisma/client": { Prisma }, "@/lib/appointmentStatus": status,
 } });
 const schemas = loadModule("lib/validations/booking.ts", { mocks: { zod: { z } } });
@@ -44,7 +46,7 @@ function fixture(saved) {
     "@/lib/bookingReference": { createUniqueBookingReference: async () => "TEST-ONLY" },
     "@/lib/adminAuth": { requireAdmin: async () => ({ authenticated: true }) },
     "@/lib/appointmentSource": { MANUAL_SOURCE: "manual" },
-    "@/lib/availabilitySettings": { getAvailabilitySettings: async () => ({
+    "@/lib/availabilitySettings": { ...legacySchedulingMocks["@/lib/availabilitySettings"], getAvailabilitySettings: async () => ({
       businessHours: Array.from({ length: 7 }, (_, dayOfWeek) => ({
         dayOfWeek, enabled: true, openMinutes: 600, closeMinutes: 840,
       })),
