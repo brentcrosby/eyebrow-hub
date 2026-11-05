@@ -21,7 +21,8 @@ Read-time availability is advisory: serializable save transactions re-read
 settings, buffered conflicts and closures. A stale offer can legitimately become
 a 409 after another booking, closure or settings edit.
 
-This PR is stacked on DT-600 because both change the same reservation helper.
+This PR originally stacked on DT-600; DT-600 and DT-602 are now merged into
+main and incorporated into this branch.
 CI remains Bobby's DT-585 responsibility. Legacy tests explicitly isolate
 policy where they test input/lifecycle/historical persistence; new owner tests
 use the real policy and fixed clock. No production data is repaired or shifted.
@@ -41,7 +42,7 @@ DT571_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55433/dt571_tes
   tests/sprint09-mosab-capacity.test.mjs tests/sprint09-mosab-policy.test.mjs
 ```
 
-DT-602 remains a separate branch. Its historical-persistence test loads the
-reservation helper and will need the same explicit legacy-policy isolation
-before it is combined with this change; do not assume independently green
-branches establish a green combined tree.
+DT-602's historical-persistence test uses the same explicit legacy-policy
+isolation as the other persistence suites. Its timestamp, status, rollback and
+conflict assertions are unchanged; dedicated policy tests enforce the real
+scheduling rules. Verify the combined tree, not only each original branch.
