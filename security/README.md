@@ -22,6 +22,37 @@ locally anyway:
   on macOS), then run
   `gitleaks git . --redact` from the repo root.
 
+## Review: 2026-11-04 (DT-583)
+
+Branched from `main` at `00cc745`, Node 22.14.0, npm 10.9.2.
+
+**Production dependencies: 0 critical, 0 high, 1 moderate, 0 low. No
+exceptions.**
+
+Four high/critical advisories, published from Oct 22, failed the Dependency
+audit check on `main` (last run:
+https://github.com/brentcrosby/eyebrow-hub/actions/runs/41942724207):
+
+| Advisory | Package | Severity | Fix |
+|---|---|---|---|
+| GHSA-2464-fhr4-w9xw (remote code execution in image optimization with SVG) | `next` | critical | 16.3.8 → 16.4.5 |
+| GHSA-673q-mjm6-r5xr (remote code execution in `use cache` returning typed arrays) | `next` | critical | 16.3.8 → 16.4.5 |
+| GHSA-p3m5-59mp-jv5r (denial of service in App Router server actions) | `next` | high | 16.3.8 → 16.4.5 |
+| GHSA-mrhx-c7xc-m3w5 (memory exhaustion validating oversized collections) | `zod` | high | 4.3.6 → 4.6.7 |
+
+- Only `next` (with its own `@next/*` packages) and `zod` changed in the
+  lockfile. No exceptions were added.
+- `eslint-config-next` stays at 16.3.8 on purpose. 16.4.x brings
+  `eslint-plugin-react-hooks` 7.1.1, whose new `set-state-in-effect` rule
+  reports 13 existing errors in feature files. It is lint tooling only, has no
+  advisory, and doesn't ship with the site. Upgrading it, and fixing those
+  errors in each owner's files, is a separate follow-up.
+- Still reported, not gated: a moderate `fast-uri` advisory reached only
+  through the Prisma CLI (`prisma` → `@prisma/dev` → `ajv`), which runs at
+  development and migration time, not in the site.
+- After the upgrade: tests, the TypeScript check, lint (0 errors, the existing
+  `Dropdown.tsx` warning) and `npm run build` pass.
+
 ## Review: 2026-10-19 (DT-563)
 
 Branched from `main` at `7b16236`, Node 22.14.0, npm 10.9.2.
