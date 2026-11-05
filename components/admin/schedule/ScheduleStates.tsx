@@ -105,7 +105,11 @@ export function ScheduleErrorState({
   );
 }
 
-export function ScheduleAccessDeniedState() {
+export function ScheduleAccessDeniedState({
+  onRetry,
+}: {
+  onRetry?: () => void;
+}) {
   return (
     <div
       role="alert"
@@ -117,6 +121,11 @@ export function ScheduleAccessDeniedState() {
       <p className="mt-2 text-sm text-amber-800">
         Contact an administrator if you believe you should have access.
       </p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="mt-3 underline">
+          Try again
+        </button>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSalonDate } from "@/lib/salonTime";
 import type { Ref } from "react";
 import type { BusinessHoursDay } from "@/lib/businessHours";
 import { formatHourLabel } from "@/lib/businessHours";
@@ -52,7 +53,8 @@ export default function ScheduleDayNav({
   const step = view === "week" ? 7 : 1;
   const unit = view === "week" ? "week" : "day";
 
-  const today = startOfDay(new Date());
+  const today =
+    parseDateParam(formatSalonDate(new Date())) ?? startOfDay(new Date());
   const isOnToday =
     view === "week"
       ? isSameDay(startOfWeek(selectedDate), startOfWeek(today))
@@ -118,7 +120,7 @@ export default function ScheduleDayNav({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <label htmlFor="schedule-date" className="sr-only">
             Jump to date
           </label>

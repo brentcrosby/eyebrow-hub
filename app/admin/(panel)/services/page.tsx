@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+import { createServiceSchema, SERVICE_LIMITS } from "@/lib/validations/service";
 
 export default function AdminServicesPage() {
   type Service = {
@@ -18,6 +20,9 @@ export default function AdminServicesPage() {
     service: Service;
   };
 
+  const openerRef = useRef<HTMLElement | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [newService, setNewService] = useState<string>("");
@@ -39,12 +44,22 @@ export default function AdminServicesPage() {
       if (response.ok) {
         const data: Service[] = await response.json();
         setServices(data);
+        setAccessDenied(false);
         setError("");
       } else {
-        setError("Services could not be loaded. Please retry.");
+        setServices([]);
+        setAccessDenied(response.status === 401 || response.status === 403);
+        setError(
+          response.status === 403
+            ? "You do not have permission to manage services. Contact an administrator, then retry."
+            : response.status === 401
+              ? "Your admin session has expired. Sign in again, then retry."
+              : "Services could not be loaded. Please retry."
+        );
         console.error("Failed to fetch services:", response.status);
       }
     } catch (err) {
+      setServices([]);
       setError(
         "Services could not be loaded. Check your connection and retry."
       );
@@ -59,21 +74,15 @@ export default function AdminServicesPage() {
   }, [fetchServices]);
 
   function validateService(): boolean {
-    const errors: FieldErrors = {};
-
-    if (!newService.trim()) {
-      errors.name = "Service name is required.";
-    }
-
-    const duration = Number(newDuration);
-    if (!newDuration.trim() || !Number.isInteger(duration) || duration <= 0) {
-      errors.durationMinutes = "Duration must be a positive whole number.";
-    }
-
-    const price = Number(newPrice);
-    if (!newPrice.trim() || !Number.isFinite(price) || price <= 0) {
-      errors.price = "Price must be a positive number.";
-    }
+    const result = createServiceSchema.safeParse({
+      name: newService,
+      durationMinutes: newDuration.trim() ? Number(newDuration) : NaN,
+      price: newPrice,
+      active: newActive,
+    });
+    const errors: FieldErrors = result.success
+      ? {}
+      : normalizeFieldErrors(result.error.flatten().fieldErrors);
 
     setFieldErrors(errors);
     setError("");
@@ -101,6 +110,7 @@ export default function AdminServicesPage() {
   }
 
   function handleEditService(service: Service) {
+    openerRef.current = document.activeElement as HTMLElement;
     setEditingService(service);
     setNewService(service.name);
     setNewDuration(service.durationMinutes.toString());
@@ -214,7 +224,7 @@ export default function AdminServicesPage() {
     }
   }
 
-  function resetForm() {
+  function resetForm(restoreFocus = true) {
     setNewService("");
     setNewDuration("");
     setNewPrice("");
@@ -223,7 +233,12 @@ export default function AdminServicesPage() {
     setEditingService(null);
     setError("");
     setFieldErrors({});
+    if (restoreFocus) requestAnimationFrame(() => openerRef.current?.focus());
   }
+
+  useEffect(() => {
+    if (showAddForm) nameRef.current?.focus();
+  }, [showAddForm, editingService]);
 
   return (
     <main className="min-h-full p-4 sm:p-6 bg-[#fdf8f1]">
@@ -235,6 +250,10 @@ export default function AdminServicesPage() {
               Manage the salon-wide service catalog. Changes here apply to every
               stylist and booking flow.
             </p>
+            <p className="mt-2 text-sm text-[#8f725d]">
+              Service names, prices and durations are unconfirmed until the
+              client confirms them.
+            </p>
           </div>
         </div>
 
@@ -242,8 +261,10 @@ export default function AdminServicesPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
               type="button"
-              onClick={() => {
-                resetForm();
+              disabled={accessDenied || loading}
+              onClick={(event) => {
+                openerRef.current = event.currentTarget;
+                resetForm(false);
                 setShowAddForm(true);
                 setNotice("");
               }}
@@ -254,8 +275,13 @@ export default function AdminServicesPage() {
           </div>
 
           {showAddForm && (
-            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 shadow-sm sm:flex-row sm:items-start">
-              <div className="w-full">
+            <div
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !saving) resetForm();
+              }}
+              className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-[#fffaf4] p-4 shadow-sm sm:flex-row sm:items-start"
+            >
+              <div className="min-w-0 w-full">
                 <label
                   htmlFor="service-name"
                   className="mb-1 block text-sm font-medium text-[#5e4735]"
@@ -263,6 +289,8 @@ export default function AdminServicesPage() {
                   Service name
                 </label>
                 <input
+                  ref={nameRef}
+                  maxLength={SERVICE_LIMITS.name}
                   id="service-name"
                   type="text"
                   value={newService}
@@ -285,7 +313,7 @@ export default function AdminServicesPage() {
                   </p>
                 )}
               </div>
-              <div className="w-full">
+              <div className="min-w-0 w-full">
                 <label
                   htmlFor="service-duration"
                   className="mb-1 block text-sm font-medium text-[#5e4735]"
@@ -295,7 +323,8 @@ export default function AdminServicesPage() {
                 <input
                   id="service-duration"
                   type="number"
-                  min="1"
+                  min={SERVICE_LIMITS.minDuration}
+                  max={SERVICE_LIMITS.maxDuration}
                   step="1"
                   value={newDuration}
                   onChange={(event) => setNewDuration(event.target.value)}
@@ -319,7 +348,7 @@ export default function AdminServicesPage() {
                   </p>
                 )}
               </div>
-              <div className="w-full">
+              <div className="min-w-0 w-full">
                 <label
                   htmlFor="service-price"
                   className="mb-1 block text-sm font-medium text-[#5e4735]"
@@ -329,7 +358,8 @@ export default function AdminServicesPage() {
                 <input
                   id="service-price"
                   type="number"
-                  min="0.01"
+                  min="0"
+                  max={SERVICE_LIMITS.maxPrice}
                   step="0.01"
                   value={newPrice}
                   onChange={(event) => setNewPrice(event.target.value)}
@@ -391,6 +421,13 @@ export default function AdminServicesPage() {
           {error && (
             <p role="alert" className="mt-2 text-sm text-red-600">
               {error}
+              <button
+                type="button"
+                onClick={() => void fetchServices()}
+                className="ml-3 underline"
+              >
+                Try again
+              </button>
             </p>
           )}
           {notice && (
@@ -400,7 +437,7 @@ export default function AdminServicesPage() {
           )}
         </div>
 
-        <div className="sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
+        <div className="hidden sm:block sticky top-0 z-10 mt-6 rounded-2xl border border-[#eadfce] bg-[#fffaf4]/95 px-4 py-3 shadow-sm backdrop-blur">
           <div className="grid grid-cols-6 gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f725d]">
             <p>Name</p>
             <p>Duration (min)</p>
@@ -424,11 +461,19 @@ export default function AdminServicesPage() {
             services.map((item) => (
               <div
                 key={item.id}
-                className="grid grid-cols-6 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0 items-center hover:bg-[#fff7f0] transition-colors"
+                className="grid grid-cols-2 sm:grid-cols-6 gap-3 border-b border-[#efe4d7] px-4 py-3 text-sm text-[#7a5a3c] last:border-b-0 items-center hover:bg-[#fff7f0] transition-colors"
               >
-                <p>{item.name}</p>
-                <p>{item.durationMinutes}</p>
-                <p>${parseFloat(item.price).toFixed(2)}</p>
+                <p className="min-w-0 col-span-2 break-words sm:col-span-1">
+                  {item.name}
+                </p>
+                <p>
+                  <span className="sm:hidden">Duration: </span>
+                  {item.durationMinutes} min
+                </p>
+                <p>
+                  <span className="sm:hidden">Price: </span>$
+                  {parseFloat(item.price).toFixed(2)}
+                </p>
                 <p className="text-center">
                   {item.active ? "Active" : "Inactive"}
                 </p>

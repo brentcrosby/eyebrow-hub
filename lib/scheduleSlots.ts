@@ -4,6 +4,7 @@ import { formatSalonDate, formatSalonTime } from "@/lib/salonTime";
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
+  ScheduleClosure,
   ScheduleSlot,
 } from "@/components/admin/schedule/types";
 
@@ -14,6 +15,7 @@ type GetOpenSlotsOptions = {
   intervalMinutes: number;
   appointments: ScheduleAppointment[];
   blocks: AvailabilityBlock[];
+  closures?: ScheduleClosure[];
 };
 
 type ParsedRange = { start: Date; end: Date };
@@ -60,6 +62,7 @@ export function getOpenSlots({
   intervalMinutes,
   appointments,
   blocks,
+  closures = [],
 }: GetOpenSlotsOptions): ScheduleSlot[] {
   if (
     Number.isNaN(dayStart.getTime()) ||
@@ -85,7 +88,7 @@ export function getOpenSlots({
     )
     .filter((range): range is ParsedRange => range !== null);
 
-  const blockRanges = blocks
+  const blockRanges = [...blocks, ...closures]
     .map((block) => parseRange(block.startTime, block.endTime))
     .filter((range): range is ParsedRange => range !== null);
 
