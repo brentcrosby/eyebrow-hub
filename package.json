@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "preflight": "node scripts/preflight.mjs",
     "pretest": "node tests/helpers/generatePrismaClient.mjs",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"tests/**/*.test.mjs\"",
     "format": "prettier --write .",
