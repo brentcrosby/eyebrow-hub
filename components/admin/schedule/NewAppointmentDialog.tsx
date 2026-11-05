@@ -136,6 +136,7 @@ export function AppointmentForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [optionsRefreshId, setOptionsRefreshId] = useState(0);
 
   // Both endpoints already filter to active rows, so whatever comes back can
   // be offered as-is.
@@ -143,6 +144,8 @@ export function AppointmentForm({
     const controller = new AbortController();
 
     async function loadOptions() {
+      setIsLoadingOptions(true);
+      setOptionsError(null);
       try {
         const [servicesResponse, stylistsResponse] = await Promise.all([
           fetch("/api/services", { signal: controller.signal }),
@@ -174,7 +177,7 @@ export function AppointmentForm({
     loadOptions();
 
     return () => controller.abort();
-  }, []);
+  }, [optionsRefreshId]);
 
   const selectedService =
     services.find((service) => String(service.id) === serviceId) ?? null;
@@ -313,6 +316,13 @@ export function AppointmentForm({
           className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
         >
           {optionsError}
+          <button
+            type="button"
+            onClick={() => setOptionsRefreshId((value) => value + 1)}
+            className="ml-2 underline"
+          >
+            Retry services and stylists
+          </button>
         </p>
       )}
 
@@ -362,7 +372,9 @@ export function AppointmentForm({
             value={customerPhone}
             // Reformatting on every keystroke, the same as the customer
             // booking form, so both flows store the same shape.
-            onChange={(event) => setCustomerPhone(formatPhone(event.target.value))}
+            onChange={(event) =>
+              setCustomerPhone(formatPhone(event.target.value))
+            }
             aria-invalid={Boolean(fieldErrors.customerPhone)}
             aria-describedby={`${fieldId}-phone-error`}
             className={FIELD}
@@ -485,7 +497,11 @@ export function AppointmentForm({
             {/* Taken slots stay listed but disabled, so staff can see that the
                 time exists and is spoken for rather than wondering where it went. */}
             {timeOptions.map((slot) => (
-              <option key={slot.time} value={slot.time} disabled={!slot.available}>
+              <option
+                key={slot.time}
+                value={slot.time}
+                disabled={!slot.available}
+              >
                 {slot.available ? slot.time : `${slot.time} (unavailable)`}
               </option>
             ))}
@@ -499,9 +515,18 @@ export function AppointmentForm({
           ) : timesError ? (
             <p role="alert" className={ERROR_TEXT}>
               {timesError}
+              <button
+                type="button"
+                onClick={() => setAvailabilityRefreshId((value) => value + 1)}
+                className="ml-2 underline"
+              >
+                Retry times
+              </button>
             </p>
           ) : !serviceId ? (
-            <p className={HINT}>Choose a service to see the day&apos;s times.</p>
+            <p className={HINT}>
+              Choose a service to see the day&apos;s times.
+            </p>
           ) : times?.length === 0 ? (
             <p className={HINT}>No times are open on this day.</p>
           ) : null}

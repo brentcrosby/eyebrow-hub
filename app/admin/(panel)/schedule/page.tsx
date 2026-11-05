@@ -41,6 +41,7 @@ import {
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
+  ScheduleClosure,
   ScheduleView,
   ScheduleSlot,
 } from "@/components/admin/schedule/types";
@@ -85,6 +86,7 @@ function SchedulePageContent() {
   const [availabilityBlocks, setAvailabilityBlocks] = useState<
     AvailabilityBlock[]
   >([]);
+  const [closures, setClosures] = useState<ScheduleClosure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -187,6 +189,7 @@ function SchedulePageContent() {
     if (!rangeStart || !rangeEnd) {
       setAppointments([]);
       setAvailabilityBlocks([]);
+      setClosures([]);
       setError("The selected schedule date is invalid.");
       setIsLoading(false);
       return () => controller.abort();
@@ -202,21 +205,29 @@ function SchedulePageContent() {
       setRefreshError(null);
 
       try {
-        const [hoursResponse, appointmentsResponse, blocksResponse] =
-          await Promise.all([
-            fetch("/api/business-hours", { signal: controller.signal }),
-            fetch(`/api/admin/appointments?${range}`, {
-              signal: controller.signal,
-            }),
-            fetch(`/api/admin/availability-blocks?${range}`, {
-              signal: controller.signal,
-            }),
-          ]);
+        const [
+          hoursResponse,
+          appointmentsResponse,
+          closuresResponse,
+          blocksResponse,
+        ] = await Promise.all([
+          fetch("/api/business-hours", { signal: controller.signal }),
+          fetch(`/api/admin/appointments?${range}`, {
+            signal: controller.signal,
+          }),
+          fetch(`/api/admin/closures?start=${startDate}&end=${endDate}`, {
+            signal: controller.signal,
+          }),
+          fetch(`/api/admin/availability-blocks?${range}`, {
+            signal: controller.signal,
+          }),
+        ]);
 
         const accessResult = classifyScheduleResponses([
           hoursResponse,
           appointmentsResponse,
           blocksResponse,
+          closuresResponse,
         ]);
 
         if (accessResult === "forbidden" || accessResult === "unauthorized") {
@@ -224,6 +235,7 @@ function SchedulePageContent() {
           setBusinessHours(null);
           setAppointments(cleared.appointments);
           setAvailabilityBlocks(cleared.availabilityBlocks);
+          setClosures([]);
           selectedAppointmentIdRef.current = cleared.selectedAppointmentId;
           setSelectedAppointmentId(cleared.selectedAppointmentId);
           setBookingRequest(cleared.bookingRequest);
@@ -239,16 +251,19 @@ function SchedulePageContent() {
           throw new Error("Request failed");
         }
 
-        const [hours, appointmentData, blockData] = await Promise.all([
-          hoursResponse.json(),
-          appointmentsResponse.json(),
-          blocksResponse.json(),
-        ]);
+        const [hours, appointmentData, blockData, closureData] =
+          await Promise.all([
+            hoursResponse.json(),
+            appointmentsResponse.json(),
+            blocksResponse.json(),
+            closuresResponse.json(),
+          ]);
 
         setBusinessHours(hours);
         setAccessDenied(false);
         handleAppointmentsLoaded(appointmentData);
         setAvailabilityBlocks(blockData);
+        setClosures(closureData);
         setIsLoading(false);
       } catch (caught) {
         if (isAbort(caught)) return;
@@ -262,6 +277,7 @@ function SchedulePageContent() {
         } else {
           setAppointments([]);
           setAvailabilityBlocks([]);
+          setClosures([]);
           setError("The schedule could not be loaded.");
           setIsLoading(false);
         }
@@ -285,7 +301,7 @@ function SchedulePageContent() {
   }
 
   function handleSlotClick(slot: ScheduleSlot) {
-    if (accessDenied) return;
+    if (accessDenied || isLoading || error || refreshError) return;
     const start = slot.start.toISOString();
     focusReturnTarget.current = { kind: "slot", start };
     setBookingRequest({
@@ -295,14 +311,14 @@ function SchedulePageContent() {
   }
 
   function handleAppointmentClick(appointment: ScheduleAppointment) {
-    if (accessDenied) return;
+    if (accessDenied || isLoading || error || refreshError) return;
     focusReturnTarget.current = { kind: "appointment", id: appointment.id };
     selectedAppointmentIdRef.current = appointment.id;
     setSelectedAppointmentId(appointment.id);
   }
 
   function handleAddAppointment() {
-    if (accessDenied) return;
+    if (accessDenied || isLoading || error || refreshError) return;
     focusReturnTarget.current = { kind: "toolbar" };
     setBookingRequest({ date: toDateParam(selectedDate), time: null });
   }
@@ -311,7 +327,8 @@ function SchedulePageContent() {
     !isLoading &&
     !error &&
     appointments.length === 0 &&
-    availabilityBlocks.length === 0;
+    availabilityBlocks.length === 0 &&
+    closures.length === 0;
 
   const emptyMessage =
     view === "week"
@@ -320,7 +337,7 @@ function SchedulePageContent() {
 
   function renderSchedule() {
     if (accessDenied) {
-      return <ScheduleAccessDeniedState />;
+      return <ScheduleAccessDeniedState onRetry={retry} />;
     }
 
     if (error) {
@@ -338,8 +355,9 @@ function SchedulePageContent() {
             weekStart={startOfWeek(selectedDate)}
             appointments={appointments}
             availabilityBlocks={availabilityBlocks}
+            closures={closures}
             businessHours={businessHours}
-            onSlotClick={handleSlotClick}
+            onSlotClick={refreshError ? undefined : handleSlotClick}
             onAppointmentClick={handleAppointmentClick}
           />
         ) : (
@@ -349,7 +367,8 @@ function SchedulePageContent() {
               hours={hoursForDay}
               appointments={appointments}
               availabilityBlocks={availabilityBlocks}
-              onSlotClick={handleSlotClick}
+              closures={closures}
+              onSlotClick={refreshError ? undefined : handleSlotClick}
               onAppointmentClick={handleAppointmentClick}
             />
           )
@@ -363,7 +382,12 @@ function SchedulePageContent() {
   return (
     <main className="min-h-full p-3 sm:p-6">
       <section className="mx-auto w-full max-w-[1400px] rounded-[28px] bg-[#fcf8f3] px-3 py-5 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
-        <fieldset disabled={accessDenied} className="contents">
+        <fieldset
+          disabled={
+            accessDenied || isLoading || Boolean(error) || Boolean(refreshError)
+          }
+          className="contents"
+        >
           <ScheduleDayNav
             selectedDate={selectedDate}
             view={view}
@@ -381,6 +405,9 @@ function SchedulePageContent() {
             className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
           >
             {refreshError}
+            <button type="button" onClick={retry} className="ml-3 underline">
+              Try again
+            </button>
           </div>
         )}
 

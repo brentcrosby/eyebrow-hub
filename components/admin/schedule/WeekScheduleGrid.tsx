@@ -15,6 +15,7 @@ import {
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
+  ScheduleClosure,
   ScheduleInteractionProps,
 } from "./types";
 
@@ -26,6 +27,7 @@ type WeekScheduleGridProps = {
   weekStart: Date;
   appointments: ScheduleAppointment[];
   availabilityBlocks: AvailabilityBlock[];
+  closures?: ScheduleClosure[];
   businessHours?: BusinessHoursDay[];
 } & ScheduleInteractionProps;
 
@@ -33,6 +35,7 @@ export default function WeekScheduleGrid({
   weekStart,
   appointments,
   availabilityBlocks,
+  closures = [],
   businessHours,
   onSlotClick,
   onAppointmentClick,
@@ -44,11 +47,20 @@ export default function WeekScheduleGrid({
 
     return appointments.filter((appointment) => {
       const appointmentStart = toSalonScheduleDate(appointment.startTime);
+      const appointmentEnd = toSalonScheduleDate(appointment.endTime);
+      const cellStart = new Date(dayDate);
+      cellStart.setHours(hourIndex, 0, 0, 0);
+      const cellEnd = new Date(cellStart);
+      cellEnd.setHours(hourIndex + 1);
 
       return (
         appointmentStart !== null &&
-        isSameDay(appointmentStart, dayDate) &&
-        appointmentStart.getHours() === hourIndex
+        appointmentEnd !== null &&
+        appointmentStart < cellEnd &&
+        appointmentEnd > cellStart &&
+        (isSameDay(appointmentStart, dayDate)
+          ? appointmentStart.getHours() === hourIndex
+          : hourIndex === 0)
       );
     });
   }
@@ -71,7 +83,11 @@ export default function WeekScheduleGrid({
     <>
       {/* Seven columns cannot fit at 375px. The grid keeps a minimum width and
           scrolls inside this container, so the page itself never overflows. */}
-      <div className="mt-6 overflow-x-auto">
+      <div
+        tabIndex={0}
+        aria-label="Weekly schedule, scroll horizontally for more days"
+        className="mt-6 max-w-full overflow-x-auto"
+      >
         <div className="min-w-[700px]">
           <div className="grid grid-cols-[minmax(50px,0.6fr)_repeat(7,1fr)] pb-3 text-center text-sm font-medium text-gray-700 sm:text-base">
             <div />
@@ -105,6 +121,17 @@ export default function WeekScheduleGrid({
 
                       const slotAvailabilityBlocks =
                         getAvailabilityBlocksForSlot(dayIndex, rowIndex);
+                      const cellStart = new Date(dayDate);
+                      cellStart.setHours(rowIndex, 0, 0, 0);
+                      const cellEnd = new Date(cellStart);
+                      cellEnd.setHours(rowIndex + 1);
+                      const slotClosures = closures.filter((closure) => {
+                        const start = toSalonScheduleDate(closure.startTime);
+                        const end = toSalonScheduleDate(closure.endTime);
+                        return (
+                          start && end && start < cellEnd && end > cellStart
+                        );
+                      });
                       const hours = businessHours?.find(
                         (entry) => entry.dayOfWeek === dayDate.getDay()
                       );
@@ -121,16 +148,25 @@ export default function WeekScheduleGrid({
                               intervalMinutes: 60,
                               appointments,
                               blocks: availabilityBlocks,
+                              closures,
                             })[0]
                           : undefined;
 
                       return (
                         <div
                           key={`${day}-${time}`}
-                          className={`h-[clamp(56px,8vh,96px)] border-l border-gray-200 p-1 ${
+                          className={`h-[clamp(56px,8vh,96px)] overflow-y-auto border-l border-gray-200 p-1 ${
                             !isLastRow ? "border-b border-gray-200" : ""
                           } ${day === "Sunday" ? "border-l-0" : ""}`}
                         >
+                          {slotClosures.map((closure) => (
+                            <div
+                              key={closure.id}
+                              className="mb-1 break-words rounded border-l-4 border-amber-500 bg-amber-100 p-1 text-xs text-amber-950"
+                            >
+                              Salon closure: {closure.reason || "Closed"}
+                            </div>
+                          ))}
                           {selectableSlot && (
                             <button
                               type="button"

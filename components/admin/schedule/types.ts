@@ -45,3 +45,6 @@ export type AvailabilityBlock = {
 };
 
 export type ScheduleView = "day" | "week";
+
+/** Salon-wide closure returned by the closure API, distinct from staff blocks. */
+export type ScheduleClosure = AvailabilityBlock & { closureDate: string };

@@ -11,6 +11,7 @@ import { AppointmentBlock, BlockedTimeBlock } from "./ScheduleItemBlock";
 import type {
   AvailabilityBlock,
   ScheduleAppointment,
+  ScheduleClosure,
   ScheduleInteractionProps,
   ScheduleSlot,
 } from "./types";
@@ -53,6 +54,7 @@ type DayScheduleGridProps = {
   hours: BusinessHoursDay;
   appointments: ScheduleAppointment[];
   availabilityBlocks: AvailabilityBlock[];
+  closures?: ScheduleClosure[];
 } & ScheduleInteractionProps;
 
 type Placed<T> = {
@@ -95,6 +97,7 @@ export default function DayScheduleGrid({
   hours,
   appointments,
   availabilityBlocks,
+  closures = [],
   onSlotClick,
   onAppointmentClick,
 }: DayScheduleGridProps) {
@@ -106,12 +109,40 @@ export default function DayScheduleGrid({
     getServerMinuteSnapshot
   );
 
+  const dayEnd = new Date(date);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const dayClosures = closures.filter((closure) => {
+    const start = toSalonScheduleDate(closure.startTime);
+    const end = toSalonScheduleDate(closure.endTime);
+    return start && end && start < dayEnd && end > date;
+  });
+
   if (hours.closed) {
     return (
       <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-5 py-10 text-center">
         <p className="text-sm text-gray-700">
           Closed on {DAY_NAMES[date.getDay()]}.
         </p>
+        {dayClosures.map((closure) => (
+          <p key={closure.id}>Salon closure: {closure.reason || "Closed"}</p>
+        ))}
+        {appointments
+          .filter((appointment) => {
+            const start = toSalonScheduleDate(appointment.startTime);
+            const end = toSalonScheduleDate(appointment.endTime);
+            return start && end && start < dayEnd && end > date;
+          })
+          .map((appointment) => (
+            <button
+              type="button"
+              key={appointment.id}
+              data-appointment-id={appointment.id}
+              onClick={() => onAppointmentClick?.(appointment)}
+              className="block p-2 underline"
+            >
+              {appointment.customerName} — {appointment.service.name}
+            </button>
+          ))}
       </div>
     );
   }
@@ -191,6 +222,7 @@ export default function DayScheduleGrid({
         intervalMinutes: 30,
         appointments,
         blocks: availabilityBlocks,
+        closures,
       })
     : [];
 
@@ -229,6 +261,47 @@ export default function DayScheduleGrid({
 
   return (
     <div className={`mt-6 ${HOUR_HEIGHT_CLASSES}`}>
+      {dayClosures.map((closure) => (
+        <p
+          key={closure.id}
+          className="mb-2 break-words rounded-lg border border-amber-400 bg-amber-100 p-2 text-sm text-amber-950"
+        >
+          Salon closure: {closure.reason || "Closed"} (
+          {toSalonScheduleDate(closure.startTime)! <= date &&
+          toSalonScheduleDate(closure.endTime)! >= dayEnd
+            ? "All day"
+            : `${formatTime(toSalonScheduleDate(closure.startTime)!)} – ${formatTime(toSalonScheduleDate(closure.endTime)!)}`}
+          , Pacific Time)
+        </p>
+      ))}
+      {appointments
+        .filter((appointment) => {
+          const start = toSalonScheduleDate(appointment.startTime);
+          const end = toSalonScheduleDate(appointment.endTime);
+          const gridEnd = new Date(
+            gridStart.getTime() + totalMinutes * MINUTE_MS
+          );
+          return (
+            start &&
+            end &&
+            start < dayEnd &&
+            end > date &&
+            (end <= gridStart || start >= gridEnd)
+          );
+        })
+        .map((appointment) => (
+          <button
+            key={appointment.id}
+            type="button"
+            data-appointment-id={appointment.id}
+            onClick={() => onAppointmentClick?.(appointment)}
+            className="mb-2 block w-full rounded border p-2 text-left text-sm underline"
+          >
+            Outside business hours: {appointment.customerName} —{" "}
+            {appointment.service.name},{" "}
+            {formatTime(toSalonScheduleDate(appointment.startTime)!)}
+          </button>
+        ))}
       <div className="flex">
         <div className="w-14 shrink-0 sm:w-20">
           {hourRows.map((hour) => (
@@ -267,6 +340,22 @@ export default function DayScheduleGrid({
           )}
 
           <div className="absolute inset-0">
+            {dayClosures.map((closure) => {
+              const geometry = getGeometry(
+                gridStart,
+                totalMinutes,
+                toSalonScheduleDate(closure.startTime)!,
+                toSalonScheduleDate(closure.endTime)!
+              );
+              return geometry.isVisible ? (
+                <div
+                  key={`closure-${closure.id}`}
+                  aria-label={`Salon closure: ${closure.reason || "Closed"}`}
+                  className="pointer-events-none absolute inset-x-0 border-l-4 border-amber-500 bg-amber-100/70"
+                  style={{ top: geometry.top, height: geometry.height }}
+                />
+              ) : null;
+            })}
             {renderables.map(({ kind, entry }) =>
               kind === "block" ? (
                 <BlockedTimeBlock
