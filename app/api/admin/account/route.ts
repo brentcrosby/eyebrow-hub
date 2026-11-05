@@ -64,11 +64,12 @@ export async function PATCH(request: NextRequest) {
       },
       body: JSON.stringify(changes),
     }
-  );
-  const data = await response.json().catch(() => null);
+  ).catch(() => null);
+  const data = await response?.json().catch(() => null);
 
-  if (!response.ok) {
-    return badRequest(data?.msg ?? "Could not update the account.");
+  // Supabase's own error text isn't shown, so nothing internal reaches the screen.
+  if (!response?.ok) {
+    return badRequest("Could not update the account. Please try again.");
   }
 
   // Supabase may hold an email change until the new address is confirmed.

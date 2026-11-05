@@ -12,7 +12,7 @@ function loadLogout(fetch) {
   return loadModule("app/api/admin/logout/route.ts", {
     mocks: { "next/server": { NextResponse } },
     env,
-    globals: { fetch },
+    globals: { fetch, AbortSignal },
   });
 }
 

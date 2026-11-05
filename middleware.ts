@@ -14,11 +14,14 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Admin API: block changes from other sites before any route code runs.
+  // Every admin API response is private, so browsers and proxies must not keep a copy.
   if (pathname.startsWith("/api/admin/")) {
-    if (CHANGE_METHODS.includes(request.method) && !isSameSite(request)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    return NextResponse.next();
+    const response =
+      CHANGE_METHODS.includes(request.method) && !isSameSite(request)
+        ? NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        : NextResponse.next();
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   }
 
   if (pathname === "/admin/login") {
