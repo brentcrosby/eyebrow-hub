@@ -50,8 +50,14 @@ export async function POST(request: NextRequest) {
 
     const params = new URLSearchParams({ date });
     if (totalDuration > 0) params.set("duration", String(totalDuration));
+    const cookie = request.headers?.get("cookie");
     const slotsResponse = await fetch(
-      `${request.nextUrl.origin}/api/availability/times?${params.toString()}`
+      `${request.nextUrl.origin}/api/availability/times?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        redirect: "manual",
+        cache: "no-store",
+      }
     );
     if (!slotsResponse.ok) {
       return NextResponse.json({ valid: false, error: "Could not verify appointment availability" }, { status: 503 });
