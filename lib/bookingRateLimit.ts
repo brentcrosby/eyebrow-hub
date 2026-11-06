@@ -49,6 +49,24 @@ export const postgresCounter: Counter = async (
   return rows[0];
 };
 
+// Deletes expired counter rows so the table doesn't grow forever (DT-588).
+// Removes at most `batchSize` rows per call, so one run never locks the table
+// for long; call it again until it returns 0. Only expired rows are touched,
+// so active limits are never reset.
+export async function deleteExpiredLimits(
+  now = new Date(),
+  batchSize = 1000
+): Promise<number> {
+  return db.$executeRaw`
+    DELETE FROM "booking_request_limits"
+    WHERE ctid IN (
+      SELECT ctid FROM "booking_request_limits"
+      WHERE "expires_at" <= ${now}
+      LIMIT ${batchSize}
+    )
+  `;
+}
+
 export function trustedCallerIp(
   headers: Headers,
   env: NodeJS.ProcessEnv

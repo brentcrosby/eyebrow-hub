@@ -24,5 +24,15 @@
   It needs the same settings as booking: `BOOKING_RATE_LIMIT_SECRET` and a
   trusted client-IP header (`x-vercel-forwarded-for` on Vercel, otherwise
   `BOOKING_CLIENT_IP_HEADER`). Without them, login returns 503 (fails closed).
+- Expired counter cleanup (DT-588): rows in `booking_request_limits` are never
+  needed after `expires_at`. `deleteExpiredLimits()` in `lib/bookingRateLimit.ts`
+  deletes up to 1000 expired rows per call (repeat until it returns 0) and never
+  touches active limits. Run it on a schedule, e.g. daily; the hosting job is
+  configured by the deployment owner (Babar). The equivalent SQL is:
+  `DELETE FROM "booking_request_limits" WHERE ctid IN (SELECT ctid FROM "booking_request_limits" WHERE "expires_at" <= now() LIMIT 1000);`
+- Spoofing: only the trusted ingress header (`x-vercel-forwarded-for` on Vercel,
+  or `BOOKING_CLIENT_IP_HEADER`) identifies the caller. Client-sent
+  `X-Forwarded-For` / `X-Real-IP` are ignored, so changing them doesn't reset a
+  limit. Without the trusted header, login and booking fail closed (503).
 - Logout is `POST /api/admin/logout` (DT-532).
 - Test: `node --experimental-strip-types --test tests/admin-login.test.mjs`
