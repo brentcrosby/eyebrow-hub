@@ -4,6 +4,12 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getAvailabilitySettings } from "@/lib/availabilitySettings";
 import { availabilitySettingsSchema } from "@/lib/validations/availabilitySettings";
 
+// Settings are read from the database on every request and never cached, so
+// a production build shows saved changes without a rebuild or restart.
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "no-store" };
+
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
 
@@ -13,7 +19,8 @@ export async function GET(request: NextRequest) {
 
   try {
     return NextResponse.json(
-      await getAvailabilitySettings()
+      await getAvailabilitySettings(),
+      { headers: NO_STORE }
     );
   } catch (error) {
     console.error(
@@ -105,7 +112,8 @@ export async function PUT(request: NextRequest) {
     ]);
 
     return NextResponse.json(
-      await getAvailabilitySettings()
+      await getAvailabilitySettings(),
+      { headers: NO_STORE }
     );
   } catch (error) {
     console.error(
