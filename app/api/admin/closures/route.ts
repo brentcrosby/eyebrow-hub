@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminAuth";
-import { parseSalonDateTime, salonDayRange } from "@/lib/salonTime";
+import { salonDayRange } from "@/lib/salonTime";
+import { parsePacificTimeInput } from "@/lib/pacificTimeInput";
+import { isReservationConflict } from "@/lib/bookingReservation";
+import {
+  findAffectedAppointments,
+  withAffectedAppointments,
+} from "@/lib/closureConflicts";
 
 export const dynamic = "force-dynamic";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const MAX_REASON_LENGTH = 120;
+
+class ClosureOverlapError extends Error {}
 
 function validDate(value: string | null): value is string {
   return !!value && DATE_PATTERN.test(value) && salonDayRange(value) !== null;
-}
-
-function toPacificTime(date: string, time: string): Date | null {
-  if (!TIME_PATTERN.test(time)) return null;
-
-  const [hourText, minute] = time.split(":");
-  const hour = Number(hourText);
-  const displayHour = hour % 12 || 12;
-  const suffix = hour < 12 ? "AM" : "PM";
-
-  return parseSalonDateTime(date, `${displayHour}:${minute} ${suffix}`);
 }
 
 export async function GET(request: NextRequest) {
@@ -49,7 +46,9 @@ export async function GET(request: NextRequest) {
       orderBy: [{ closureDate: "asc" }, { startTime: "asc" }],
     });
 
-    return NextResponse.json(closures, {
+    // Each closure lists the bookings inside it, so staff still see who needs
+    // a follow-up after a reload.
+    return NextResponse.json(await withAffectedAppointments(db, closures), {
       status: 200,
       headers: { "Cache-Control": "no-store" },
     });
@@ -113,15 +112,9 @@ export async function POST(request: NextRequest) {
     const range = salonDayRange(input.date);
     startTime = range?.start ?? null;
     endTime = range?.end ?? null;
-  } else if (
-    typeof input.startTime === "string" &&
-    typeof input.endTime === "string"
-  ) {
-    startTime = toPacificTime(input.date, input.startTime);
-    endTime = toPacificTime(input.date, input.endTime);
   } else {
-    startTime = null;
-    endTime = null;
+    startTime = parsePacificTimeInput(input.date, input.startTime);
+    endTime = parsePacificTimeInput(input.date, input.endTime);
   }
 
   if (!startTime || !endTime) {
@@ -158,31 +151,67 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const closureDate = new Date(`${input.date}T00:00:00.000Z`);
+  const closureStart = startTime;
+  const closureEnd = endTime;
+
   try {
-    const closureDate = new Date(`${input.date}T00:00:00.000Z`);
+    // Serializable, so two overlapping closures saved at the same moment
+    // cannot both pass the overlap check: one is created, the other gets 409.
+    // Appointments are only read here, never changed.
+    const created = await db.$transaction(
+      async (tx) => {
+        const overlap = await tx.closure.findFirst({
+          where: {
+            startTime: { lt: closureEnd },
+            endTime: { gt: closureStart },
+          },
+          select: { id: true },
+        });
 
-    const overlap = await db.closure.findFirst({
-      where: {
-        closureDate,
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
+        if (overlap) throw new ClosureOverlapError();
+
+        const closure = await tx.closure.create({
+          data: {
+            closureDate,
+            startTime: closureStart,
+            endTime: closureEnd,
+            reason,
+          },
+        });
+
+        const affectedAppointments = await findAffectedAppointments(
+          tx,
+          closureStart,
+          closureEnd
+        );
+
+        return { ...closure, affectedAppointments };
       },
-      select: { id: true },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
-    if (overlap) {
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    if (error instanceof ClosureOverlapError) {
       return NextResponse.json(
         { error: "This closure overlaps an existing closure." },
         { status: 409 }
       );
     }
 
-    const closure = await db.closure.create({
-      data: { closureDate, startTime, endTime, reason },
-    });
+    // PostgreSQL serialization failure: another closure or booking for this
+    // time was saved at the same moment.
+    if (isReservationConflict(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "Another change to this time was saved at the same moment. Reload the page to see existing closures, then try again.",
+        },
+        { status: 409 }
+      );
+    }
 
-    return NextResponse.json(closure, { status: 201 });
-  } catch (error) {
     console.error("Failed to create salon closure:", error);
     return NextResponse.json(
       { error: "Could not create the salon closure." },

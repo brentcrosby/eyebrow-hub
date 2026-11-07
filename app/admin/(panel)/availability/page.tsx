@@ -30,13 +30,29 @@ type Block = {
   reason: string | null;
 };
 
+// Bookings inside a closure (DT-592). They are never changed by the closure;
+// staff contact these customers.
+type AffectedAppointment = {
+  id: number;
+  date: string;
+  time: string;
+  customerName: string;
+  service: string | null;
+  status: string;
+};
+
 type Closure = {
   id: number;
   closureDate: string;
   startTime: string;
   endTime: string;
   reason: string | null;
+  affectedAppointments?: AffectedAppointment[];
 };
+
+function bookingCount(count: number) {
+  return `${count} existing booking${count === 1 ? "" : "s"}`;
+}
 
 const minutesToTime = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
@@ -349,7 +365,21 @@ export default function AdminAvailabilityPage() {
         reason: "",
       });
 
-      setMessage("Salon closure added.");
+      const affected: AffectedAppointment[] =
+        result.affectedAppointments ?? [];
+
+      setMessage(
+        affected.length > 0
+          ? `Salon closure added. ${bookingCount(
+              affected.length
+            )} fall inside this closure and were not changed. Contact these customers to rebook: ${affected
+              .map(
+                (appointment) =>
+                  `${appointment.customerName} (${appointment.date} ${appointment.time} Pacific Time)`
+              )
+              .join(", ")}.`
+          : "Salon closure added. No existing bookings fall inside it."
+      );
     } catch {
       setMessage("Could not add closure. Please try again.");
     } finally {
@@ -378,7 +408,9 @@ export default function AdminAvailabilityPage() {
         current.filter((closure) => closure.id !== id)
       );
 
-      setMessage("Salon closure deleted.");
+      setMessage(
+        "Salon closure deleted. That time can be booked again."
+      );
     } catch {
       setMessage("Could not delete closure. Please try again.");
     }
@@ -726,6 +758,38 @@ export default function AdminAvailabilityPage() {
                               <p className="text-[#9a816b]">
                                 {closure.reason}
                               </p>
+                            )}
+
+                            {!!closure.affectedAppointments?.length && (
+                              <div
+                                className="mt-2 rounded-xl bg-[#fbeee0] p-3"
+                                data-closure-follow-up={closure.id}
+                              >
+                                <p className="font-medium text-[#8a4b1f]">
+                                  Follow up:{" "}
+                                  {bookingCount(
+                                    closure.affectedAppointments.length
+                                  )}{" "}
+                                  in this closure (not changed)
+                                </p>
+
+                                <ul className="mt-1 list-disc pl-5">
+                                  {closure.affectedAppointments.map(
+                                    (appointment) => (
+                                      <li key={appointment.id}>
+                                        #{appointment.id} ·{" "}
+                                        {appointment.date}{" "}
+                                        {appointment.time} ·{" "}
+                                        {appointment.customerName}
+                                        {appointment.service
+                                          ? ` · ${appointment.service}`
+                                          : ""}{" "}
+                                        ({appointment.status})
+                                      </li>
+                                    )
+                                  )}
+                                </ul>
+                              </div>
                             )}
                           </div>
 
