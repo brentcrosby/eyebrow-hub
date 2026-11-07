@@ -6,7 +6,9 @@ import {
   addSalonDays,
   formatSalonDate,
   formatSalonTime,
+  salonDayRange,
 } from "@/lib/salonTime";
+import { parsePacificRange } from "@/lib/pacificTimeInput";
 
 type BusinessHour = {
   dayOfWeek: number;
@@ -82,16 +84,18 @@ export default function AdminAvailabilityPage() {
     setLoading(true);
     setMessage("");
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setFullYear(end.getFullYear() + 1);
-
     const closureStart = formatSalonDate(new Date());
     const closureEnd = addSalonDays(closureStart, 366);
 
     try {
+      // Whole Pacific days, whatever timezone this browser is in.
+      const start = salonDayRange(closureStart)?.start;
+      const end = salonDayRange(closureEnd)?.start;
+
+      if (!start || !end) {
+        throw new Error("Could not work out today's date in Pacific Time");
+      }
+
       const [
         settingsResponse,
         blocksResponse,
@@ -208,31 +212,48 @@ export default function AdminAvailabilityPage() {
       return;
     }
 
-    const response = await fetch(
-      "/api/admin/availability-blocks",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          startTime: new Date(
-            `${blockForm.date}T${blockForm.startTime}:00`
-          ).toISOString(),
-          endTime: new Date(
-            `${blockForm.date}T${blockForm.endTime}:00`
-          ).toISOString(),
-          reason: blockForm.reason,
-        }),
-      }
+    // Checked here for a quick error; the API checks again. The typed values
+    // stay in the form so they can be corrected.
+    const range = parsePacificRange(
+      blockForm.date,
+      blockForm.startTime,
+      blockForm.endTime
     );
 
-    const result = await response.json();
+    if (!range.ok) {
+      setMessage(range.error);
+      return;
+    }
 
-    if (!response.ok) {
-      setMessage(
-        result.error ?? "Could not add unavailable time"
+    let result;
+
+    try {
+      const response = await fetch(
+        "/api/admin/availability-blocks",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            date: blockForm.date,
+            startTime: blockForm.startTime,
+            endTime: blockForm.endTime,
+            reason: blockForm.reason,
+          }),
+        }
       );
+
+      result = await response.json();
+
+      if (!response.ok) {
+        setMessage(
+          result.error ?? "Could not add unavailable time"
+        );
+        return;
+      }
+    } catch {
+      setMessage("Could not add unavailable time. Please try again.");
       return;
     }
 
@@ -470,9 +491,14 @@ export default function AdminAvailabilityPage() {
                   Unavailable Times
                 </h2>
 
+                <p className="mt-3 text-sm text-[#7a5a3c]">
+                  Unavailable dates and times use Pacific Time.
+                </p>
+
                 <div className="mt-4 grid gap-3">
                   <input
                     type="date"
+                    aria-label="Unavailable date (Pacific Time)"
                     value={blockForm.date}
                     onChange={(event) =>
                       setBlockForm({
@@ -486,6 +512,7 @@ export default function AdminAvailabilityPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="time"
+                      aria-label="Unavailable start time (Pacific Time)"
                       value={blockForm.startTime}
                       onChange={(event) =>
                         setBlockForm({
@@ -498,6 +525,7 @@ export default function AdminAvailabilityPage() {
 
                     <input
                       type="time"
+                      aria-label="Unavailable end time (Pacific Time)"
                       value={blockForm.endTime}
                       onChange={(event) =>
                         setBlockForm({
@@ -542,16 +570,9 @@ export default function AdminAvailabilityPage() {
                       >
                         <div>
                           <p>
-                            {start.toLocaleDateString()} ·{" "}
-                            {start.toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                            –
-                            {end.toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
+                            {formatSalonDate(start)} ·{" "}
+                            {formatSalonTime(start)} –{" "}
+                            {formatSalonTime(end)} (Pacific Time)
                           </p>
 
                           {block.reason && (
