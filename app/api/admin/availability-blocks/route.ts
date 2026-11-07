@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminAuth";
+import { parsePacificRange } from "@/lib/pacificTimeInput";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin(request);
@@ -82,39 +85,38 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as {
+    let body: {
+      date?: unknown;
       startTime?: unknown;
       endTime?: unknown;
       reason?: unknown;
     };
 
-    const startTime = new Date(String(body.startTime ?? ""));
-    const endTime = new Date(String(body.endTime ?? ""));
-
-    if (
-      Number.isNaN(startTime.getTime()) ||
-      Number.isNaN(endTime.getTime())
-    ) {
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        {
-          error: "Valid start and end times are required",
-        },
-        {
-          status: 400,
-        }
+        { error: "A valid JSON request body is required." },
+        { status: 400 }
       );
     }
 
-    if (startTime >= endTime) {
+    if (!body || typeof body !== "object") {
       return NextResponse.json(
-        {
-          error: "Block start time must be before its end time",
-        },
-        {
-          status: 400,
-        }
+        { error: "A valid unavailable-time request is required." },
+        { status: 400 }
       );
     }
+
+    // The form sends a Pacific date and "HH:MM" times; the instant is worked
+    // out here so the staff member's browser timezone never changes it.
+    const range = parsePacificRange(body.date, body.startTime, body.endTime);
+
+    if (!range.ok) {
+      return NextResponse.json({ error: range.error }, { status: 400 });
+    }
+
+    const { start: startTime, end: endTime } = range;
 
     const overlap = await db.availabilityBlock.findFirst({
       where: {

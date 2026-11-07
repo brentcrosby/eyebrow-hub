@@ -6,7 +6,9 @@ import {
   addSalonDays,
   formatSalonDate,
   formatSalonTime,
+  salonDayRange,
 } from "@/lib/salonTime";
+import { parsePacificRange } from "@/lib/pacificTimeInput";
 
 type BusinessHour = {
   dayOfWeek: number;
@@ -28,13 +30,29 @@ type Block = {
   reason: string | null;
 };
 
+// Bookings inside a closure (DT-592). They are never changed by the closure;
+// staff contact these customers.
+type AffectedAppointment = {
+  id: number;
+  date: string;
+  time: string;
+  customerName: string;
+  service: string | null;
+  status: string;
+};
+
 type Closure = {
   id: number;
   closureDate: string;
   startTime: string;
   endTime: string;
   reason: string | null;
+  affectedAppointments?: AffectedAppointment[];
 };
+
+function bookingCount(count: number) {
+  return `${count} existing booking${count === 1 ? "" : "s"}`;
+}
 
 const minutesToTime = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
@@ -82,16 +100,18 @@ export default function AdminAvailabilityPage() {
     setLoading(true);
     setMessage("");
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(start);
-    end.setFullYear(end.getFullYear() + 1);
-
     const closureStart = formatSalonDate(new Date());
     const closureEnd = addSalonDays(closureStart, 366);
 
     try {
+      // Whole Pacific days, whatever timezone this browser is in.
+      const start = salonDayRange(closureStart)?.start;
+      const end = salonDayRange(closureEnd)?.start;
+
+      if (!start || !end) {
+        throw new Error("Could not work out today's date in Pacific Time");
+      }
+
       const [
         settingsResponse,
         blocksResponse,
@@ -208,31 +228,48 @@ export default function AdminAvailabilityPage() {
       return;
     }
 
-    const response = await fetch(
-      "/api/admin/availability-blocks",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          startTime: new Date(
-            `${blockForm.date}T${blockForm.startTime}:00`
-          ).toISOString(),
-          endTime: new Date(
-            `${blockForm.date}T${blockForm.endTime}:00`
-          ).toISOString(),
-          reason: blockForm.reason,
-        }),
-      }
+    // Checked here for a quick error; the API checks again. The typed values
+    // stay in the form so they can be corrected.
+    const range = parsePacificRange(
+      blockForm.date,
+      blockForm.startTime,
+      blockForm.endTime
     );
 
-    const result = await response.json();
+    if (!range.ok) {
+      setMessage(range.error);
+      return;
+    }
 
-    if (!response.ok) {
-      setMessage(
-        result.error ?? "Could not add unavailable time"
+    let result;
+
+    try {
+      const response = await fetch(
+        "/api/admin/availability-blocks",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            date: blockForm.date,
+            startTime: blockForm.startTime,
+            endTime: blockForm.endTime,
+            reason: blockForm.reason,
+          }),
+        }
       );
+
+      result = await response.json();
+
+      if (!response.ok) {
+        setMessage(
+          result.error ?? "Could not add unavailable time"
+        );
+        return;
+      }
+    } catch {
+      setMessage("Could not add unavailable time. Please try again.");
       return;
     }
 
@@ -328,7 +365,21 @@ export default function AdminAvailabilityPage() {
         reason: "",
       });
 
-      setMessage("Salon closure added.");
+      const affected: AffectedAppointment[] =
+        result.affectedAppointments ?? [];
+
+      setMessage(
+        affected.length > 0
+          ? `Salon closure added. ${bookingCount(
+              affected.length
+            )} fall inside this closure and were not changed. Contact these customers to rebook: ${affected
+              .map(
+                (appointment) =>
+                  `${appointment.customerName} (${appointment.date} ${appointment.time} Pacific Time)`
+              )
+              .join(", ")}.`
+          : "Salon closure added. No existing bookings fall inside it."
+      );
     } catch {
       setMessage("Could not add closure. Please try again.");
     } finally {
@@ -357,7 +408,9 @@ export default function AdminAvailabilityPage() {
         current.filter((closure) => closure.id !== id)
       );
 
-      setMessage("Salon closure deleted.");
+      setMessage(
+        "Salon closure deleted. That time can be booked again."
+      );
     } catch {
       setMessage("Could not delete closure. Please try again.");
     }
@@ -470,9 +523,14 @@ export default function AdminAvailabilityPage() {
                   Unavailable Times
                 </h2>
 
+                <p className="mt-3 text-sm text-[#7a5a3c]">
+                  Unavailable dates and times use Pacific Time.
+                </p>
+
                 <div className="mt-4 grid gap-3">
                   <input
                     type="date"
+                    aria-label="Unavailable date (Pacific Time)"
                     value={blockForm.date}
                     onChange={(event) =>
                       setBlockForm({
@@ -486,6 +544,7 @@ export default function AdminAvailabilityPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="time"
+                      aria-label="Unavailable start time (Pacific Time)"
                       value={blockForm.startTime}
                       onChange={(event) =>
                         setBlockForm({
@@ -498,6 +557,7 @@ export default function AdminAvailabilityPage() {
 
                     <input
                       type="time"
+                      aria-label="Unavailable end time (Pacific Time)"
                       value={blockForm.endTime}
                       onChange={(event) =>
                         setBlockForm({
@@ -542,16 +602,9 @@ export default function AdminAvailabilityPage() {
                       >
                         <div>
                           <p>
-                            {start.toLocaleDateString()} ·{" "}
-                            {start.toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                            –
-                            {end.toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
+                            {formatSalonDate(start)} ·{" "}
+                            {formatSalonTime(start)} –{" "}
+                            {formatSalonTime(end)} (Pacific Time)
                           </p>
 
                           {block.reason && (
@@ -705,6 +758,38 @@ export default function AdminAvailabilityPage() {
                               <p className="text-[#9a816b]">
                                 {closure.reason}
                               </p>
+                            )}
+
+                            {!!closure.affectedAppointments?.length && (
+                              <div
+                                className="mt-2 rounded-xl bg-[#fbeee0] p-3"
+                                data-closure-follow-up={closure.id}
+                              >
+                                <p className="font-medium text-[#8a4b1f]">
+                                  Follow up:{" "}
+                                  {bookingCount(
+                                    closure.affectedAppointments.length
+                                  )}{" "}
+                                  in this closure (not changed)
+                                </p>
+
+                                <ul className="mt-1 list-disc pl-5">
+                                  {closure.affectedAppointments.map(
+                                    (appointment) => (
+                                      <li key={appointment.id}>
+                                        #{appointment.id} ·{" "}
+                                        {appointment.date}{" "}
+                                        {appointment.time} ·{" "}
+                                        {appointment.customerName}
+                                        {appointment.service
+                                          ? ` · ${appointment.service}`
+                                          : ""}{" "}
+                                        ({appointment.status})
+                                      </li>
+                                    )
+                                  )}
+                                </ul>
+                              </div>
                             )}
                           </div>
 
