@@ -17,11 +17,7 @@ export default function AppointmentDetailDialog({
 }: AppointmentDetailDialogProps) {
   const refreshAfterFailure = async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
-    try {
-      await onStatusChange?.();
-    } catch {
-      return;
-    }
+    await onStatusChange?.();
   };
 
   const handleStatusChange = async (

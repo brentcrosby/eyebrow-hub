@@ -4,12 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AppointmentDetailDialog from "@/components/admin/schedule/AppointmentDetailDialog";
 import {
-  addDays,
-  formatTime,
-  isSameDay,
-  startOfDay,
-  toDateParam,
-} from "@/lib/dateUtils";
+  addSalonDays,
+  formatSalonDate,
+  formatSalonTime,
+} from "@/lib/salonTime";
 import { getStatusBadgeClasses, getStatusLabel } from "@/lib/appointmentStatus";
 
 type DashboardStats = {
@@ -52,17 +50,26 @@ const statCards: { key: keyof DashboardStats; title: string }[] = [
   { key: "thisWeeksCancellations", title: "Cancellations" },
 ];
 
+const PACIFIC_TIME_ZONE = "America/Los_Angeles";
+
 /** "Today - 10:00 AM" / "Tomorrow - 10:00 AM" / "Sep 12 - 10:00 AM". */
 function formatWhen(value: string) {
   const date = new Date(value);
-  const today = startOfDay(new Date());
-  const dayLabel = isSameDay(date, today)
-    ? "Today"
-    : isSameDay(date, addDays(today, 1))
-      ? "Tomorrow"
-      : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const dateParam = formatSalonDate(date);
+  const today = formatSalonDate(new Date());
+  const tomorrow = addSalonDays(today, 1);
+  const dayLabel =
+    dateParam === today
+      ? "Today"
+      : dateParam === tomorrow
+        ? "Tomorrow"
+        : date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: PACIFIC_TIME_ZONE,
+          });
 
-  return `${dayLabel} - ${formatTime(date)}`;
+  return `${dayLabel} - ${formatSalonTime(date)}`;
 }
 
 function LoadingCard() {
@@ -82,7 +89,10 @@ function SectionState({
   onRetry?: () => void;
 }) {
   return (
-    <div className="px-5 py-10 text-center text-sm text-[#8f725d]" role="status">
+    <div
+      className="px-5 py-10 text-center text-sm text-[#8f725d]"
+      role="status"
+    >
       <p>{message}</p>
       {onRetry && (
         <button
@@ -148,11 +158,15 @@ function BookingRequestCard({
   );
 }
 
-function TodaysScheduleRow({ appointment }: { appointment: DashboardAppointment }) {
+function TodaysScheduleRow({
+  appointment,
+}: {
+  appointment: DashboardAppointment;
+}) {
   return (
     <article className="grid grid-cols-[70px_1fr] gap-3 border-b border-[#e8dac9] py-3 last:border-b-0 sm:grid-cols-[90px_1fr] sm:gap-4">
       <p className="text-sm text-[#7a5a3c] sm:text-base">
-        {formatTime(new Date(appointment.startTime))}
+        {formatSalonTime(new Date(appointment.startTime))}
       </p>
 
       <div className="min-w-0 border-l border-[#d8c4ae] pl-3 sm:pl-4">
@@ -175,65 +189,80 @@ function TodaysScheduleRow({ appointment }: { appointment: DashboardAppointment 
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [appointments, setAppointments] = useState<DashboardAppointments | null>(
-    null
-  );
+  const [appointments, setAppointments] =
+    useState<DashboardAppointments | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
-  const [statsError, setStatsError] = useState(false);
-  const [appointmentsError, setAppointmentsError] = useState(false);
+  const [dashboardAccessError, setDashboardAccessError] = useState<
+    "unauthorized" | "forbidden" | "temporary" | null
+  >(null);
   const [selectedRequest, setSelectedRequest] =
     useState<DashboardAppointment | null>(null);
 
-  const loadStats = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     setStatsLoading(true);
-    setStatsError(false);
+    setAppointmentsLoading(true);
+    setDashboardAccessError(null);
+    setStats(null);
+    setAppointments(null);
 
     try {
-      const response = await fetch("/api/admin/dashboard/stats", {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Dashboard totals request failed");
-      setStats(await response.json());
+      const [statsResponse, appointmentsResponse] = await Promise.all([
+        fetch("/api/admin/dashboard/stats", { cache: "no-store" }),
+        fetch("/api/admin/dashboard/appointments", { cache: "no-store" }),
+      ]);
+      const responses = [statsResponse, appointmentsResponse];
+
+      if (responses.some((response) => response.status === 401)) {
+        setSelectedRequest(null);
+        setDashboardAccessError("unauthorized");
+        return false;
+      }
+      if (responses.some((response) => response.status === 403)) {
+        setSelectedRequest(null);
+        setDashboardAccessError("forbidden");
+        return false;
+      }
+      if (responses.some((response) => !response.ok)) {
+        setSelectedRequest(null);
+        setDashboardAccessError("temporary");
+        return false;
+      }
+
+      const [nextStats, nextAppointments] = await Promise.all([
+        statsResponse.json() as Promise<DashboardStats>,
+        appointmentsResponse.json() as Promise<DashboardAppointments>,
+      ]);
+      setStats(nextStats);
+      setAppointments(nextAppointments);
+      return true;
     } catch {
-      setStatsError(true);
+      setSelectedRequest(null);
+      setDashboardAccessError("temporary");
+      return false;
     } finally {
       setStatsLoading(false);
-    }
-  }, []);
-
-  const loadAppointments = useCallback(async () => {
-    setAppointmentsLoading(true);
-    setAppointmentsError(false);
-
-    try {
-      const response = await fetch("/api/admin/dashboard/appointments", {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Dashboard appointments request failed");
-      setAppointments(await response.json());
-    } catch {
-      setAppointmentsError(true);
-    } finally {
       setAppointmentsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadStats();
-    void loadAppointments();
+    void loadDashboard();
 
     const refreshTimer = window.setInterval(() => {
-      void loadStats();
-      void loadAppointments();
+      void loadDashboard();
     }, 60_000);
 
     return () => window.clearInterval(refreshTimer);
-  }, [loadAppointments, loadStats]);
+  }, [loadDashboard]);
 
-  const refreshDashboard = () => {
-    void loadStats();
-    void loadAppointments();
+  const refreshDashboard = () => void loadDashboard();
+  const refreshAfterDecision = async () => {
+    if (!(await loadDashboard())) {
+      throw new Error(
+        "Appointment changed, but the dashboard could not refresh."
+      );
+    }
   };
 
   const pendingRequests = appointments?.pendingRequests ?? [];
@@ -263,6 +292,40 @@ export default function AdminDashboardPage() {
       }
     : null;
 
+  if (dashboardAccessError) {
+    return (
+      <main className="min-h-full p-3 sm:p-6">
+        <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-7xl rounded-[28px] bg-[#fcf8f3] px-4 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
+          <p className="text-sm uppercase tracking-[0.24em] text-[#b79d84]">
+            Admin Dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-[#7a5a3c]">
+            Today’s Overview
+          </h1>
+          <div
+            className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-6 text-sm text-red-800"
+            role="alert"
+          >
+            <p>
+              {dashboardAccessError === "unauthorized"
+                ? "Your session has expired. Sign in again to view the dashboard."
+                : dashboardAccessError === "forbidden"
+                  ? "You do not have permission to view this dashboard."
+                  : "The dashboard could not be loaded because of a temporary problem."}
+            </p>
+            <button
+              type="button"
+              onClick={refreshDashboard}
+              className="mt-3 font-semibold underline"
+            >
+              Try again
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-full p-3 sm:p-6">
       <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-7xl rounded-[28px] bg-[#fcf8f3] px-4 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
@@ -285,7 +348,10 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-live="polite">
+        <div
+          className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+          aria-live="polite"
+        >
           {statsLoading && !stats
             ? statCards.map((card) => <LoadingCard key={card.key} />)
             : statCards.map((card) => (
@@ -303,22 +369,6 @@ export default function AdminDashboardPage() {
               ))}
         </div>
 
-        {statsError && (
-          <div
-            className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            role="alert"
-          >
-            Dashboard totals could not be loaded.
-            <button
-              type="button"
-              onClick={loadStats}
-              className="ml-2 font-semibold underline"
-            >
-              Try again
-            </button>
-          </div>
-        )}
-
         <div className="mt-8 grid gap-6 xl:grid-cols-[2fr_1.05fr]">
           <section className="overflow-hidden rounded-3xl border border-[#eadfce] bg-[#fffaf4]">
             <div className="border-b border-[#e8dac9] px-5 py-4">
@@ -335,11 +385,6 @@ export default function AdminDashboardPage() {
                 <div className="h-24 rounded-2xl bg-[#eee2d6]" />
                 <div className="h-24 rounded-2xl bg-[#eee2d6]" />
               </div>
-            ) : appointmentsError ? (
-              <SectionState
-                message="Pending requests could not be loaded."
-                onRetry={loadAppointments}
-              />
             ) : pendingRequests.length === 0 ? (
               <SectionState message="There are no pending booking requests." />
             ) : (
@@ -371,11 +416,6 @@ export default function AdminDashboardPage() {
                 <div className="h-16 rounded-2xl bg-[#eee2d6]" />
                 <div className="h-16 rounded-2xl bg-[#eee2d6]" />
               </div>
-            ) : appointmentsError ? (
-              <SectionState
-                message="Today’s schedule could not be loaded."
-                onRetry={loadAppointments}
-              />
             ) : todaysAppointments.length === 0 ? (
               <SectionState message="There are no appointments scheduled today." />
             ) : (
@@ -391,7 +431,7 @@ export default function AdminDashboardPage() {
 
             <div className="pt-4 text-center">
               <Link
-                href={`/admin/schedule?date=${toDateParam(new Date())}&view=day`}
+                href={`/admin/schedule?date=${formatSalonDate(new Date())}&view=day`}
                 className="text-sm font-medium text-[#8f725d] hover:underline"
               >
                 View Full Schedule
@@ -404,7 +444,7 @@ export default function AdminDashboardPage() {
       <AppointmentDetailDialog
         appointment={selectedAppointment}
         onClose={() => setSelectedRequest(null)}
-        onStatusChange={refreshDashboard}
+        onStatusChange={refreshAfterDecision}
       />
     </main>
   );

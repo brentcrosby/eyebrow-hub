@@ -129,3 +129,25 @@ export function ScheduleAccessDeniedState({
     </div>
   );
 }
+
+export function ScheduleUnauthorizedState({
+  onRetry,
+}: {
+  onRetry?: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-6 text-center"
+    >
+      <p className="text-sm font-medium text-amber-900">
+        Your session has expired. Sign in again to view this schedule.
+      </p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="mt-3 underline">
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}
