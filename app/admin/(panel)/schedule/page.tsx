@@ -35,6 +35,7 @@ import {
   ScheduleEmptyState,
   ScheduleErrorState,
   ScheduleLoadingState,
+  ScheduleUnauthorizedState,
   classifyScheduleResponses,
   createClearedScheduleState,
 } from "@/components/admin/schedule/ScheduleStates";
@@ -90,7 +91,9 @@ function SchedulePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const [accessError, setAccessError] = useState<
+    "unauthorized" | "forbidden" | null
+  >(null);
   const [reloadRequest, setReloadRequest] = useState<ReloadRequest>({
     id: 0,
     silent: false,
@@ -202,6 +205,7 @@ function SchedulePageContent() {
         setIsLoading(true);
         setError(null);
       }
+      setAccessError(null);
       setRefreshError(null);
 
       try {
@@ -242,7 +246,7 @@ function SchedulePageContent() {
           focusReturnTarget.current = null;
           setError(null);
           setRefreshError(null);
-          setAccessDenied(accessResult === "forbidden");
+          setAccessError(accessResult);
           setIsLoading(false);
           return;
         }
@@ -260,7 +264,7 @@ function SchedulePageContent() {
           ]);
 
         setBusinessHours(hours);
-        setAccessDenied(false);
+        setAccessError(null);
         handleAppointmentsLoaded(appointmentData);
         setAvailabilityBlocks(blockData);
         setClosures(closureData);
@@ -301,7 +305,7 @@ function SchedulePageContent() {
   }
 
   function handleSlotClick(slot: ScheduleSlot) {
-    if (accessDenied || isLoading || error || refreshError) return;
+    if (accessError || isLoading || error || refreshError) return;
     const start = slot.start.toISOString();
     focusReturnTarget.current = { kind: "slot", start };
     setBookingRequest({
@@ -311,14 +315,14 @@ function SchedulePageContent() {
   }
 
   function handleAppointmentClick(appointment: ScheduleAppointment) {
-    if (accessDenied || isLoading || error || refreshError) return;
+    if (accessError || isLoading || error || refreshError) return;
     focusReturnTarget.current = { kind: "appointment", id: appointment.id };
     selectedAppointmentIdRef.current = appointment.id;
     setSelectedAppointmentId(appointment.id);
   }
 
   function handleAddAppointment() {
-    if (accessDenied || isLoading || error || refreshError) return;
+    if (accessError || isLoading || error || refreshError) return;
     focusReturnTarget.current = { kind: "toolbar" };
     setBookingRequest({ date: toDateParam(selectedDate), time: null });
   }
@@ -336,8 +340,11 @@ function SchedulePageContent() {
       : "No appointments or blocked time for this day.";
 
   function renderSchedule() {
-    if (accessDenied) {
+    if (accessError === "forbidden") {
       return <ScheduleAccessDeniedState onRetry={retry} />;
+    }
+    if (accessError === "unauthorized") {
+      return <ScheduleUnauthorizedState onRetry={retry} />;
     }
 
     if (error) {
@@ -384,7 +391,10 @@ function SchedulePageContent() {
       <section className="mx-auto w-full max-w-[1400px] rounded-[28px] bg-[#fcf8f3] px-3 py-5 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:px-8 sm:py-8">
         <fieldset
           disabled={
-            accessDenied || isLoading || Boolean(error) || Boolean(refreshError)
+            Boolean(accessError) ||
+            isLoading ||
+            Boolean(error) ||
+            Boolean(refreshError)
           }
           className="contents"
         >
@@ -417,12 +427,12 @@ function SchedulePageContent() {
       </section>
 
       <AppointmentDetailDialog
-        appointment={accessDenied ? null : selectedAppointment}
+        appointment={accessError ? null : selectedAppointment}
         onClose={closeAppointmentDialog}
         onStatusChange={() => reload({ silent: true })}
       />
       <NewAppointmentDialog
-        request={accessDenied ? null : bookingRequest}
+        request={accessError ? null : bookingRequest}
         onClose={closeBookingDialog}
         onCreated={async () => {
           setBookingRequest(null);
