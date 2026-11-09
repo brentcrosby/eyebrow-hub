@@ -27,8 +27,9 @@
 - Expired counter cleanup (DT-588): rows in `booking_request_limits` are never
   needed after `expires_at`. `deleteExpiredLimits()` in `lib/bookingRateLimit.ts`
   deletes up to 1000 expired rows per call (repeat until it returns 0) and never
-  touches active limits. Run it on a schedule, e.g. daily; the hosting job is
-  configured by the deployment owner (Babar). The equivalent SQL is:
+  touches active limits. About 1 in 100 limiter checks runs one batch
+  automatically (DT-587), so no scheduled job is needed. To clear rows by hand,
+  the equivalent SQL is:
   `DELETE FROM "booking_request_limits" WHERE ctid IN (SELECT ctid FROM "booking_request_limits" WHERE "expires_at" <= now() LIMIT 1000);`
 - Spoofing: only the trusted ingress header (`x-vercel-forwarded-for` on Vercel,
   or `BOOKING_CLIENT_IP_HEADER`) identifies the caller. Client-sent

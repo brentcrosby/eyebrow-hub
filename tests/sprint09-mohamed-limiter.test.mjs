@@ -34,6 +34,48 @@ test("cleanup deletes only expired rows, in bounded batches", async () => {
   assert.deepEqual(values, [now, 50]);
 });
 
+const cleanupEnv = {
+  VERCEL: "1",
+  BOOKING_RATE_LIMIT_SECRET: "test-secret-at-least-thirty-two-characters",
+};
+const cleanupHeaders = new Headers({ "x-vercel-forwarded-for": "203.0.113.10" });
+
+// Runs one limiter check and reports how many cleanups it started.
+async function checkWithRandom(random, executeRaw = async () => 0) {
+  let cleanups = 0;
+  const limiter = loadLimiter({
+    $executeRaw: (...args) => {
+      cleanups += 1;
+      return executeRaw(...args);
+    },
+  });
+  const expires_at = new Date("2026-11-08T12:15:00Z");
+  const result = await limiter.checkBookingLimit("login", cleanupHeaders, {
+    env: cleanupEnv,
+    counter: async () => ({ request_count: 11, expires_at }),
+    now: () => new Date("2026-11-08T12:00:00Z"),
+    random,
+  });
+  return { cleanups, result };
+}
+
+test("about 1 limiter check in 100 also runs one cleanup batch", async () => {
+  assert.equal((await checkWithRandom(() => 0.009)).cleanups, 1);
+  assert.equal((await checkWithRandom(() => 0.01)).cleanups, 0);
+});
+
+test("a cleanup failure doesn't change the limiter's answer", async () => {
+  const { cleanups, result } = await checkWithRandom(
+    () => 0,
+    async () => {
+      throw new Error("database busy");
+    }
+  );
+
+  assert.equal(cleanups, 1);
+  assert.equal(result, 900);
+});
+
 // Spoofing: the caller can't get a fresh login budget by changing headers they
 // control. Only the header set by the trusted ingress identifies the caller.
 function sharedCounter() {
