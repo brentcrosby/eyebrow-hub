@@ -8,8 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Eyebrow Hub",
-  description: "Scheduling site starter for the Eyebrow Hub senior project.",
+  title: "Eyebrow Hub | Eyebrow & Facial Threading in Yuba City",
+  description:
+    "Explore eyebrow and facial threading services in Yuba City, request an appointment, and manage your booking with your confirmation number and phone number.",
 };
 
 export default function RootLayout({
