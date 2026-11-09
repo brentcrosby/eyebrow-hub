@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AppointmentDetailDialog from "@/components/admin/schedule/AppointmentDetailDialog";
 import {
   addSalonDays,
@@ -51,6 +51,18 @@ const statCards: { key: keyof DashboardStats; title: string }[] = [
 ];
 
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
+
+async function fetchDashboardData<T>(
+  url: string
+): Promise<{ status: number; data?: T }> {
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return { status: response.status };
+    return { status: response.status, data: (await response.json()) as T };
+  } catch {
+    return { status: 0 };
+  }
+}
 
 /** "Today - 10:00 AM" / "Tomorrow - 10:00 AM" / "Sep 12 - 10:00 AM". */
 function formatWhen(value: string) {
@@ -193,56 +205,68 @@ export default function AdminDashboardPage() {
     useState<DashboardAppointments | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
-  const [dashboardAccessError, setDashboardAccessError] = useState<
-    "unauthorized" | "forbidden" | "temporary" | null
+  const [statsError, setStatsError] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState(false);
+  const [accessError, setAccessError] = useState<
+    "unauthorized" | "forbidden" | null
   >(null);
   const [selectedRequest, setSelectedRequest] =
     useState<DashboardAppointment | null>(null);
+  const requestId = useRef(0);
 
   const loadDashboard = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     setStatsLoading(true);
     setAppointmentsLoading(true);
-    setDashboardAccessError(null);
+    setStatsError(false);
+    setAppointmentsError(false);
+    setAccessError(null);
     setStats(null);
     setAppointments(null);
 
     try {
-      const [statsResponse, appointmentsResponse] = await Promise.all([
-        fetch("/api/admin/dashboard/stats", { cache: "no-store" }),
-        fetch("/api/admin/dashboard/appointments", { cache: "no-store" }),
+      const [statsResult, appointmentsResult] = await Promise.all([
+        fetchDashboardData<DashboardStats>("/api/admin/dashboard/stats"),
+        fetchDashboardData<DashboardAppointments>(
+          "/api/admin/dashboard/appointments"
+        ),
       ]);
-      const responses = [statsResponse, appointmentsResponse];
 
-      if (responses.some((response) => response.status === 401)) {
+      if (currentRequestId !== requestId.current) return false;
+
+      const results = [statsResult, appointmentsResult];
+      if (results.some((result) => result.status === 403)) {
+        setStats(null);
+        setAppointments(null);
         setSelectedRequest(null);
-        setDashboardAccessError("unauthorized");
+        setAccessError("forbidden");
         return false;
       }
-      if (responses.some((response) => response.status === 403)) {
+      if (results.some((result) => result.status === 401)) {
+        setStats(null);
+        setAppointments(null);
         setSelectedRequest(null);
-        setDashboardAccessError("forbidden");
-        return false;
-      }
-      if (responses.some((response) => !response.ok)) {
-        setSelectedRequest(null);
-        setDashboardAccessError("temporary");
+        setAccessError("unauthorized");
         return false;
       }
 
-      const [nextStats, nextAppointments] = await Promise.all([
-        statsResponse.json() as Promise<DashboardStats>,
-        appointmentsResponse.json() as Promise<DashboardAppointments>,
-      ]);
-      setStats(nextStats);
-      setAppointments(nextAppointments);
-      return true;
-    } catch {
-      setSelectedRequest(null);
-      setDashboardAccessError("temporary");
-      return false;
+      if (statsResult.data) {
+        setStats(statsResult.data);
+      } else {
+        setStatsError(true);
+      }
+
+      if (appointmentsResult.data) {
+        setAppointments(appointmentsResult.data);
+      } else {
+        setAppointmentsError(true);
+      }
+      return Boolean(statsResult.data && appointmentsResult.data);
     } finally {
-      setStatsLoading(false);
-      setAppointmentsLoading(false);
+      if (currentRequestId === requestId.current) {
+        setStatsLoading(false);
+        setAppointmentsLoading(false);
+      }
     }
   }, []);
 
@@ -292,7 +316,7 @@ export default function AdminDashboardPage() {
       }
     : null;
 
-  if (dashboardAccessError) {
+  if (accessError) {
     return (
       <main className="min-h-full p-3 sm:p-6">
         <section className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-7xl rounded-[28px] bg-[#fcf8f3] px-4 py-6 shadow-[0_18px_45px_rgba(96,74,50,0.08)] sm:min-h-[calc(100vh-3rem)] sm:px-8 sm:py-8 md:px-10 md:py-10">
@@ -306,20 +330,9 @@ export default function AdminDashboardPage() {
             className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-6 text-sm text-red-800"
             role="alert"
           >
-            <p>
-              {dashboardAccessError === "unauthorized"
-                ? "Your session has expired. Sign in again to view the dashboard."
-                : dashboardAccessError === "forbidden"
-                  ? "You do not have permission to view this dashboard."
-                  : "The dashboard could not be loaded because of a temporary problem."}
-            </p>
-            <button
-              type="button"
-              onClick={refreshDashboard}
-              className="mt-3 font-semibold underline"
-            >
-              Try again
-            </button>
+            {accessError === "forbidden"
+              ? "You do not have permission to view this dashboard."
+              : "Your admin session has expired. Redirecting to sign in."}
           </div>
         </section>
       </main>
@@ -352,21 +365,37 @@ export default function AdminDashboardPage() {
           className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
           aria-live="polite"
         >
-          {statsLoading && !stats
-            ? statCards.map((card) => <LoadingCard key={card.key} />)
-            : statCards.map((card) => (
-                <div
-                  key={card.key}
-                  className="rounded-2xl bg-[#f3ebe2] px-5 py-4 shadow-sm"
-                >
-                  <p className="text-sm font-medium text-[#7a5a3c]">
-                    {card.title}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold text-[#6b4f38]">
-                    {stats?.[card.key] ?? "—"}
-                  </p>
-                </div>
-              ))}
+          {statsLoading && !stats ? (
+            statCards.map((card) => <LoadingCard key={card.key} />)
+          ) : statsError ? (
+            <div
+              className="col-span-full rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"
+              role="alert"
+            >
+              <p>Dashboard totals could not be loaded.</p>
+              <button
+                type="button"
+                onClick={refreshDashboard}
+                className="mt-2 font-semibold underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            statCards.map((card) => (
+              <div
+                key={card.key}
+                className="rounded-2xl bg-[#f3ebe2] px-5 py-4 shadow-sm"
+              >
+                <p className="text-sm font-medium text-[#7a5a3c]">
+                  {card.title}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-[#6b4f38]">
+                  {stats?.[card.key] ?? "—"}
+                </p>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[2fr_1.05fr]">
@@ -385,6 +414,11 @@ export default function AdminDashboardPage() {
                 <div className="h-24 rounded-2xl bg-[#eee2d6]" />
                 <div className="h-24 rounded-2xl bg-[#eee2d6]" />
               </div>
+            ) : appointmentsError ? (
+              <SectionState
+                message="Pending requests could not be loaded."
+                onRetry={refreshDashboard}
+              />
             ) : pendingRequests.length === 0 ? (
               <SectionState message="There are no pending booking requests." />
             ) : (
@@ -416,6 +450,11 @@ export default function AdminDashboardPage() {
                 <div className="h-16 rounded-2xl bg-[#eee2d6]" />
                 <div className="h-16 rounded-2xl bg-[#eee2d6]" />
               </div>
+            ) : appointmentsError ? (
+              <SectionState
+                message="Today’s schedule could not be loaded."
+                onRetry={refreshDashboard}
+              />
             ) : todaysAppointments.length === 0 ? (
               <SectionState message="There are no appointments scheduled today." />
             ) : (
