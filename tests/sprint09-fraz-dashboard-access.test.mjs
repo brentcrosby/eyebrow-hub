@@ -54,7 +54,10 @@ function createDashboard(fetchImpl, { now } = {}) {
   let refIndex = 0;
   const window = {
     fetch: fetchImpl,
-    setInterval: () => 1,
+    setInterval: (callback) => {
+      window.refresh = callback;
+      return 1;
+    },
     clearInterval: () => {},
   };
   const react = {
@@ -70,7 +73,7 @@ function createDashboard(fetchImpl, { now } = {}) {
       ];
     },
     useRef(initial) {
-      return (refs[refIndex] ??= { current: initial });
+      return (refs[refIndex++] ??= { current: initial });
     },
     useCallback(callback) {
       return callback;
@@ -102,7 +105,9 @@ function createDashboard(fetchImpl, { now } = {}) {
         type: "a",
         props: { ...props, children },
       }),
-      "@/components/admin/schedule/AppointmentDetailDialog": () => null,
+      "@/components/admin/schedule/AppointmentDetailDialog": {
+        default: (props) => ({ type: "dialog-marker", props }),
+      },
       "@/lib/salonTime": loadModule("lib/salonTime.ts"),
       "@/lib/appointmentStatus": {
         getStatusBadgeClasses: () => "",
@@ -125,6 +130,7 @@ function createDashboard(fetchImpl, { now } = {}) {
   function inspect(tree) {
     const text = [];
     const buttons = [];
+    const dialogs = [];
 
     function visit(node) {
       if (node == null || typeof node === "boolean") return;
@@ -141,11 +147,12 @@ function createDashboard(fetchImpl, { now } = {}) {
         return;
       }
       if (node.type === "button") buttons.push(node.props);
+      if (node.type === "dialog-marker") dialogs.push(node.props);
       visit(node.props?.children);
     }
 
     visit(tree);
-    return { text: text.join(" "), buttons };
+    return { text: text.join(" "), buttons, dialogs };
   }
 
   async function mount() {
@@ -157,6 +164,67 @@ function createDashboard(fetchImpl, { now } = {}) {
 
   return { mount, render, inspect, window };
 }
+
+test("background refresh preserves open appointment details", async () => {
+  const customer = appointment(
+    1,
+    "Current Customer",
+    "2030-01-02T19:00:00.000Z"
+  );
+  const dashboard = createDashboard(async (url) =>
+    url.endsWith("/stats")
+      ? response(200, stats)
+      : response(200, appointments([customer]))
+  );
+  const loaded = await dashboard.mount();
+  loaded.buttons
+    .find((button) => button.className.includes("block w-full"))
+    .onClick();
+  assert.equal(
+    dashboard.inspect(dashboard.render()).dialogs[0].appointment.id,
+    1
+  );
+
+  dashboard.window.refresh();
+  assert.equal(
+    dashboard.inspect(dashboard.render()).dialogs[0].appointment.id,
+    1
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(
+    dashboard.inspect(dashboard.render()).dialogs[0].appointment.id,
+    1
+  );
+});
+
+test("decision refresh reports partial failure instead of claiming success", async () => {
+  let failStats = false;
+  const customer = appointment(
+    1,
+    "Current Customer",
+    "2030-01-02T19:00:00.000Z"
+  );
+  const dashboard = createDashboard(async (url) =>
+    url.endsWith("/stats")
+      ? response(failStats ? 503 : 200, stats)
+      : response(200, appointments([customer]))
+  );
+  const loaded = await dashboard.mount();
+  loaded.buttons
+    .find((button) => button.className.includes("block w-full"))
+    .onClick();
+  const dialog = dashboard.inspect(dashboard.render()).dialogs[0];
+  await assert.doesNotReject(dialog.onStatusChange());
+
+  failStats = true;
+  await assert.rejects(
+    dialog.onStatusChange(),
+    /Appointment changed, but the dashboard could not refresh/
+  );
+  const view = dashboard.inspect(dashboard.render());
+  assert.match(view.text, /Dashboard totals could not be loaded/);
+  assert.equal(view.dialogs[0].appointment.id, 1);
+});
 
 test("403 clears previously loaded customer data and shows one stable denial", async () => {
   let statsCalls = 0;

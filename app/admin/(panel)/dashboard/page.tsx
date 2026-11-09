@@ -223,7 +223,6 @@ export default function AdminDashboardPage() {
     setAccessError(null);
     setStats(null);
     setAppointments(null);
-    setSelectedRequest(null);
 
     try {
       const [statsResult, appointmentsResult] = await Promise.all([
@@ -233,7 +232,7 @@ export default function AdminDashboardPage() {
         ),
       ]);
 
-      if (currentRequestId !== requestId.current) return;
+      if (currentRequestId !== requestId.current) return false;
 
       const results = [statsResult, appointmentsResult];
       if (results.some((result) => result.status === 403)) {
@@ -241,14 +240,14 @@ export default function AdminDashboardPage() {
         setAppointments(null);
         setSelectedRequest(null);
         setAccessError("forbidden");
-        return;
+        return false;
       }
       if (results.some((result) => result.status === 401)) {
         setStats(null);
         setAppointments(null);
         setSelectedRequest(null);
         setAccessError("unauthorized");
-        return;
+        return false;
       }
 
       if (statsResult.data) {
@@ -262,6 +261,7 @@ export default function AdminDashboardPage() {
       } else {
         setAppointmentsError(true);
       }
+      return Boolean(statsResult.data && appointmentsResult.data);
     } finally {
       if (currentRequestId === requestId.current) {
         setStatsLoading(false);
@@ -281,6 +281,13 @@ export default function AdminDashboardPage() {
   }, [loadDashboard]);
 
   const refreshDashboard = () => void loadDashboard();
+  const refreshAfterDecision = async () => {
+    if (!(await loadDashboard())) {
+      throw new Error(
+        "Appointment changed, but the dashboard could not refresh."
+      );
+    }
+  };
 
   const pendingRequests = appointments?.pendingRequests ?? [];
   const todaysAppointments = appointments?.todaysAppointments ?? [];
@@ -476,7 +483,7 @@ export default function AdminDashboardPage() {
       <AppointmentDetailDialog
         appointment={selectedAppointment}
         onClose={() => setSelectedRequest(null)}
-        onStatusChange={refreshDashboard}
+        onStatusChange={refreshAfterDecision}
       />
     </main>
   );
