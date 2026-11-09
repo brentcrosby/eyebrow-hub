@@ -94,6 +94,7 @@ export async function checkBookingLimit(
     now?: () => Date;
     counter?: Counter;
     env?: NodeJS.ProcessEnv;
+    random?: () => number;
   } = {}
 ): Promise<number | null> {
   const env = options.env ?? process.env;
@@ -106,6 +107,13 @@ export async function checkBookingLimit(
   const { request_count, expires_at } = await (
     options.counter ?? postgresCounter
   )(operation, key, now, BOOKING_WINDOW_MS);
+
+  // About 1 check in 100 also clears expired rows, so no scheduled job is needed.
+  // A cleanup failure must never affect the caller's request.
+  if ((options.random ?? Math.random)() < 0.01) {
+    await deleteExpiredLimits(now).catch(() => null);
+  }
+
   return request_count > BOOKING_LIMITS[operation]
     ? Math.max(1, Math.ceil((expires_at.getTime() - now.getTime()) / 1000))
     : null;
