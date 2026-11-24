@@ -102,6 +102,7 @@ function calendar(booking) {
       },
       "react/jsx-runtime": jsxRuntime,
       "next/link": { default: (props) => React.createElement("a", props) },
+      "./ServicesSection": loadModule("components/ServicesSection.tsx", { mocks: { react: {}, "react/jsx-runtime": jsxRuntime } }),
       "./Dropdown": {}, "./BookingForm": { default: () => null },
       "@/lib/validations/booking": { BOOKING_LIMITS: { services: 4 }, bookingSelectionSchema: {} },
       "@/lib/dateUtils": { toDateParam: () => booking.date },

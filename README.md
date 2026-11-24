@@ -16,7 +16,7 @@ Built by **Haki Stack** · CSC 190/191 Senior Project · California State Univer
 
 ## Synopsis
 
-Eyebrow Hub is a small beauty business in Yuba City, CA that currently relies on calls and texts to manage appointments. This project replaces that workflow with a clean, mobile-friendly single-page website and an online appointment scheduling system, plus a secure admin portal for managing appointments, services, and availability.
+Eyebrow Hub is a small beauty business in Yuba City, CA. This project adds a mobile-friendly website for requesting appointments and a secure admin portal for managing appointments, services, and availability. Customers save their confirmation number and booking phone number to look up a request or cancel an eligible booking online. Phone contact with the salon remains available for other changes and help.
 
 **Project goals:**
 - Give customers a fast, simple way to book online from any device
@@ -34,12 +34,15 @@ This repo contains the public-facing site, the admin portal, and the API/databas
 - Single-page scrollable layout with sticky **Book Now** CTA
 - Sections: Home/Hero, Services, Booking, Business Hours, Contact/Location, Policies, About
 - Mobile-first responsive design
-- Service catalog with live pricing and duration
+- Service catalog with current pricing, plus loading, empty and retry states
 
 ### Booking Flow
 - Customer selects service(s), stylist (or "Next Available"), date, and time
 - Required contact info (name, phone, email) plus optional note
-- Confirmation via email and/or SMS
+- On-screen confirmation number for a request pending staff approval, plus a calendar download
+- Look up booking status using the confirmation number and booking phone number
+- Cancel the entire booking online while all services are pending or confirmed and the first service starts more than four hours from now
+- Contact the salon by phone for rescheduling or other assistance; automated email/SMS notifications and customer self-service rescheduling are not included at launch
 - Enforces business rules: hours, buffer time, lead time, advance booking window, cancellation policy
 - Prevents double-booking at the slot level
 
@@ -342,7 +345,7 @@ Timeline for **CSC 191 (Spring 2026)** based on user stories in the JIRA backlog
 | **Sprint 4** | Apr 13 – Apr 26 | Booking rules engine — buffer time, lead time, advance window; double-booking prevention |
 | **Sprint 5** | Aug 24 – Sep 6 | Admin auth + schedule day view; manual appointment creation |
 | **Sprint 6** | Sep 7 – Sep 20 | Edit/reschedule/cancel appointments; block off time for breaks and closures |
-| **Sprint 7** | Sep 21 – Oct 4 | Email/SMS booking confirmations; owner notifications for new bookings |
+| **Sprint 7** | Sep 21 – Oct 4 | Original notification milestone deferred from launch; customers use confirmation-number and phone lookup |
 | **Sprint 8** | Oct 5 – Oct 18 | Cancellation flow (customer-side) + cancellation rules; no-show tracking |
 | **Sprint 9** | Oct 19 – Nov 1 | E2E test suite, accessibility pass, polish, stretch features (history view, daily export) |
 | **Sprint 10** | Nov 1 – Nov 14 | Production deploy, owner training, documentation handoff, final demo prep |

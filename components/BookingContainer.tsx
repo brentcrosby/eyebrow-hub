@@ -16,6 +16,7 @@ import {
   type BookingSelection,
 } from "@/lib/validations/booking";
 import { toDateParam } from "@/lib/dateUtils";
+import { isServiceCatalog } from "./ServicesSection";
 
 type Service = {
   id: number;
@@ -147,6 +148,8 @@ export default function BookingContainer() {
   const [continueError, setContinueError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const validating = useRef(false);
+  const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogRefresh, setCatalogRefresh] = useState(0);
 
   function invalidateSelection() {
     selectionRef.current = "";
@@ -177,17 +180,33 @@ export default function BookingContainer() {
   selectionRef.current = selectionKey;
 
   useEffect(() => {
-    fetch("/api/services")
-      .then((res) => res.json())
-      .then((data: Service[]) => setServices(data))
-      .catch((err) => console.error("Failed to load services:", err));
-
-    fetch("/api/stylists")
-      .then((res) => res.json())
-      .then((data: Stylist[]) => setStylists(data))
-      .catch((err) => console.error("Failed to load stylists:", err));
-
-  }, []);
+    const controller = new AbortController();
+    async function loadBookingOptions() {
+      try {
+        const [serviceResponse, stylistResponse] = await Promise.all([
+          fetch("/api/services", { signal: controller.signal, cache: "no-store" }),
+          fetch("/api/stylists", { signal: controller.signal, cache: "no-store" }),
+        ]);
+        if (!serviceResponse.ok || !stylistResponse.ok) throw new Error("Booking options request failed");
+        const [serviceData, stylistData]: [unknown, unknown] = await Promise.all([
+          serviceResponse.json(), stylistResponse.json(),
+        ]);
+        if (!isServiceCatalog(serviceData) || !Array.isArray(stylistData) || !stylistData.every((stylist) =>
+          stylist !== null && typeof stylist === "object" && Number.isInteger(stylist.id) && stylist.id > 0 &&
+          typeof stylist.name === "string" && stylist.name.trim().length > 0
+        )) throw new Error("Invalid booking options");
+        if (!controller.signal.aborted) {
+          setServices(serviceData);
+          setStylists(stylistData);
+          setCatalogStatus("ready");
+        }
+      } catch {
+        if (!controller.signal.aborted) setCatalogStatus("error");
+      }
+    }
+    void loadBookingOptions();
+    return () => controller.abort();
+  }, [catalogRefresh]);
 
   useEffect(() => {
     let active = true;
@@ -554,6 +573,19 @@ export default function BookingContainer() {
 
       {step === "dropdowns" ? (
         <>
+          <div aria-live="polite" aria-busy={catalogStatus === "loading"}>
+            {catalogStatus === "loading" && <p className="text-sm">Loading booking options…</p>}
+            {catalogStatus === "error" && (
+              <div className="text-sm">
+                <p>We couldn’t load booking options. Please try again.</p>
+                <button type="button" className="mt-2 underline focus-visible:outline-2 focus-visible:outline-offset-2" onClick={() => {
+                  setCatalogStatus("loading");
+                  setCatalogRefresh((current) => current + 1);
+                }}>Retry booking options</button>
+              </div>
+            )}
+            {catalogStatus === "ready" && services.length === 0 && <p className="text-sm">No services are currently available online. Please contact the salon for help.</p>}
+          </div>
           <MultiSelectDropdown
             label="Service"
             placeholder="Select Service(s)"
